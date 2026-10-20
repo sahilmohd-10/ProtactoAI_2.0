@@ -1,0 +1,35 @@
+# Node / Frontend
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.npm
+*.log
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+**/venv/
+.venv/
+**/data/*.db
+**/data/*.key
+*.sqlite3
+**/static/snapshots/*
+!**/static/snapshots/.gitkeep
+
+# Large Model Weights
+*.pt
+*.onnx
+*.engine
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
