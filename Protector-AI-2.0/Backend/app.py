@@ -469,6 +469,30 @@ def detect_image():
         db.close()
 
     recognized_names = list(dict.fromkeys([m["name"] for m in matches if m.get("name")]))
+    yolo_workers = metrics.get("workers", 0)
+    total_workers = max(yolo_workers, len(matches), len(recognized_names))
+    metrics["workers"] = total_workers
+
+    # If more workers were detected by YOLO than faces, include unregistered worker
+    if yolo_workers > len(recognized_names):
+        missing_count = yolo_workers - len(recognized_names)
+        for i in range(missing_count):
+            unreg_name = "Unregistered Worker" if missing_count == 1 and not any("Unregistered" in n for n in recognized_names) else f"Unregistered Person {len(recognized_names)+1}"
+            recognized_names.append(unreg_name)
+
+    # Draw individual face bounding boxes and names directly on annotated frame
+    for m in matches:
+        box = m.get("box")
+        name = m.get("name")
+        is_enrolled = m.get("enrolled", True)
+        if box and name and len(box) == 4:
+            bx, by, bw, bh = box
+            box_color = (70, 200, 52) if is_enrolled else (0, 149, 255)
+            cv2.rectangle(annotated_frame, (bx, by), (bx + bw, by + bh), box_color, 2)
+            (ntw, nth), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            cv2.rectangle(annotated_frame, (bx, max(0, by - 20)), (bx + ntw + 8, max(0, by)), box_color, -1)
+            cv2.putText(annotated_frame, name, (bx + 4, max(0, by - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
+
     if recognized_names:
         recognized_worker = ", ".join(recognized_names)
         metrics["recognized_workers"] = recognized_names

@@ -163,10 +163,11 @@ class PersistentCameraWorker:
                                     self.active_people[p_name] = {
                                         "box": m.get("box"),
                                         "timestamp": now_ts,
-                                        "profile_id": m.get("profile_id")
+                                        "profile_id": m.get("profile_id"),
+                                        "enrolled": m.get("enrolled", False)
                                     }
-                                    # Register visit if cooldown elapsed
-                                    matched_prof = next((p for p in profiles if p.id == m.get("profile_id")), None)
+                                    # Register visit if enrolled and cooldown elapsed
+                                    matched_prof = next((p for p in profiles if p.id == m.get("profile_id")), None) if m.get("profile_id") else None
                                     if matched_prof:
                                         last_seen = matched_prof.last_seen_at
                                         if last_seen and last_seen.tzinfo is None:
@@ -262,15 +263,42 @@ class PersistentCameraWorker:
                 # 3. Run AI Inference
                 annotated_frame, metrics = self.engine.process_frame(frame, conf_threshold=0.35)
 
-                # Overlay recognized person(s) HUD tag
+                # Overlay recognized person(s) HUD tag & bounding boxes
                 now_ts = time.time()
-                active_names = [name for name, info in self.active_people.items() if (now_ts - info.get("timestamp", 0)) < 5.0]
+                active_items = [(name, info) for name, info in self.active_people.items() if (now_ts - info.get("timestamp", 0)) < 5.0]
+                active_names = [item[0] for item in active_items]
+
+                # Reconcile worker count: ensure workers count reflects all people seen
+                yolo_workers = metrics.get("workers", 0)
+                total_workers = max(yolo_workers, len(active_names))
+                metrics["workers"] = total_workers
+
+                # If YOLO detected more people than recognized faces, add Unregistered Worker
+                if yolo_workers > len(active_names):
+                    missing_count = yolo_workers - len(active_names)
+                    for i in range(missing_count):
+                        unreg_name = "Unregistered Worker" if missing_count == 1 and not any("Unregistered" in n for n in active_names) else f"Unregistered Person {len(active_names)+1}"
+                        active_names.append(unreg_name)
+
                 if active_names:
                     worker_str = ", ".join(active_names)
                     metrics["recognized_workers"] = active_names
                     metrics["recognized_worker"] = worker_str
                     self.active_person_name = worker_str
-                    tag = "IDENTIFIED: " + worker_str.upper()
+
+                    # Draw per-person face box and name label on frame if face coordinates available
+                    for name, info in active_items:
+                        box = info.get("box")
+                        is_enrolled = info.get("enrolled", True)
+                        if box and len(box) == 4:
+                            bx, by, bw, bh = box
+                            color = (70, 200, 52) if is_enrolled else (0, 149, 255)
+                            cv2.rectangle(annotated_frame, (bx, by), (bx + bw, by + bh), color, 2)
+                            (ntw, nth), _ = cv2.getTextSize(name, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+                            cv2.rectangle(annotated_frame, (bx, max(0, by - 20)), (bx + ntw + 8, max(0, by)), color, -1)
+                            cv2.putText(annotated_frame, name, (bx + 4, max(0, by - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
+
+                    tag = ("IDENTIFIED: " + worker_str).upper()
                     (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
                     cv2.rectangle(annotated_frame, (12, 12), (24 + tw, 38), (20, 24, 20), -1)
                     cv2.rectangle(annotated_frame, (12, 12), (24 + tw, 38), (70, 200, 52), 1)

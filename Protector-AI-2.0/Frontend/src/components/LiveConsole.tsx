@@ -373,11 +373,22 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
   // Active metrics calculation
   const isFeedActive = cameraMode === 'browser' ? !!browserStream : isWorkerRunning;
 
+  const rawWorkers =
+    cameraMode === 'browser'
+      ? (browserMetrics as any)?.recognized_workers || ((browserMetrics as any)?.recognized_worker ? [(browserMetrics as any).recognized_worker] : [])
+      : (workerStatus?.metrics as any)?.recognized_workers || ((workerStatus?.metrics as any)?.recognized_worker ? [(workerStatus?.metrics as any).recognized_worker] : []);
+
+  const activeRecognizedWorkers: string[] = Array.isArray(rawWorkers)
+    ? rawWorkers.flatMap((w: string) => (typeof w === 'string' ? w.split(',') : [String(w)])).map((s) => s.trim()).filter(Boolean)
+    : (typeof rawWorkers === 'string' ? (rawWorkers as string).split(',').map((s) => s.trim()).filter(Boolean) : []);
+
+  const activeRecognizedWorker = activeRecognizedWorkers.join(', ');
+
   const activeWorkers = !isFeedActive
     ? 0
     : cameraMode === 'browser'
-    ? (browserMetrics?.workers ?? 1)
-    : (workerStatus?.metrics?.workers || selectedCamera?.current_workers || 1);
+    ? Math.max(browserMetrics?.workers ?? (activeRecognizedWorkers.length > 0 ? activeRecognizedWorkers.length : 1), activeRecognizedWorkers.length)
+    : Math.max(workerStatus?.metrics?.workers || selectedCamera?.current_workers || (activeRecognizedWorkers.length > 0 ? activeRecognizedWorkers.length : 1), activeRecognizedWorkers.length);
 
   const activeViolations = !isFeedActive
     ? 0
@@ -390,17 +401,6 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
     : cameraMode === 'browser'
     ? (browserMetrics?.compliance_rate ?? 100.0)
     : (workerStatus?.metrics?.compliance_rate || selectedCamera?.current_compliance || 95.6);
-
-  const rawWorkers =
-    cameraMode === 'browser'
-      ? (browserMetrics as any)?.recognized_workers || ((browserMetrics as any)?.recognized_worker ? [(browserMetrics as any).recognized_worker] : [])
-      : (workerStatus?.metrics as any)?.recognized_workers || ((workerStatus?.metrics as any)?.recognized_worker ? [(workerStatus?.metrics as any).recognized_worker] : []);
-
-  const activeRecognizedWorkers: string[] = Array.isArray(rawWorkers)
-    ? rawWorkers.flatMap((w: string) => (typeof w === 'string' ? w.split(',') : [String(w)])).map((s) => s.trim()).filter(Boolean)
-    : (typeof rawWorkers === 'string' ? (rawWorkers as string).split(',').map((s) => s.trim()).filter(Boolean) : []);
-
-  const activeRecognizedWorker = activeRecognizedWorkers.join(', ');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -959,7 +959,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               </div>
             </div>
 
-            {/* Identified Enrolled Person(s) Live Badge */}
+            {/* Identified Person(s) Live Badges */}
             {activeRecognizedWorkers.length > 0 && (
               <div style={{
                 marginTop: '14px',
@@ -973,26 +973,29 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               }}>
                 <div style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: 'var(--safety-safe)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>👤</span>
-                  <span>{activeRecognizedWorkers.length > 1 ? `IDENTIFIED ENROLLED WORKERS (${activeRecognizedWorkers.length})` : 'IDENTIFIED ENROLLED WORKER'}</span>
+                  <span>{activeRecognizedWorkers.length > 1 ? `IDENTIFIED PERSONNEL (${activeRecognizedWorkers.length})` : 'IDENTIFIED WORKER'}</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
-                  {activeRecognizedWorkers.map((name, idx) => (
-                    <span key={idx} style={{
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      backgroundColor: 'rgba(52, 199, 89, 0.15)',
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      border: '1px solid rgba(52, 199, 89, 0.35)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span>👤</span>
-                      <span>{name}</span>
-                    </span>
-                  ))}
+                  {activeRecognizedWorkers.map((name, idx) => {
+                    const isUnregistered = name.toLowerCase().includes('unregistered') || name.toLowerCase().includes('unknown');
+                    return (
+                      <span key={idx} style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: isUnregistered ? 'var(--safety-amber)' : 'var(--text-primary)',
+                        backgroundColor: isUnregistered ? 'rgba(255, 149, 0, 0.15)' : 'rgba(52, 199, 89, 0.15)',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        border: isUnregistered ? '1px solid rgba(255, 149, 0, 0.35)' : '1px solid rgba(52, 199, 89, 0.35)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}>
+                        <span>{isUnregistered ? '⚠️' : '👤'}</span>
+                        <span>{name}</span>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}

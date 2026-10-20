@@ -15,7 +15,7 @@ logger = logging.getLogger("ProtectorAI.FaceRecognition")
 
 FACE_SIZE = (160, 160)
 MAX_IMAGE_BYTES = 10_000_000
-MATCH_DISTANCE_THRESHOLD = 68.0
+MATCH_DISTANCE_THRESHOLD = 75.0
 
 
 class FaceRecognitionUnavailable(Exception):
@@ -110,43 +110,43 @@ class FaceRecognitionService:
     def detect_faces(self, image: np.ndarray) -> list[tuple[np.ndarray, tuple[int, int, int, int]]]:
         self.ensure_available()
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        min_face = max(36, min(image.shape[:2]) // 14)
+        min_face = max(28, min(image.shape[:2]) // 18)
         candidates = []
 
-        # Try default frontal face detector first
+        # 1. Primary frontal face cascade
         if self.detector and not self.detector.empty():
             detected = self.detector.detectMultiScale(
                 gray,
-                scaleFactor=1.15,
-                minNeighbors=4,
+                scaleFactor=1.10,
+                minNeighbors=3,
                 minSize=(min_face, min_face)
             )
             candidates.extend(tuple(map(int, box)) for box in detected)
 
-        # Fallback to alt detector only if primary detector found no candidates
-        if not candidates:
-            alt_detector = cv2.CascadeClassifier(
-                str(Path(cv2.data.haarcascades) / "haarcascade_frontalface_alt2.xml")
-            )
+        # 2. Secondary alt2 cascade (catches angled, non-ideal, and varying pose faces)
+        alt_path = Path(cv2.data.haarcascades) / "haarcascade_frontalface_alt2.xml"
+        if alt_path.exists():
+            alt_detector = cv2.CascadeClassifier(str(alt_path))
             if not alt_detector.empty():
                 detected = alt_detector.detectMultiScale(
                     gray,
-                    scaleFactor=1.15,
-                    minNeighbors=4,
+                    scaleFactor=1.10,
+                    minNeighbors=3,
                     minSize=(min_face, min_face)
                 )
                 candidates.extend(tuple(map(int, box)) for box in detected)
 
-                if not candidates:
-                    enhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-                    detected = alt_detector.detectMultiScale(
-                        enhanced,
-                        scaleFactor=1.15,
-                        minNeighbors=4,
-                        minSize=(min_face, min_face)
-                    )
-                    candidates.extend(tuple(map(int, box)) for box in detected)
+                # 3. CLAHE adaptive histogram equalization for backlit or shaded faces
+                enhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+                detected_clahe = alt_detector.detectMultiScale(
+                    enhanced,
+                    scaleFactor=1.10,
+                    minNeighbors=3,
+                    minSize=(min_face, min_face)
+                )
+                candidates.extend(tuple(map(int, box)) for box in detected_clahe)
 
+        # Non-Maximum Suppression (NMS) to eliminate duplicate boxes
         candidates.sort(key=lambda box: box[2] * box[3], reverse=True)
         boxes = []
         for candidate in candidates:
@@ -158,7 +158,7 @@ class FaceRecognitionService:
                 intersection_height = max(0, min(y + height, ey + eh) - max(y, ey))
                 intersection = intersection_width * intersection_height
                 union = width * height + ew * eh - intersection
-                if union and intersection / union > 0.4:
+                if union and (intersection / union > 0.35 or intersection / (width * height) > 0.6):
                     overlaps_existing = True
                     break
             if not overlaps_existing:
@@ -286,33 +286,65 @@ class FaceRecognitionService:
 
             matches = []
             profile_map = {profile.id: profile.name for profile in profiles}
+
+            # Predict distances for all faces detected in this frame
+            raw_predictions = []
             for face, box in faces:
                 profile_id, distance = self._cached_recognizer.predict(face)
-                known_id = int(profile_id) if distance <= MATCH_DISTANCE_THRESHOLD else None
-                matches.append({
+                raw_predictions.append({
                     "box": box,
-                    "profile_id": known_id,
-                    "name": profile_map.get(known_id) if known_id else None,
-                    "distance": round(float(distance), 2)
+                    "profile_id": int(profile_id),
+                    "distance": float(distance)
                 })
+
+            # Sort by distance (most confident first) so best match gets priority for that profile
+            raw_predictions.sort(key=lambda m: m["distance"])
+            assigned_profiles = set()
+            unregistered_counter = 0
+
+            for item in raw_predictions:
+                box = item["box"]
+                pid = item["profile_id"]
+                dist = item["distance"]
+
+                if dist <= MATCH_DISTANCE_THRESHOLD and pid not in assigned_profiles:
+                    assigned_profiles.add(pid)
+                    matches.append({
+                        "box": box,
+                        "profile_id": pid,
+                        "name": profile_map.get(pid, f"Worker #{pid}"),
+                        "distance": round(dist, 2),
+                        "enrolled": True
+                    })
+                else:
+                    unregistered_counter += 1
+                    label = "Unregistered Worker" if len(raw_predictions) <= 2 and unregistered_counter == 1 else f"Unregistered Person {unregistered_counter}"
+                    matches.append({
+                        "box": box,
+                        "profile_id": None,
+                        "name": label,
+                        "distance": round(dist, 2),
+                        "enrolled": False
+                    })
+
             return matches
 
     def recognize_all_matches(self, image: np.ndarray, profiles) -> list[dict]:
-        """Find all matching enrolled people in the given image/frame."""
+        """Find all people identified (enrolled + unregistered) in the given image/frame."""
         try:
             matches = self.recognize(image, profiles)
-            valid_matches = [m for m in matches if m.get("profile_id") and m.get("name")]
-            # Sort by distance (highest confidence first)
-            valid_matches.sort(key=lambda m: m.get("distance", 999.0))
-            return valid_matches
+            # Prioritize enrolled workers first, followed by unregistered individuals
+            matches.sort(key=lambda m: (0 if m.get("enrolled") else 1, m.get("distance", 999.0)))
+            return matches
         except Exception as e:
             logger.debug(f"Face recognition match check: {e}")
             return []
 
     def recognize_best_match(self, image: np.ndarray, profiles) -> dict | None:
         """Find the best matching enrolled person in the given image/frame."""
-        valid_matches = self.recognize_all_matches(image, profiles)
-        return valid_matches[0] if valid_matches else None
+        all_matches = self.recognize_all_matches(image, profiles)
+        enrolled_matches = [m for m in all_matches if m.get("enrolled")]
+        return enrolled_matches[0] if enrolled_matches else (all_matches[0] if all_matches else None)
 
 
 face_recognition_service = FaceRecognitionService()
