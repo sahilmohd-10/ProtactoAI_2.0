@@ -30,14 +30,14 @@ Enrolled profiles currently present in `FaceProfile` database:
 ## Critical Rules & Problem-Solving Memory
 
 ### 1. Multi-Person Detection & Name Labeling Rule
-- **Problem**: Previously, when two people were in frame, only one name was displayed because the secondary cascade was blocked if one face was found, and unenrolled persons were dropped.
+- **Problem**: Showing "Unregistered Worker" or "Unsigned Worker" badges when persons or YOLO detections are unenrolled cluttered the Identified Worker dashboard.
 - **Rule**:
   - Always run frontal face and `alt2` face cascades concurrently with CLAHE contrast enhancement so all faces in the frame are discovered.
   - Match distance threshold is set to `75.0` to accommodate lighting and side-profile angles.
-  - If both people are enrolled, both enrolled names must be displayed (e.g. `Mohd Sahil` and `Alok`).
-  - If one person is enrolled and the other is a visitor or unenrolled, both must be explicitly labeled: `[👤 Mohd Sahil]` and `[⚠️ Unregistered Worker]`. No person in frame should be omitted or left nameless.
-  - Distinct identity guard: Two faces in the same frame can never be assigned the same enrolled name; the closer match gets the name and the other is marked as `Unregistered Worker`.
-  - The dashboard worker count must equal `Math.max(yolo_workers, detected_people_count)` (e.g., showing `2` when 2 people are present).
+  - If multiple people are enrolled, all enrolled names must be displayed (e.g. `Mohd Sahil` and `Alok`).
+  - Unregistered / unsigned / unassigned individuals must NOT be added to the IDENTIFIED WORKER list or badges. The IDENTIFIED WORKER panel is strictly reserved for verified enrolled personnel.
+  - Distinct identity guard: Two faces in the same frame can never be assigned the same enrolled name; the closer match gets the name.
+  - The dashboard worker count still accurately tracks total people present via YOLO (`metrics.workers`).
 
 ### 2. Secret Protection & GitHub Rule
 - **Rule**: Never hardcode API keys, tokens, or private secrets in code files (e.g. `OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")`).

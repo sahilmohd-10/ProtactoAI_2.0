@@ -305,11 +305,23 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
                             ? rawWorker
                             : (inc.title.match(/\(([^)]+)\)/)?.[1] || null);
 
-                          if (extractedName && !['Persistent-Engine', 'Auto-Flagged', 'Unassigned Worker', 'Unassigned'].includes(extractedName)) {
-                            const names = extractedName.split(',').map((n: string) => n.trim()).filter(Boolean);
+                          const validNames = (extractedName ? extractedName.split(',') : [])
+                            .map((n: string) => n.trim())
+                            .filter((n: string) => {
+                              const l = n.toLowerCase();
+                              return n.length > 0 &&
+                                !l.includes('unregistered') &&
+                                !l.includes('unsigned') &&
+                                !l.includes('unassigned') &&
+                                !l.includes('unknown') &&
+                                !l.includes('persistent-engine') &&
+                                !l.includes('auto-flagged');
+                            });
+
+                          if (validNames.length > 0) {
                             return (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                {names.map((name: string, idx: number) => (
+                                {validNames.map((name: string, idx: number) => (
                                   <span key={idx} className="status-pill status-pill-safe" style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px' }}>
                                     <span style={{ fontSize: '12px' }}>👤</span>
                                     <span>{name}</span>
@@ -621,12 +633,23 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
                     const rawWorker = selectedIncident.worker_id || '';
                     const personName = !['Persistent-Engine', 'Auto-Flagged', 'Unassigned Worker', 'Unassigned'].includes(rawWorker)
                       ? rawWorker
-                      : (selectedIncident.title.match(/\(([^)]+)\)/)?.[1] || 'Unassigned Worker');
-                    const isKnown = !['Persistent-Engine', 'Auto-Flagged', 'Unassigned Worker', 'Unassigned'].includes(personName);
+                      : (selectedIncident.title.match(/\(([^)]+)\)/)?.[1] || '');
 
-                    if (isKnown) {
-                      const names = personName.split(',').map((n: string) => n.trim()).filter(Boolean);
-                      return names.map((name: string, idx: number) => (
+                    const validNames = (personName ? personName.split(',') : [])
+                      .map((n: string) => n.trim())
+                      .filter((n: string) => {
+                        const l = n.toLowerCase();
+                        return n.length > 0 &&
+                          !l.includes('unregistered') &&
+                          !l.includes('unsigned') &&
+                          !l.includes('unassigned') &&
+                          !l.includes('unknown') &&
+                          !l.includes('persistent-engine') &&
+                          !l.includes('auto-flagged');
+                      });
+
+                    if (validNames.length > 0) {
+                      return validNames.map((name: string, idx: number) => (
                         <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
                           <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '11px' }}>👤 {name}</span>
                           <span className="status-pill status-pill-safe" style={{ fontSize: '9px', padding: '1px 5px' }}>TRAINED FACE</span>

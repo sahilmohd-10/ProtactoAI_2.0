@@ -575,18 +575,42 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     }
 
     if (res.type === 'error') {
+      const isKeyError = res.output?.toLowerCase().includes('openrouter api key') || res.output?.toLowerCase().includes('sk-or-v1');
       return (
         <div style={{
-          padding: '8px 12px',
+          padding: '10px 14px',
           backgroundColor: 'var(--safety-violation-bg)',
           border: '1px solid var(--safety-violation-border)',
           borderRadius: '6px',
           color: 'var(--safety-violation)',
           fontSize: '12px',
           fontFamily: 'var(--font-mono)',
-          margin: '6px 0'
+          margin: '6px 0',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
         }}>
-          {res.output}
+          <div>{res.output}</div>
+          {isKeyError && isAdministrator && (
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setKeyInput('');
+                  setShowKeyModal(true);
+                }}
+                className="btn-citron"
+                style={{
+                  fontSize: '11px',
+                  padding: '4px 10px',
+                  fontFamily: 'var(--font-mono)',
+                  cursor: 'pointer'
+                }}
+              >
+                Configure OpenRouter Key
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -657,17 +681,34 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.04em' }}>
               TERMINAL
             </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              fontSize: '10px',
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--safety-safe)'
-            }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--safety-safe)' }} />
-              <span>AI Online</span>
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (isAdministrator) setShowKeyModal(true);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '10px',
+                fontFamily: 'var(--font-mono)',
+                color: openrouterStatus?.connected ? 'var(--safety-safe)' : 'var(--accent-citron)',
+                background: 'transparent',
+                border: 'none',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                cursor: isAdministrator ? 'pointer' : 'default'
+              }}
+              title={openrouterStatus?.connected ? 'OpenRouter Cloud Neural Engine Online' : 'Local Safety Kernel Active. Click to configure OpenRouter API Key for Cloud LLM.'}
+            >
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: openrouterStatus?.connected ? 'var(--safety-safe)' : 'var(--accent-citron)'
+              }} />
+              <span>{openrouterStatus?.connected ? 'Cloud AI Online' : 'Local Safety AI'}</span>
+            </button>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

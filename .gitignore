@@ -19,7 +19,10 @@ venv/
 .venv/
 **/data/*.db
 **/data/*.key
+**/data/*.json
 *.sqlite3
+*.env
+**/.env
 **/static/snapshots/*
 !**/static/snapshots/.gitkeep
 

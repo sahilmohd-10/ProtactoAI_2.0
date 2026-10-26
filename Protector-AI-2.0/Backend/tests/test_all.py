@@ -126,6 +126,21 @@ class ProtectorAITestSuite(unittest.TestCase):
         self.assertEqual(res["type"], "navigation")
         self.assertEqual(res["target"], "settings")
 
+        # NL: site dress code & PPE requirements
+        res = CommandEngine.execute("what a person should wear in the site")
+        self.assertEqual(res["type"], "ai_response")
+        self.assertIn("mandatory industrial site ppe protocol", res["output"].lower())
+
+        # NL: greeting
+        res = CommandEngine.execute("hi")
+        self.assertEqual(res["type"], "ai_response")
+        self.assertIn("protector ai 2.0", res["output"].lower())
+
+        # NL / AI directive: autonomous OSHA safety audit (even without OpenRouter key)
+        res = CommandEngine.execute("ai Perform an immediate autonomous OSHA safety audit on current active camera feeds, evaluating head protection and active hazard exposure.")
+        self.assertEqual(res["type"], "ai_response")
+        self.assertIn("osha", res["output"].lower())
+
     def test_09_copilot_chat(self):
         res = copilot_instance.chat("What is our current safety compliance rate?")
         self.assertIn("compliance", res["message"].lower())

@@ -378,9 +378,20 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
       ? (browserMetrics as any)?.recognized_workers || ((browserMetrics as any)?.recognized_worker ? [(browserMetrics as any).recognized_worker] : [])
       : (workerStatus?.metrics as any)?.recognized_workers || ((workerStatus?.metrics as any)?.recognized_worker ? [(workerStatus?.metrics as any).recognized_worker] : []);
 
-  const activeRecognizedWorkers: string[] = Array.isArray(rawWorkers)
+  const isUnregisteredOrUnassigned = (name: string) => {
+    const lower = name.toLowerCase();
+    return lower.includes('unregistered') || 
+           lower.includes('unassigned') || 
+           lower.includes('unsigned') || 
+           lower.includes('unknown');
+  };
+
+  const rawWorkersList: string[] = Array.isArray(rawWorkers)
     ? rawWorkers.flatMap((w: string) => (typeof w === 'string' ? w.split(',') : [String(w)])).map((s) => s.trim()).filter(Boolean)
     : (typeof rawWorkers === 'string' ? (rawWorkers as string).split(',').map((s) => s.trim()).filter(Boolean) : []);
+
+  // Filter out any unsigned/unregistered/unknown workers so only verified enrolled personnel appear
+  const activeRecognizedWorkers: string[] = rawWorkersList.filter((w) => !isUnregisteredOrUnassigned(w));
 
   const activeRecognizedWorker = activeRecognizedWorkers.join(', ');
 
@@ -976,26 +987,23 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                   <span>{activeRecognizedWorkers.length > 1 ? `IDENTIFIED PERSONNEL (${activeRecognizedWorkers.length})` : 'IDENTIFIED WORKER'}</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
-                  {activeRecognizedWorkers.map((name, idx) => {
-                    const isUnregistered = name.toLowerCase().includes('unregistered') || name.toLowerCase().includes('unknown');
-                    return (
-                      <span key={idx} style={{
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: isUnregistered ? 'var(--safety-amber)' : 'var(--text-primary)',
-                        backgroundColor: isUnregistered ? 'rgba(255, 149, 0, 0.15)' : 'rgba(52, 199, 89, 0.15)',
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        border: isUnregistered ? '1px solid rgba(255, 149, 0, 0.35)' : '1px solid rgba(52, 199, 89, 0.35)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px'
-                      }}>
-                        <span>{isUnregistered ? '⚠️' : '👤'}</span>
-                        <span>{name}</span>
-                      </span>
-                    );
-                  })}
+                  {activeRecognizedWorkers.map((name, idx) => (
+                    <span key={idx} style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      backgroundColor: 'rgba(52, 199, 89, 0.15)',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(52, 199, 89, 0.35)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}>
+                      <span>👤</span>
+                      <span>{name}</span>
+                    </span>
+                  ))}
                 </div>
               </div>
             )}

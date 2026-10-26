@@ -156,32 +156,31 @@ class PersistentCameraWorker:
                     if profiles:
                         matches = face_recognition_service.recognize_all_matches(raw, profiles)
                         now_ts = time.time()
-                        if matches:
-                            for m in matches:
-                                p_name = m.get("name")
-                                if p_name:
-                                    self.active_people[p_name] = {
-                                        "box": m.get("box"),
-                                        "timestamp": now_ts,
-                                        "profile_id": m.get("profile_id"),
-                                        "enrolled": m.get("enrolled", False)
-                                    }
-                                    # Register visit if enrolled and cooldown elapsed
-                                    matched_prof = next((p for p in profiles if p.id == m.get("profile_id")), None) if m.get("profile_id") else None
-                                    if matched_prof:
-                                        last_seen = matched_prof.last_seen_at
-                                        if last_seen and last_seen.tzinfo is None:
-                                            last_seen = last_seen.replace(tzinfo=timezone.utc)
-                                        now_utc = datetime.now(timezone.utc)
-                                        if last_seen is None or (now_utc - last_seen).total_seconds() >= 30:
-                                            db.add(FaceVisitLog(
-                                                profile_id=matched_prof.id,
-                                                recognized_at=now_utc,
-                                                match_distance=m.get("distance", 0.0),
-                                                camera_source=f"Live Optical Stream ({self.camera_id.upper()})"
-                                            ))
-                                            matched_prof.last_seen_at = now_utc
-                                            db.commit()
+                        for m in matches:
+                            p_name = m.get("name")
+                            if p_name and m.get("enrolled", True) and not any(k in p_name.lower() for k in ["unregistered", "unsigned", "unknown"]):
+                                self.active_people[p_name] = {
+                                    "box": m.get("box"),
+                                    "timestamp": now_ts,
+                                    "profile_id": m.get("profile_id"),
+                                    "enrolled": True
+                                }
+                                # Register visit if enrolled and cooldown elapsed
+                                matched_prof = next((p for p in profiles if p.id == m.get("profile_id")), None) if m.get("profile_id") else None
+                                if matched_prof:
+                                    last_seen = matched_prof.last_seen_at
+                                    if last_seen and last_seen.tzinfo is None:
+                                        last_seen = last_seen.replace(tzinfo=timezone.utc)
+                                    now_utc = datetime.now(timezone.utc)
+                                    if last_seen is None or (now_utc - last_seen).total_seconds() >= 30:
+                                        db.add(FaceVisitLog(
+                                            profile_id=matched_prof.id,
+                                            recognized_at=now_utc,
+                                            match_distance=m.get("distance", 0.0),
+                                            camera_source=f"Live Optical Stream ({self.camera_id.upper()})"
+                                        ))
+                                        matched_prof.last_seen_at = now_utc
+                                        db.commit()
 
                         # Purge people not seen in last 5 seconds
                         self.active_people = {n: v for n, v in self.active_people.items() if (now_ts - v.get("timestamp", 0)) < 5.0}
@@ -265,20 +264,13 @@ class PersistentCameraWorker:
 
                 # Overlay recognized person(s) HUD tag & bounding boxes
                 now_ts = time.time()
-                active_items = [(name, info) for name, info in self.active_people.items() if (now_ts - info.get("timestamp", 0)) < 5.0]
+                active_items = [(name, info) for name, info in self.active_people.items() if (now_ts - info.get("timestamp", 0)) < 5.0 and info.get("enrolled", True) and not any(k in name.lower() for k in ["unregistered", "unsigned", "unknown"])]
                 active_names = [item[0] for item in active_items]
 
-                # Reconcile worker count: ensure workers count reflects all people seen
+                # Reconcile worker count: ensure workers count reflects YOLO people count
                 yolo_workers = metrics.get("workers", 0)
                 total_workers = max(yolo_workers, len(active_names))
                 metrics["workers"] = total_workers
-
-                # If YOLO detected more people than recognized faces, add Unregistered Worker
-                if yolo_workers > len(active_names):
-                    missing_count = yolo_workers - len(active_names)
-                    for i in range(missing_count):
-                        unreg_name = "Unregistered Worker" if missing_count == 1 and not any("Unregistered" in n for n in active_names) else f"Unregistered Person {len(active_names)+1}"
-                        active_names.append(unreg_name)
 
                 if active_names:
                     worker_str = ", ".join(active_names)
@@ -362,7 +354,7 @@ class PersistentCameraWorker:
                 if profiles:
                     raw_to_check = self.latest_raw_frame if self.latest_raw_frame is not None else annotated_frame
                     matches = face_recognition_service.recognize_all_matches(raw_to_check, profiles)
-                    recognized_in_frame = [m["name"] for m in matches if m.get("name")]
+                    recognized_in_frame = [m["name"] for m in matches if m.get("name") and m.get("enrolled", True) and not any(k in m["name"].lower() for k in ["unregistered", "unsigned", "unknown"])]
             except Exception as ex:
                 logger.debug(f"Direct face match on incident frame: {ex}")
 

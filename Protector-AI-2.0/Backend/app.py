@@ -468,17 +468,13 @@ def detect_image():
     finally:
         db.close()
 
-    recognized_names = list(dict.fromkeys([m["name"] for m in matches if m.get("name")]))
+    enrolled_names = [m["name"] for m in matches if m.get("name") and m.get("enrolled", True) and not any(k in m["name"].lower() for k in ["unregistered", "unsigned", "unknown"])]
+    recognized_names = list(dict.fromkeys(enrolled_names))
     yolo_workers = metrics.get("workers", 0)
     total_workers = max(yolo_workers, len(matches), len(recognized_names))
     metrics["workers"] = total_workers
-
-    # If more workers were detected by YOLO than faces, include unregistered worker
-    if yolo_workers > len(recognized_names):
-        missing_count = yolo_workers - len(recognized_names)
-        for i in range(missing_count):
-            unreg_name = "Unregistered Worker" if missing_count == 1 and not any("Unregistered" in n for n in recognized_names) else f"Unregistered Person {len(recognized_names)+1}"
-            recognized_names.append(unreg_name)
+    metrics["recognized_workers"] = recognized_names
+    metrics["recognized_worker"] = ", ".join(recognized_names)
 
     # Draw individual face bounding boxes and names directly on annotated frame
     for m in matches:

@@ -21,20 +21,43 @@ Whenever analyzing scenes or safety queries:
 4. Keep answers structured, concise, and formatted with clean markdown bullet points.
 """
 
+CONFIG_FILE = config.DATA_DIR / "openrouter_config.json"
+
 class OpenRouterService:
     def __init__(self, api_key: Optional[str] = None, default_model: Optional[str] = None):
         self.api_key = api_key or config.OPENROUTER_API_KEY
         self.default_model = default_model or config.OPENROUTER_DEFAULT_MODEL
+        if not self.api_key and CONFIG_FILE.exists():
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                    if saved.get("api_key"):
+                        self.api_key = saved["api_key"]
+                        config.OPENROUTER_API_KEY = self.api_key
+                    if saved.get("model"):
+                        self.default_model = saved["model"]
+                        config.OPENROUTER_DEFAULT_MODEL = self.default_model
+            except Exception as e:
+                logger.warning(f"Could not load persisted OpenRouter config: {e}")
 
     def set_api_key(self, api_key: str):
         if api_key and api_key.strip():
             self.api_key = api_key.strip()
             config.OPENROUTER_API_KEY = self.api_key
+            self._save_config()
 
     def set_model(self, model: str):
         if model and model.strip():
             self.default_model = model.strip()
             config.OPENROUTER_DEFAULT_MODEL = self.default_model
+            self._save_config()
+
+    def _save_config(self):
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"api_key": self.api_key, "model": self.default_model}, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not persist OpenRouter config: {e}")
 
     def get_status(self) -> Dict[str, Any]:
         has_key = bool(self.api_key and self.api_key.startswith("sk-or-v1-"))
@@ -64,6 +87,7 @@ class OpenRouterService:
         if not key:
             return {
                 "success": False,
+                "api_key_missing": True,
                 "error": "OpenRouter API Key is missing. Please configure your sk-or-v1-... key.",
                 "response": "OpenRouter API key is not configured. Please supply a valid key in the Console.",
                 "model": selected_model

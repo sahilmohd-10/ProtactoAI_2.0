@@ -316,16 +316,6 @@ class FaceRecognitionService:
                         "distance": round(dist, 2),
                         "enrolled": True
                     })
-                else:
-                    unregistered_counter += 1
-                    label = "Unregistered Worker" if len(raw_predictions) <= 2 and unregistered_counter == 1 else f"Unregistered Person {unregistered_counter}"
-                    matches.append({
-                        "box": box,
-                        "profile_id": None,
-                        "name": label,
-                        "distance": round(dist, 2),
-                        "enrolled": False
-                    })
 
             return matches
 
