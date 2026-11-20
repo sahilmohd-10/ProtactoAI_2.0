@@ -833,6 +833,37 @@ def delete_incident(incident_id):
         return jsonify({"error": res.get("error")}), 400
     return jsonify(res.get("data"))
 
+@app.route("/api/incidents/batch-delete", methods=["POST"])
+def batch_delete_incidents():
+    body = request.get_json(silent=True) or {}
+    incident_ids = body.get("incident_ids", [])
+    delete_all = body.get("delete_all", False)
+
+    db = SessionLocal()
+    try:
+        deleted_count = 0
+        if delete_all:
+            deleted_count = db.query(Incident).delete(synchronize_session=False)
+        elif isinstance(incident_ids, list) and len(incident_ids) > 0:
+            deleted_count = db.query(Incident).filter(Incident.id.in_(incident_ids)).delete(synchronize_session=False)
+        else:
+            return jsonify({"error": "No incidents selected to delete."}), 400
+
+        audit = AuditLog(
+            user_email="admin@protector.ai",
+            action="BATCH_DELETE_INCIDENTS",
+            details=f"Batch deleted {deleted_count} incident records."
+        )
+        db.add(audit)
+        db.commit()
+        return jsonify({"success": True, "deleted_count": deleted_count}), 200
+    except Exception as e:
+        db.rollback()
+        logger.exception("Failed to batch delete incidents.")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
 @app.route("/api/incidents/export", methods=["GET"])
 def export_incidents():
     fmt = request.args.get("format", "csv")

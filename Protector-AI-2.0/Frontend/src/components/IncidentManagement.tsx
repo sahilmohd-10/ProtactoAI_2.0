@@ -32,6 +32,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,6 +63,50 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageIncidents = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const isAllFilteredSelected = filtered.length > 0 && filtered.every((i) => selectedIds.has(i.id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((i) => i.id)));
+    }
+  };
+
+  const handleToggleSelectOne = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchDelete = async (deleteAll = false) => {
+    const count = deleteAll ? filtered.length : selectedIds.size;
+    if (count === 0) return;
+
+    const confirmMsg = deleteAll
+      ? `Permanently delete all ${filtered.length} matching incident records? This action cannot be undone.`
+      : `Permanently delete ${count} selected incident record${count > 1 ? 's' : ''}? This action cannot be undone.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsUpdating(true);
+    try {
+      const idsToDelete = deleteAll ? filtered.map((i) => i.id) : Array.from(selectedIds);
+      await api.batchDeleteIncidents(idsToDelete, deleteAll && filtered.length === incidents.length);
+      setSelectedIds(new Set());
+      setSelectedIncident(null);
+      onRefresh();
+    } catch (err: any) {
+      alert(`Error deleting incidents: ${err.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleUpdateStatus = async (id: string, newStatus: string, notes?: string) => {
     setIsUpdating(true);
@@ -120,25 +165,72 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '9px 18px',
-            backgroundColor: '#FFFFFF',
-            border: '1.5px solid #CBD5E1',
-            borderRadius: '12px',
-            color: '#0F172A',
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer'
-          }}
-        >
-          <Download size={15} />
-          <span>Export CSV Log</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleToggleSelectAll}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              backgroundColor: isAllFilteredSelected ? '#E2E8F0' : '#FFFFFF',
+              border: '1.5px solid #CBD5E1',
+              borderRadius: '12px',
+              color: '#0F172A',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            <span>{isAllFilteredSelected ? 'Deselect All' : `Select All (${filtered.length})`}</span>
+          </button>
+
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => handleBatchDelete(false)}
+              disabled={isUpdating}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '9px 16px',
+                backgroundColor: '#DC2626',
+                border: 'none',
+                borderRadius: '12px',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: isUpdating ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.35)'
+              }}
+            >
+              <Trash2 size={15} />
+              <span>Delete Selected ({selectedIds.size})</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleExportCSV}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 18px',
+              backgroundColor: '#FFFFFF',
+              border: '1.5px solid #CBD5E1',
+              borderRadius: '12px',
+              color: '#0F172A',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            <Download size={15} />
+            <span>Export CSV Log</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
@@ -212,6 +304,102 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
         </div>
       </div>
 
+      {/* Batch Selection Action Bar */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          backgroundColor: '#0F172A',
+          color: '#FFFFFF',
+          borderRadius: '16px',
+          padding: '12px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.25)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              backgroundColor: '#DC2626',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '11.5px',
+              fontWeight: 800
+            }}>
+              {selectedIds.size}
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 700 }}>
+              {selectedIds.size} incident{selectedIds.size > 1 ? 's' : ''} selected
+            </span>
+            <span style={{ fontSize: '11.5px', color: '#94A3B8' }}>
+              ({Math.round((selectedIds.size / Math.max(1, filtered.length)) * 100)}% of filtered view)
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set(filtered.map(i => i.id)))}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Select All Filtered ({filtered.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              style={{
+                backgroundColor: 'transparent',
+                color: '#94A3B8',
+                border: 'none',
+                padding: '6px 10px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Deselect All
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleBatchDelete(false)}
+              disabled={isUpdating}
+              style={{
+                backgroundColor: '#DC2626',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '7px 16px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 800,
+                cursor: isUpdating ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)'
+              }}
+            >
+              <Trash2 size={13} />
+              <span>{isUpdating ? 'Deleting...' : `Delete Selected (${selectedIds.size})`}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Structured Clean Incidents Table */}
       <div style={{
         backgroundColor: '#FFFFFF',
@@ -222,6 +410,15 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+              <th style={{ padding: '14px 16px', width: '40px', textAlign: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={isAllFilteredSelected}
+                  onChange={handleToggleSelectAll}
+                  style={{ width: '16px', height: '16px', accentColor: '#0F5132', cursor: 'pointer' }}
+                  title={isAllFilteredSelected ? "Deselect All" : "Select All"}
+                />
+              </th>
               <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>INCIDENT ID</th>
               <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>SEVERITY</th>
               <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>CATEGORY & TITLE</th>
@@ -234,7 +431,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
           <tbody>
             {pageIncidents.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
                   No matching incident records found.
                 </td>
               </tr>
@@ -242,10 +439,28 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
               pageIncidents.map((inc) => (
                 <tr
                   key={inc.id}
-                  style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
+                  style={{
+                    borderBottom: '1px solid #F1F5F9',
+                    backgroundColor: selectedIds.has(inc.id) ? '#F1F5F9' : '#FFFFFF',
+                    transition: 'background-color 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!selectedIds.has(inc.id)) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!selectedIds.has(inc.id)) e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  }}
                 >
+                  {/* Select Checkbox */}
+                  <td style={{ padding: '14px 16px', width: '40px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(inc.id)}
+                      onClick={(e) => handleToggleSelectOne(inc.id, e)}
+                      onChange={() => {}}
+                      style={{ width: '16px', height: '16px', accentColor: '#0F5132', cursor: 'pointer' }}
+                    />
+                  </td>
                   {/* ID */}
                   <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: 700, color: '#0F172A', fontFamily: 'monospace' }}>
                     {inc.id}

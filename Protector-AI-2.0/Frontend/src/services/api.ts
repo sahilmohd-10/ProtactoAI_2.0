@@ -129,6 +129,13 @@ export const api = {
     });
   },
 
+  async batchDeleteIncidents(incidentIds: string[], deleteAll = false): Promise<any> {
+    return fetchJson('/api/incidents/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify({ incident_ids: incidentIds, delete_all: deleteAll })
+    });
+  },
+
   async captureSnapshot(cameraId = 'cam_01', conf = 0.35): Promise<{ success: boolean; snapshot_url: string; metrics: any }> {
     return fetchJson('/api/stream/snapshot', {
       method: 'POST',
