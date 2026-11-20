@@ -137,34 +137,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom Promo Card (Deep Green Box from Image 2) */}
-      <div className="donezo-promo-card">
+      {/* Bottom User Profile */}
+      {currentUser && (
         <div style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(255, 255, 255, 0.15)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '12px'
+          gap: '10px',
+          padding: '12px 14px',
+          backgroundColor: '#F8FAFC',
+          borderRadius: '16px',
+          border: '1px solid #E2E8F0',
+          marginTop: '16px'
         }}>
-          <ShieldCheck size={18} />
+          <div style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: '50%',
+            backgroundColor: '#0F5132',
+            color: '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: '12px',
+            flexShrink: 0
+          }}>
+            {currentUser.name ? currentUser.name.slice(0, 2).toUpperCase() : 'AD'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {currentUser.name || currentUser.username}
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748B' }}>
+              {currentUser.role}
+            </span>
+          </div>
         </div>
-        <div style={{ fontSize: '14px', fontWeight: 800, lineHeight: 1.3 }}>
-          Download our<br />Mobile App
-        </div>
-        <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.7)', marginTop: '4px' }}>
-          Get easy in another way
-        </div>
-        <button
-          type="button"
-          onClick={() => alert('Mobile safety app download link sent to your registered email.')}
-          className="donezo-promo-btn"
-        >
-          Download
-        </button>
-      </div>
+      )}
     </aside>
   );
 };
