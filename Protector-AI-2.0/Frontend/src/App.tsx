@@ -12,6 +12,7 @@ import { AttendanceManagement } from './components/AttendanceManagement';
 import { CommandTerminal } from './components/CommandTerminal';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
+import { DonezoDashboard } from './components/DonezoDashboard';
 
 import {
   SystemStatus,
@@ -31,7 +32,7 @@ export function App() {
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
   // Application Layout States
-  const [activeModule, setActiveModule] = useState<string>('console');
+  const [activeModule, setActiveModule] = useState<string>('dashboard');
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [isTerminalOpen, setIsTerminalOpen] = useState<boolean>(false);
 
@@ -237,45 +238,37 @@ export function App() {
     }
   }
 
-  // 3. Authenticated Industrial Safety Operations Platform
+  // 3. Authenticated Donezo Enterprise Operations Platform (Image 2 Match)
   const isOperator = currentUser.role === 'Operator';
 
   return (
-    <div className="app-shell" style={{ backgroundColor: 'var(--bg-app)' }}>
-      {/* Sleek Fixed Sidebar */}
-      <Sidebar
-        activeModule={activeModule}
-        onSelectModule={handleSelectModule}
-        openIncidentsCount={openIncidentsCount}
-        currentUser={currentUser}
-        onLogout={handleLogout}
-      />
-
-      {/* Main Layout Area */}
-      <div className="app-main">
-        {/* Top Floating Glass Header */}
-        <Header
-          systemStatus={systemStatus}
+    <div className="donezo-page-wrapper">
+      <div className="donezo-container">
+        {/* Sleek Donezo Sidebar */}
+        <Sidebar
           activeModule={activeModule}
-          theme={theme}
-          onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          onOpenTerminal={() => setIsTerminalOpen(true)}
+          onSelectModule={handleSelectModule}
+          openIncidentsCount={openIncidentsCount}
           currentUser={currentUser}
+          onLogout={handleLogout}
+          onOpenTerminal={() => setIsTerminalOpen(true)}
         />
 
-        {/* Content Viewport */}
-        <main className="app-content">
-          {/* Welcome Showcase Banner - Optical Console View Only */}
-          {activeModule === 'console' && (
-            <WelcomeHero
+        {/* Donezo Main Dashboard Viewport */}
+        <main className="donezo-main">
+          {/* Main Dashboard Overview (Image 2 Donezo Match) */}
+          {activeModule === 'dashboard' && (
+            <DonezoDashboard
               stats={ppeStats}
               status={systemStatus}
+              incidents={incidents}
+              currentUser={currentUser}
               onNavigate={handleSelectModule}
               onOpenTerminal={() => setIsTerminalOpen(true)}
             />
           )}
 
-          {/* Module Switcher */}
+          {/* Module: Optical Surveillance Console */}
           {activeModule === 'console' && (
             <LiveConsole
               cameras={cameras}
@@ -283,6 +276,7 @@ export function App() {
             />
           )}
 
+          {/* Module: Incident Management */}
           {activeModule === 'incidents' && (
             <IncidentManagement
               incidents={incidents}
@@ -290,6 +284,7 @@ export function App() {
             />
           )}
 
+          {/* Module: Analytics */}
           {activeModule === 'analytics' && (
             <Analytics
               analytics={analytics}
@@ -297,14 +292,17 @@ export function App() {
             />
           )}
 
+          {/* Module: Biometric Attendance Register */}
           {activeModule === 'attendance' && (
             <AttendanceManagement />
           )}
 
+          {/* Module: People Management */}
           {activeModule === 'people' && !isOperator && (
             <PeopleManagement />
           )}
 
+          {/* Module: Team & Access RBAC */}
           {activeModule === 'team' && (
             <TeamAccess
               users={users}
@@ -314,6 +312,7 @@ export function App() {
             />
           )}
 
+          {/* Module: System Health & Maintenance */}
           {activeModule === 'settings' && (
             <SystemHealth
               status={systemStatus}

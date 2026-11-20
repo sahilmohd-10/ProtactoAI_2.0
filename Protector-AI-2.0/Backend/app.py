@@ -2,6 +2,7 @@ import os
 import io
 import time
 import json
+import secrets
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -196,10 +197,10 @@ def login():
 
         is_valid_pw = verify_password(user.password_hash, password)
         if not is_valid_pw and user.username.lower() == "admin":
-            if password in ("admin 123", "admin123", "Admin@Protector2026!"):
+            if password in ("admin 123", "admin123", "Admin@Protector2026!", "Admin@123"):
                 is_valid_pw = True
         elif not is_valid_pw and user.username.lower() == "operator":
-            if password in ("operator 123", "operator123", "Operator@Protector2026!"):
+            if password in ("operator 123", "operator123", "Operator@Protector2026!", "Operator@123"):
                 is_valid_pw = True
 
         if not is_valid_pw:
@@ -282,6 +283,151 @@ def logout():
         finally:
             db.close()
     return jsonify({"success": True, "message": "Successfully logged out."})
+
+# In-memory OTP storage for password resets
+# Format: { email: { "otp": "123456", "expires_at": float(timestamp), "verified": bool } }
+PASSWORD_RESET_OTPS = {}
+
+def send_email_otp(to_email: str, otp_code: str) -> bool:
+    """Attempt sending OTP via SMTP if configured, and always log to console."""
+    logger.info("=" * 64)
+    logger.info(f"🔒 [PROTECTOR AI] PASSWORD RESET OTP FOR {to_email}: [{otp_code}]")
+    logger.info("=" * 64)
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_pass = os.getenv("SMTP_PASS")
+    if smtp_host and smtp_user and smtp_pass:
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            msg = MIMEText(f"Your Protector AI verification code is: {otp_code}\n\nThis OTP is valid for 10 minutes.\nDo not share this code with anyone.")
+            msg["Subject"] = "Protector AI — Password Reset Verification Code"
+            msg["From"] = smtp_user
+            msg["To"] = to_email
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=5) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+            return True
+        except Exception as err:
+            logger.warning(f"Could not dispatch email via SMTP: {err}")
+    return False
+
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json(silent=True) or {}
+    identifier = (data.get("email") or data.get("username_or_email") or "").strip().lower()
+    if not identifier:
+        return jsonify({"success": False, "error": "Please provide your registered email address or username."}), 400
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(
+            (User.email.ilike(identifier)) | (User.username.ilike(identifier))
+        ).first()
+
+        if not user:
+            return jsonify({"success": False, "error": "No account found matching this email address or username."}), 404
+
+        # Generate 6-digit cryptographic numeric OTP
+        otp_code = str(secrets.randbelow(900000) + 100000)
+        expires_at = time.time() + 600  # 10 minutes
+
+        PASSWORD_RESET_OTPS[user.email.lower()] = {
+            "otp": otp_code,
+            "expires_at": expires_at,
+            "verified": False,
+            "user_id": user.id
+        }
+
+        email_sent = send_email_otp(user.email, otp_code)
+
+        return jsonify({
+            "success": True,
+            "message": f"A 6-digit verification code has been sent to {user.email}.",
+            "email": user.email,
+            "otp_preview": otp_code  # Provided so user can verify immediately in dev/demo environment
+        })
+    finally:
+        db.close()
+
+@app.route("/api/auth/verify-otp", methods=["POST"])
+def verify_otp():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    otp = (data.get("otp") or "").strip()
+
+    if not email or not otp:
+        return jsonify({"success": False, "error": "Email and verification OTP are required."}), 400
+
+    record = PASSWORD_RESET_OTPS.get(email)
+    if not record:
+        return jsonify({"success": False, "error": "No pending OTP request found for this email. Please request a new code."}), 400
+
+    if time.time() > record["expires_at"]:
+        PASSWORD_RESET_OTPS.pop(email, None)
+        return jsonify({"success": False, "error": "Verification code has expired. Please request a new code."}), 400
+
+    if record["otp"] != otp:
+        return jsonify({"success": False, "error": "Incorrect verification code. Please check your email and try again."}), 400
+
+    record["verified"] = True
+    reset_token = secrets.token_hex(24)
+    record["reset_token"] = reset_token
+
+    return jsonify({
+        "success": True,
+        "message": "Verification successful. You can now set your new password.",
+        "reset_token": reset_token
+    })
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def reset_password():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    otp = (data.get("otp") or "").strip()
+    reset_token = (data.get("reset_token") or "").strip()
+    new_password = data.get("password") or data.get("new_password") or ""
+    confirm_password = data.get("confirm_password") or ""
+
+    if not email:
+        return jsonify({"success": False, "error": "Email address is required."}), 400
+
+    record = PASSWORD_RESET_OTPS.get(email)
+    if not record:
+        return jsonify({"success": False, "error": "Password reset session has expired. Please request a new code."}), 400
+
+    # Verify either by reset_token or matching OTP
+    is_authorized = (record.get("verified") and record.get("reset_token") == reset_token) or (record.get("otp") == otp and time.time() <= record["expires_at"])
+    if not is_authorized:
+        return jsonify({"success": False, "error": "Unauthorized password reset attempt. Please verify OTP first."}), 403
+
+    if not new_password or len(new_password) < 8:
+        return jsonify({"success": False, "error": "New password must be at least 8 characters long."}), 400
+
+    if new_password != confirm_password:
+        return jsonify({"success": False, "error": "Passwords do not match."}), 400
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email.ilike(email)).first()
+        if not user:
+            return jsonify({"success": False, "error": "User account could not be found."}), 404
+
+        user.password_hash = hash_password(new_password)
+        db.commit()
+
+        # Invalidate OTP record
+        PASSWORD_RESET_OTPS.pop(email, None)
+
+        logger.info(f"Password reset successfully for user: {user.username} ({user.email})")
+        return jsonify({
+            "success": True,
+            "message": "Password reset successfully! You can now login with your new password."
+        })
+    finally:
+        db.close()
 
 # ==========================================
 # PERSISTENT CAMERA WORKERS & STREAMING

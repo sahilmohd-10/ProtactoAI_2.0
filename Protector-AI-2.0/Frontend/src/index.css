@@ -712,3 +712,599 @@ body {
     display: none;
   }
 }
+
+/* =====================================================================
+   DONEZO ENTERPRISE DASHBOARD DESIGN SYSTEM (IMAGE 2 MATCH)
+   ===================================================================== */
+
+.donezo-page-wrapper {
+  min-height: 100vh;
+  width: 100vw;
+  background-color: #F4F5F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  box-sizing: border-box;
+}
+
+.donezo-container {
+  width: 100%;
+  max-width: 1440px;
+  min-height: 900px;
+  background-color: #FFFFFF;
+  border-radius: 32px;
+  box-shadow: 0 16px 50px rgba(15, 23, 42, 0.06);
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Sidebar Inside Donezo Card */
+.donezo-sidebar {
+  width: 260px;
+  background-color: #FFFFFF;
+  border-right: 1px solid #F1F5F9;
+  padding: 32px 20px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.donezo-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  margin-bottom: 28px;
+}
+
+.donezo-brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: #EBF8F2;
+  color: #0F5132;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.donezo-brand-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.02em;
+}
+
+.donezo-nav-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94A3B8;
+  letter-spacing: 0.08em;
+  margin: 18px 0 8px 12px;
+}
+
+.donezo-nav-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 4px;
+  text-decoration: none;
+  position: relative;
+}
+
+.donezo-nav-link:hover:not(:disabled) {
+  background-color: #F8FAFC;
+  color: #0F172A;
+}
+
+.donezo-nav-link.active {
+  background-color: #EBF8F2;
+  color: #0F5132;
+  font-weight: 700;
+}
+
+.donezo-nav-link.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 4px;
+  height: 24px;
+  border-radius: 0 4px 4px 0;
+  background-color: #0F5132;
+}
+
+.donezo-nav-badge {
+  padding: 2px 8px;
+  background-color: #0F172A;
+  color: #FFFFFF;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Bottom Promo / System Card */
+.donezo-promo-card {
+  border-radius: 20px;
+  background: linear-gradient(135deg, #0A3622 0%, #0F5132 100%);
+  padding: 20px 18px;
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.donezo-promo-card::after {
+  content: "";
+  position: absolute;
+  right: -20px;
+  bottom: -20px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.donezo-promo-btn {
+  width: 100%;
+  padding: 9px 0;
+  background-color: #198754;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: background-color 0.15s ease;
+}
+
+.donezo-promo-btn:hover {
+  background-color: #157347;
+}
+
+/* Main Dashboard Area */
+.donezo-main {
+  flex: 1;
+  padding: 32px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.donezo-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.donezo-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 10px 16px;
+  width: 320px;
+  transition: all 0.2s ease;
+}
+
+.donezo-search-box:focus-within {
+  background-color: #FFFFFF;
+  border-color: #0F5132;
+  box-shadow: 0 0 0 3px rgba(15, 81, 50, 0.08);
+}
+
+.donezo-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13.5px;
+  color: #0F172A;
+  width: 100%;
+}
+
+.donezo-search-badge {
+  padding: 2px 6px;
+  background-color: #E2E8F0;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.donezo-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.donezo-user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #0F172A;
+  font-size: 14px;
+}
+
+/* Header & Action Buttons */
+.donezo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.donezo-header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.donezo-header p {
+  font-size: 13.5px;
+  color: #64748B;
+  margin: 4px 0 0 0;
+}
+
+.donezo-btn-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  background-color: #0F5132;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 100px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(15, 81, 50, 0.2);
+}
+
+.donezo-btn-green:hover {
+  background-color: #0B3D26;
+  transform: translateY(-1px);
+}
+
+.donezo-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 100px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.donezo-btn-outline:hover {
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+/* 4 KPI Cards (Donezo Style) */
+.donezo-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.donezo-card-green {
+  background-color: #0F5132;
+  border-radius: 24px;
+  padding: 24px;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 150px;
+  box-shadow: 0 10px 24px rgba(15, 81, 50, 0.18);
+}
+
+.donezo-card-white {
+  background-color: #FFFFFF;
+  border: 1.5px solid #F1F5F9;
+  border-radius: 24px;
+  padding: 24px;
+  color: #0F172A;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 150px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.02);
+}
+
+.donezo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.donezo-card-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.donezo-card-green .donezo-card-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.donezo-card-white .donezo-card-title {
+  color: #64748B;
+}
+
+.donezo-arrow-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.donezo-card-green .donezo-arrow-circle {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+}
+
+.donezo-card-white .donezo-arrow-circle {
+  background-color: #F8FAFC;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+}
+
+.donezo-card-number {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 12px 0 6px 0;
+}
+
+.donezo-badge-green {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.donezo-badge-white {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background-color: #F1F5F9;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+/* =====================================================================
+   SMARTNEST MOBILE/WEB AUTHENTICATION DESIGN SYSTEM (IMAGE 3 MATCH)
+   ===================================================================== */
+
+.smartnest-viewport {
+  min-height: 100vh;
+  width: 100vw;
+  background-color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px;
+}
+
+.smartnest-phone-frame {
+  width: 380px;
+  max-width: 100%;
+  min-height: 740px;
+  background-color: #FFFFFF;
+  border-radius: 46px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border: 6px solid #1E293B;
+}
+
+/* Screen 1: Dark Slate Beginner Welcome Card */
+.smartnest-screen-dark {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+  color: #FFFFFF;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 44px 28px 36px 28px;
+}
+
+.smartnest-hero-title {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
+  margin: 16px 0 0 0;
+}
+
+.smartnest-slider-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 100px;
+  padding: 6px 12px;
+  margin-top: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.smartnest-slider-bar:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.smartnest-slider-play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+/* Screen 2 & 3: White Auth Form Card */
+.smartnest-screen-light {
+  background-color: #F8FAFC;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 36px 28px;
+  overflow-y: auto;
+}
+
+.smartnest-brand-header {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2563EB;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.smartnest-card-container {
+  background-color: #FFFFFF;
+  border-radius: 30px;
+  padding: 32px 24px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.smartnest-card-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0F172A;
+  text-align: center;
+  margin: 0 0 24px 0;
+  line-height: 1.3;
+}
+
+.smartnest-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.smartnest-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+.smartnest-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background-color: #F1F5F9;
+  border: 1.5px solid transparent;
+  font-size: 14px;
+  color: #0F172A;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.smartnest-input:focus {
+  background-color: #FFFFFF;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.smartnest-btn-primary {
+  width: 100%;
+  padding: 15px;
+  background-color: #2563EB;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+  margin-top: 14px;
+}
+
+.smartnest-btn-primary:hover:not(:disabled) {
+  background-color: #1D4ED8;
+  transform: translateY(-1px);
+}
+
+.smartnest-social-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.smartnest-social-btn {
+  width: 48px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #F1F5F9;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #334155;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.smartnest-social-btn:hover {
+  background-color: #E2E8F0;
+}

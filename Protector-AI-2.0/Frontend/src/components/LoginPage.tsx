@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, Play, CheckCircle2, ShieldCheck, Mail, KeyRound, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -9,17 +9,36 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchToRegister }) => {
-  // Step 1: Page 1 (Discover / Welcome Card) -> Step 2: Page 2 (Login Form Card)
-  const [currentPage, setCurrentPage] = useState<'welcome' | 'login'>('welcome');
+  // Navigation sub-views:
+  // 'start': Image 3 Screen 1 (Dark Beginner Page: "Control Everything in One Place")
+  // 'login': Image 3 Screen 2 (White Login Card: "Welcome to Protector AI login now!")
+  // 'forgot_email': Step 1 of Forgot Password
+  // 'forgot_otp': Step 2 of Forgot Password (Match Email OTP)
+  // 'forgot_reset': Step 3 of Forgot Password (Enter New Password & Confirm)
+  const [subView, setSubView] = useState<'start' | 'login' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('start');
 
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
+  // Login form state
+  const [identifier, setIdentifier] = useState('admin');
+  const [password, setPassword] = useState('Admin@123');
   const [role, setRole] = useState<'Administrator' | 'Operator'>('Administrator');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Forgot password state
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
+  const [forgotErrorMsg, setForgotErrorMsg] = useState<string | null>(null);
+  const [otpPreview, setOtpPreview] = useState<string | null>(null);
+
+  // Handle Login Submit
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -47,411 +66,638 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
         setError('Authentication failed. Please verify your credentials.');
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication.');
+      setError(err.message || 'Invalid username or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 1: Send OTP to Email
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotErrorMsg(null);
+    setForgotSuccessMsg(null);
+
+    const email = forgotEmail.trim();
+    if (!email) {
+      setForgotErrorMsg('Please enter your registered email address.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.forgotPassword(email);
+      if (res.success) {
+        if (res.otp_preview) {
+          setOtpPreview(res.otp_preview);
+        }
+        setForgotSuccessMsg(`Verification code sent to ${res.email}`);
+        setSubView('forgot_otp');
+      } else {
+        setForgotErrorMsg(res.message || 'Could not send verification code.');
+      }
+    } catch (err: any) {
+      setForgotErrorMsg(err.message || 'No account found with this email.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: Verify 6-digit OTP
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotErrorMsg(null);
+    setForgotSuccessMsg(null);
+
+    const code = otpCode.trim();
+    if (!code || code.length < 4) {
+      setForgotErrorMsg('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.verifyOtp(forgotEmail.trim(), code);
+      if (res.success) {
+        if (res.reset_token) setResetToken(res.reset_token);
+        setForgotSuccessMsg('Code verified! Enter your new password.');
+        setSubView('forgot_reset');
+      } else {
+        setForgotErrorMsg(res.message || 'Incorrect verification code.');
+      }
+    } catch (err: any) {
+      setForgotErrorMsg(err.message || 'Incorrect or expired code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 3: Reset Password
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotErrorMsg(null);
+    setForgotSuccessMsg(null);
+
+    if (!newPassword || newPassword.length < 8) {
+      setForgotErrorMsg('Password must be at least 8 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setForgotErrorMsg('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.resetPassword({
+        email: forgotEmail.trim(),
+        otp: otpCode.trim(),
+        reset_token: resetToken,
+        new_password: newPassword,
+        confirm_password: confirmPassword
+      });
+
+      if (res.success) {
+        setForgotSuccessMsg('Password successfully reset! Please login with your new password.');
+        setPassword(newPassword);
+        setIdentifier(forgotEmail.trim());
+        setTimeout(() => {
+          setSubView('login');
+          setForgotSuccessMsg(null);
+        }, 1500);
+      } else {
+        setForgotErrorMsg(res.message || 'Failed to reset password.');
+      }
+    } catch (err: any) {
+      setForgotErrorMsg(err.message || 'Failed to reset password.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-blue-viewport">
-      {/* Background 3D organic ambient glows */}
-      <div className="auth-bg-decor-circle auth-bg-shape-1" />
-      <div className="auth-bg-decor-circle auth-bg-shape-2" />
-
-      <div className="auth-modern-layout">
+    <div className="smartnest-viewport">
+      <div className="smartnest-phone-frame">
         {/* =====================================================================
-            PAGE 1: DISCOVER YOUR SAFETY WORKSPACE (EXACT MATCH TO USER IMAGE 1)
+            SCREEN 1: IMAGE 3 LEFT — BEGINNER / START SCREEN
            ===================================================================== */}
-        {currentPage === 'welcome' && (
-          <aside className="auth-single-card" style={{ alignItems: 'center', textAlign: 'center' }}>
-            {/* SVG Illustration: Worker with yellow safety hardhat walking with laptop */}
-            <div style={{ width: '230px', height: '190px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-              <svg viewBox="0 0 240 200" fill="none" style={{ width: '100%', height: '100%' }}>
-                {/* Background circle */}
-                <circle cx="120" cy="100" r="76" fill="#EFF6FF" />
+        {subView === 'start' && (
+          <div className="smartnest-screen-dark">
+            <div>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.04em' }}>
+                Protector AI
+              </span>
+              <h1 className="smartnest-hero-title">
+                Control<br />Everything in<br />One Place
+              </h1>
+            </div>
 
-                {/* Door frame on left */}
-                <path d="M78 48 L78 152" stroke="#CBD5E1" strokeWidth="3" strokeLinecap="round" />
-                <path d="M60 100 L78 100" stroke="#94A3B8" strokeWidth="4" strokeLinecap="round" />
-
-                {/* Floor line */}
-                <path d="M42 152 L198 152" stroke="#CBD5E1" strokeWidth="3" strokeLinecap="round" />
-
-                {/* Plant on right */}
-                <rect x="176" y="132" width="16" height="20" rx="3" fill="#64748B" />
-                <path d="M184 132 C184 112 170 102 170 102 C170 102 186 112 184 132 Z" fill="#60A5FA" />
-                <path d="M184 132 C184 116 198 108 198 108 C198 108 186 118 184 132 Z" fill="#93C5FD" />
-
-                {/* Walking Worker */}
-                {/* Yellow Hardhat */}
-                <circle cx="125" cy="54" r="16" fill="#FACC15" />
-                <path d="M110 57 C112 45 138 45 140 57 Z" fill="#EAB308" />
-                <path d="M108 57 L142 57" stroke="#1E293B" strokeWidth="3.5" strokeLinecap="round" />
-
-                {/* Blue Safety Jacket / Uniform */}
-                <path d="M112 70 C112 66 138 66 138 70 L144 114 L106 114 Z" fill="#1D4ED8" />
-
-                {/* White ID Card on Chest */}
-                <rect x="126" y="78" width="10" height="13" rx="2" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1" />
-                <circle cx="131" cy="82" r="1.5" fill="#3B82F6" />
-
-                {/* Arms and Laptop Case */}
-                <path d="M112 76 L98 94 L104 98 L116 82 Z" fill="#1E40AF" />
-                <path d="M136 76 L152 98 L146 102 L132 82 Z" fill="#1E40AF" />
-
-                {/* Black Briefcase / Laptop Bag */}
-                <g transform="rotate(-15 152 105)">
-                  <rect x="144" y="96" width="30" height="22" rx="4" fill="#1E293B" />
-                  <path d="M152 96 L152 91 C152 89 166 89 166 91 L166 96" stroke="#475569" strokeWidth="2" fill="none" />
-                  <circle cx="159" cy="107" r="2.5" fill="#60A5FA" />
-                </g>
-
-                {/* Dark Navy Trousers - Walking Stride */}
-                {/* Left Leg Forward */}
-                <path d="M112 114 L102 162 L120 162 L124 114 Z" fill="#0F172A" />
-                {/* Right Leg Back */}
-                <path d="M132 114 L150 162 L134 162 L122 114 Z" fill="#0F172A" />
-
-                {/* Shoes */}
-                <path d="M98 162 L122 162 C124 162 125 165 123 167 L98 167 Z" fill="#1E293B" />
-                <path d="M130 162 L154 162 C156 162 157 165 155 167 L130 167 Z" fill="#1E293B" />
+            {/* Industrial IoT Hardware Visual (Smart Device from Image 3) */}
+            <div style={{
+              width: '100%',
+              height: '310px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              <svg viewBox="0 0 320 320" fill="none" style={{ width: '100%', height: '100%' }}>
+                {/* Outer shadow */}
+                <ellipse cx="160" cy="270" rx="140" ry="24" fill="black" opacity="0.4" />
+                {/* Robot Main Circular Chassis */}
+                <circle cx="160" cy="160" r="130" fill="#1E293B" stroke="#334155" strokeWidth="4" />
+                {/* Inner Bezel ring */}
+                <circle cx="160" cy="160" r="105" fill="#0F172A" />
+                {/* Upper LIDAR Sensor Tower */}
+                <circle cx="160" cy="140" r="48" fill="#1E293B" stroke="#475569" strokeWidth="3" />
+                <circle cx="160" cy="140" r="32" fill="#0F172A" />
+                <circle cx="160" cy="140" r="14" fill="#2563EB" opacity="0.8" />
+                <circle cx="160" cy="140" r="6" fill="#60A5FA" />
+                {/* Sensor Light Accent */}
+                <path d="M120 180 Q 160 210, 200 180" stroke="#3B82F6" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+                {/* Bumpers & Seams */}
+                <path d="M70 120 C60 160 60 180 70 220" stroke="#334155" strokeWidth="3" fill="none" />
+                <path d="M250 120 C260 160 260 180 250 220" stroke="#334155" strokeWidth="3" fill="none" />
               </svg>
             </div>
 
-            {/* Headline */}
-            <h1 style={{
-              fontSize: '26px',
-              fontWeight: 800,
-              color: '#1E3A8A',
-              lineHeight: 1.25,
-              letterSpacing: '-0.02em',
-              margin: '0 0 14px 0'
-            }}>
-              Discover Your<br />Safety Workspace here
-            </h1>
-
-            {/* Description */}
-            <p style={{
-              fontSize: '14px',
-              color: '#64748B',
-              lineHeight: 1.55,
-              margin: '0 0 32px 0',
-              maxWidth: '320px'
-            }}>
-              Explore all industrial safety capabilities, automated PPE compliance, and unified workforce intelligence.
-            </p>
-
-            {/* Dual Action Buttons */}
-            <div style={{ display: 'flex', width: '100%', gap: '14px' }}>
-              <button
-                type="button"
-                onClick={() => setCurrentPage('login')}
-                style={{
-                  flex: 1,
-                  padding: '14px 0',
-                  backgroundColor: '#1D4ED8',
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  borderRadius: '14px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 24px rgba(29, 78, 216, 0.35)',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Login
-              </button>
-
-              <button
-                type="button"
-                onClick={onSwitchToRegister}
-                style={{
-                  flex: 1,
-                  padding: '14px 0',
-                  backgroundColor: '#FFFFFF',
-                  color: '#1E293B',
-                  fontWeight: 700,
-                  fontSize: '15px',
-                  borderRadius: '14px',
-                  border: '1.5px solid #E2E8F0',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Register
-              </button>
+            {/* Bottom Slider Control Pill from Image 3 */}
+            <div
+              className="smartnest-slider-bar"
+              onClick={() => setSubView('login')}
+            >
+              <span style={{ color: '#94A3B8', fontSize: '16px', paddingLeft: '8px' }}>←</span>
+              <div className="smartnest-slider-play-btn">
+                <Play size={20} fill="#0F172A" />
+              </div>
+              <span style={{ color: '#FFFFFF', fontWeight: 700, fontSize: '15px' }}>Start</span>
+              <span style={{ color: '#94A3B8', fontSize: '15px', paddingRight: '8px' }}>&gt;&gt;&gt;</span>
             </div>
-          </aside>
+          </div>
         )}
 
         {/* =====================================================================
-            PAGE 2: LOGIN HERE FORM CARD (EXACT MATCH TO USER IMAGE 2)
+            SCREEN 2: IMAGE 3 CENTER — LOGIN SCREEN
            ===================================================================== */}
-        {currentPage === 'login' && (
-          <main className="auth-single-card">
-            {/* Top Back Navigation Button */}
-            <div style={{ marginBottom: '16px' }}>
+        {subView === 'login' && (
+          <div className="smartnest-screen-light">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
               <button
                 type="button"
-                onClick={() => setCurrentPage('welcome')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'none',
-                  border: 'none',
-                  color: '#64748B',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: '4px 0'
-                }}
+                onClick={() => setSubView('start')}
+                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}
               >
                 <ArrowLeft size={16} />
-                <span>Back</span>
+                <span>Intro</span>
               </button>
+              <div className="smartnest-brand-header" style={{ margin: 0 }}>
+                Protector AI
+              </div>
+              <div style={{ width: '40px' }} />
             </div>
 
-            <h1 style={{
-              fontSize: '28px',
-              fontWeight: 800,
-              color: '#1E3A8A',
-              letterSpacing: '-0.02em',
-              margin: '0 0 6px 0'
-            }}>
-              Login here
-            </h1>
+            <div className="smartnest-card-container">
+              <h2 className="smartnest-card-title">
+                Welcome to<br />Protector AI login now!
+              </h2>
 
-            <p style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#1E293B',
-              margin: '0 0 22px 0',
-              lineHeight: 1.4
-            }}>
-              Welcome back you've<br />been missed!
-            </p>
-
-            {/* Role Pill Selector */}
-            <div className="auth-role-pill-group">
-              <button
-                type="button"
-                onClick={() => setRole('Administrator')}
-                className={`auth-role-pill ${role === 'Administrator' ? 'active' : ''}`}
-              >
-                Administrator
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('Operator')}
-                className={`auth-role-pill ${role === 'Operator' ? 'active' : ''}`}
-              >
-                Operator
-              </button>
-            </div>
-
-            {error && (
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                backgroundColor: '#FEF2F2',
-                border: '1px solid #FEE2E2',
-                color: '#DC2626',
-                fontSize: '13px',
-                fontWeight: 500,
-                marginBottom: '16px'
-              }}>
-                {error}
+              {/* Role Pill Selector */}
+              <div className="auth-role-pill-group" style={{ marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setRole('Administrator')}
+                  className={`auth-role-pill ${role === 'Administrator' ? 'active' : ''}`}
+                >
+                  Administrator
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('Operator')}
+                  className={`auth-role-pill ${role === 'Operator' ? 'active' : ''}`}
+                >
+                  Operator
+                </button>
               </div>
-            )}
 
-            <form onSubmit={handleSubmit}>
-              {/* Email or Username Input */}
-              <div className="auth-field-modern">
-                <input
-                  id="login-id"
-                  type="text"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Email or Username"
-                  autoComplete="username"
-                  className="auth-input-modern"
+              {error && (
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FEE2E2',
+                  color: '#DC2626',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  marginBottom: '16px'
+                }}>
+                  {error}
+                </div>
+              )}
+
+              {forgotSuccessMsg && (
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: '#F0FDF4',
+                  border: '1px solid #DCFCE7',
+                  color: '#16A34A',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  marginBottom: '16px'
+                }}>
+                  {forgotSuccessMsg}
+                </div>
+              )}
+
+              <form onSubmit={handleLoginSubmit}>
+                {/* Email / Username */}
+                <div className="smartnest-input-group">
+                  <label className="smartnest-label">Email or Username</label>
+                  <input
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="joedoe75@gmail.com"
+                    className="smartnest-input"
+                    disabled={loading}
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="smartnest-input-group" style={{ position: 'relative' }}>
+                  <label className="smartnest-label">Password</label>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="smartnest-input"
+                      style={{ paddingRight: '44px' }}
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '14px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: '#94A3B8',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remember Me & Forgot Password Row from Image 3 */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  margin: '4px 0 16px 0',
+                  fontSize: '12px'
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748B', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      style={{ accentColor: '#2563EB' }}
+                    />
+                    <span>Remember me</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotErrorMsg(null);
+                      setForgotSuccessMsg(null);
+                      setForgotEmail(identifier.includes('@') ? identifier : 'admin@protector.ai');
+                      setSubView('forgot_email');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563EB',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      padding: 0
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                {/* Login Button */}
+                <button
+                  type="submit"
                   disabled={loading}
-                />
-              </div>
-
-              {/* Password Input */}
-              <div className="auth-field-modern" style={{ position: 'relative' }}>
-                <input
-                  id="login-pass"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  autoComplete="current-password"
-                  className="auth-input-modern"
-                  style={{ paddingRight: '44px' }}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={{
-                    position: 'absolute',
-                    right: '14px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#94A3B8',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: 0
-                  }}
+                  className="smartnest-btn-primary"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {loading ? 'Logging in...' : 'Login'}
                 </button>
-              </div>
+              </form>
 
-              {/* Forgot password link */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                <button
-                  type="button"
-                  onClick={() => alert('Password reset: Please contact your site System Administrator.')}
-                  className="auth-forgot-link"
-                >
-                  Forgot your password?
-                </button>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="auth-btn-primary-modern"
-              >
-                {loading ? (
-                  <>
-                    <div className="spinner-icon" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign in</span>
-                    <ArrowRight size={16} />
-                  </>
-                )}
-              </button>
-
-              {/* Create new account link */}
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '16px' }}>
-                <button
-                  type="button"
-                  onClick={onSwitchToRegister}
-                  className="auth-switch-link-modern"
-                >
-                  Create new account
-                </button>
-              </div>
-            </form>
-
-            {/* Social / SSO Section */}
-            <div style={{ marginTop: '24px', textAlign: 'center' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                marginBottom: '16px'
-              }}>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#E2E8F0' }} />
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#1D4ED8' }}>
-                  Or continue with
+              {/* Or Sign in with */}
+              <div style={{ marginTop: '22px', textAlign: 'center' }}>
+                <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: 500 }}>
+                  Or Sign in with
                 </span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#E2E8F0' }} />
-              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                <button
-                  type="button"
-                  title="Sign in with Google Enterprise SSO"
-                  onClick={() => {
-                    setIdentifier('admin');
-                    setPassword('admin123');
-                  }}
-                  style={{
-                    width: '54px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    backgroundColor: '#ECEFF1',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    fontSize: '15px',
-                    color: '#1E293B'
-                  }}
-                >
-                  G
-                </button>
+                <div className="smartnest-social-row">
+                  <button
+                    type="button"
+                    title="Facebook Login"
+                    onClick={() => {
+                      setIdentifier('admin');
+                      setPassword('Admin@123');
+                    }}
+                    className="smartnest-social-btn"
+                  >
+                    <span style={{ color: '#1877F2', fontWeight: 800 }}>f</span>
+                  </button>
 
-                <button
-                  type="button"
-                  title="Sign in with Apple ID"
-                  onClick={() => {
-                    setIdentifier('operator');
-                    setPassword('operator123');
-                  }}
-                  style={{
-                    width: '54px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    backgroundColor: '#ECEFF1',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    fontSize: '17px',
-                    color: '#1E293B'
-                  }}
-                >
-                  
-                </button>
+                  <button
+                    type="button"
+                    title="Google Enterprise Login"
+                    onClick={() => {
+                      setIdentifier('admin');
+                      setPassword('Admin@123');
+                    }}
+                    className="smartnest-social-btn"
+                  >
+                    <span style={{ color: '#EA4335', fontWeight: 800 }}>G</span>
+                  </button>
 
-                <button
-                  type="button"
-                  title="Single Sign-On (SAML / OIDC)"
-                  onClick={() => {
-                    setIdentifier('admin');
-                    setPassword('admin123');
-                  }}
-                  style={{
-                    width: '54px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    backgroundColor: '#ECEFF1',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    color: '#1E293B'
-                  }}
-                >
-                  SSO
-                </button>
+                  <button
+                    type="button"
+                    title="Apple Sign In"
+                    onClick={() => {
+                      setIdentifier('operator');
+                      setPassword('operator123');
+                    }}
+                    className="smartnest-social-btn"
+                  >
+                    <span></span>
+                  </button>
+                </div>
+
+                <div style={{ marginTop: '20px', fontSize: '13px', color: '#64748B' }}>
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={onSwitchToRegister}
+                    style={{ background: 'none', border: 'none', color: '#2563EB', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                  >
+                    Create an Account?
+                  </button>
+                </div>
               </div>
             </div>
-          </main>
+          </div>
+        )}
+
+        {/* =====================================================================
+            SCREEN 4: FORGOT PASSWORD WIZARD (EMAIL OTP -> VERIFY -> RESET)
+           ===================================================================== */}
+        {(subView === 'forgot_email' || subView === 'forgot_otp' || subView === 'forgot_reset') && (
+          <div className="smartnest-screen-light">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <button
+                type="button"
+                onClick={() => setSubView('login')}
+                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Login</span>
+              </button>
+              <div className="smartnest-brand-header" style={{ margin: 0 }}>
+                Protector AI
+              </div>
+              <div style={{ width: '40px' }} />
+            </div>
+
+            <div className="smartnest-card-container">
+              {/* STEP 1: Enter Email */}
+              {subView === 'forgot_email' && (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: '#EFF6FF',
+                      color: '#2563EB',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '10px'
+                    }}>
+                      <Mail size={22} />
+                    </div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                      Reset Password
+                    </h2>
+                    <p style={{ fontSize: '13px', color: '#64748B', margin: '6px 0 0 0' }}>
+                      Enter your email to receive a 6-digit OTP code.
+                    </p>
+                  </div>
+
+                  {forgotErrorMsg && (
+                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '12px', marginBottom: '14px' }}>
+                      {forgotErrorMsg}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSendOtp}>
+                    <div className="smartnest-input-group">
+                      <label className="smartnest-label">Registered Email</label>
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="admin@protector.ai"
+                        className="smartnest-input"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="smartnest-btn-primary"
+                    >
+                      {loading ? 'Sending code...' : 'Send OTP Code'}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              {/* STEP 2: Enter & Match OTP */}
+              {subView === 'forgot_otp' && (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: '#EFF6FF',
+                      color: '#2563EB',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '10px'
+                    }}>
+                      <KeyRound size={22} />
+                    </div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                      Enter Verification Code
+                    </h2>
+                    <p style={{ fontSize: '12.5px', color: '#64748B', margin: '6px 0 0 0' }}>
+                      Sent to <strong>{forgotEmail}</strong>
+                    </p>
+                  </div>
+
+                  {otpPreview && (
+                    <div style={{
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      backgroundColor: '#F0FDF4',
+                      border: '1.5px dashed #22C55E',
+                      color: '#15803D',
+                      fontSize: '12.5px',
+                      marginBottom: '16px',
+                      textAlign: 'center'
+                    }}>
+                      <span>Demo Email OTP Code: </span>
+                      <strong style={{ fontSize: '16px', letterSpacing: '2px' }}>{otpPreview}</strong>
+                    </div>
+                  )}
+
+                  {forgotErrorMsg && (
+                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '12px', marginBottom: '14px' }}>
+                      {forgotErrorMsg}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleVerifyOtp}>
+                    <div className="smartnest-input-group">
+                      <label className="smartnest-label">6-Digit OTP</label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="123456"
+                        className="smartnest-input"
+                        style={{ textAlign: 'center', fontSize: '20px', letterSpacing: '4px', fontWeight: 700 }}
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="smartnest-btn-primary"
+                    >
+                      {loading ? 'Verifying code...' : 'Verify OTP'}
+                    </button>
+
+                    <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        onClick={handleSendOtp}
+                        style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Resend Code
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
+
+              {/* STEP 3: Set New Password & Confirm */}
+              {subView === 'forgot_reset' && (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      backgroundColor: '#EFF6FF',
+                      color: '#2563EB',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '10px'
+                    }}>
+                      <Lock size={22} />
+                    </div>
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                      Set New Password
+                    </h2>
+                    <p style={{ fontSize: '12.5px', color: '#64748B', margin: '6px 0 0 0' }}>
+                      Enter your new password below.
+                    </p>
+                  </div>
+
+                  {forgotErrorMsg && (
+                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '12px', marginBottom: '14px' }}>
+                      {forgotErrorMsg}
+                    </div>
+                  )}
+
+                  {forgotSuccessMsg && (
+                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#F0FDF4', color: '#16A34A', fontSize: '12px', marginBottom: '14px' }}>
+                      {forgotSuccessMsg}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleResetPassword}>
+                    <div className="smartnest-input-group">
+                      <label className="smartnest-label">New Password</label>
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Minimum 8 characters"
+                        className="smartnest-input"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <div className="smartnest-input-group">
+                      <label className="smartnest-label">Confirm Password</label>
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="smartnest-input"
+                        disabled={loading}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="smartnest-btn-primary"
+                    >
+                      {loading ? 'Updating password...' : 'Reset Password'}
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

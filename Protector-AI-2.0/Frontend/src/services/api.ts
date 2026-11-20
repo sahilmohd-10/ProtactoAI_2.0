@@ -523,6 +523,33 @@ export const api = {
     }
   },
 
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string; email: string; otp_preview?: string }> {
+    return fetchJson<{ success: boolean; message: string; email: string; otp_preview?: string }>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<{ success: boolean; message: string; reset_token?: string }> {
+    return fetchJson<{ success: boolean; message: string; reset_token?: string }>('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp })
+    });
+  },
+
+  async resetPassword(data: {
+    email: string;
+    otp?: string;
+    reset_token?: string;
+    new_password: string;
+    confirm_password: string;
+  }): Promise<{ success: boolean; message: string }> {
+    return fetchJson<{ success: boolean; message: string }>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   // ==========================================
   // PERSISTENT CAMERA MONITORING
   // ==========================================
