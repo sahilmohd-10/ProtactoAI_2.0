@@ -61,17 +61,39 @@ const QUICK_ACTIONS = [
   { label: 'Status', command: 'status' }
 ];
 
-const parseBold = (text: string) => {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
+const parseInlineMarkdown = (text: string) => {
+  // Parse `code` and **bold**
+  const codeParts = text.split(/(`.*?`)/g);
+  return codeParts.map((part, i) => {
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
       return (
-        <strong key={i} style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-          {part.slice(2, -2)}
-        </strong>
+        <code
+          key={`c-${i}`}
+          style={{
+            backgroundColor: '#E2E8F0',
+            color: '#0F172A',
+            padding: '1px 6px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 600
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
       );
     }
-    return part;
+    const boldParts = part.split(/(\*\*.*?\*\*)/g);
+    return boldParts.map((bPart, j) => {
+      if (bPart.startsWith('**') && bPart.endsWith('**')) {
+        return (
+          <strong key={`b-${i}-${j}`} style={{ color: '#0F172A', fontWeight: 700 }}>
+            {bPart.slice(2, -2)}
+          </strong>
+        );
+      }
+      return bPart;
+    });
   });
 };
 
@@ -87,11 +109,11 @@ const renderFormattedContent = (content: string) => {
         <h4
           key={idx}
           style={{
-            fontSize: '11.5px',
-            fontWeight: 700,
-            color: 'var(--accent-citron)',
+            fontSize: '12px',
+            fontWeight: 800,
+            color: '#0F5132',
             margin: '8px 0 3px',
-            letterSpacing: '0.04em',
+            letterSpacing: '0.02em',
             textTransform: 'uppercase'
           }}
         >
@@ -104,9 +126,9 @@ const renderFormattedContent = (content: string) => {
         <h3
           key={idx}
           style={{
-            fontSize: '13px',
+            fontSize: '14px',
             fontWeight: 800,
-            color: 'var(--text-primary)',
+            color: '#0F172A',
             margin: '10px 0 4px',
             letterSpacing: '-0.01em'
           }}
@@ -115,18 +137,70 @@ const renderFormattedContent = (content: string) => {
         </h3>
       );
     }
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      const bulletText = trimmed.replace(/^[-*]\s+/, '');
+    // Blockquote
+    if (trimmed.startsWith('> ')) {
       return (
-        <div key={idx} style={{ display: 'flex', gap: '8px', paddingLeft: '4px', margin: '2px 0', color: 'var(--text-secondary)' }}>
-          <span style={{ color: 'var(--accent-citron)', flexShrink: 0 }}>•</span>
-          <div style={{ flex: 1 }}>{parseBold(bulletText)}</div>
+        <div
+          key={idx}
+          style={{
+            borderLeft: '3px solid #0F5132',
+            paddingLeft: '10px',
+            margin: '6px 0',
+            backgroundColor: '#F8FAFC',
+            paddingTop: '4px',
+            paddingBottom: '4px',
+            borderRadius: '0 6px 6px 0',
+            color: '#1E293B',
+            fontSize: '12px'
+          }}
+        >
+          {parseInlineMarkdown(trimmed.replace(/^>\s+/, ''))}
+        </div>
+      );
+    }
+    // Numbered list item e.g. "1. " or "2. "
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const match = trimmed.match(/^(\d+\.)\s+(.*)/);
+      const num = match ? match[1] : '';
+      const body = match ? match[2] : trimmed;
+      return (
+        <div key={idx} style={{ display: 'flex', gap: '8px', paddingLeft: '4px', margin: '4px 0', color: '#1E293B' }}>
+          <span style={{ color: '#0F5132', flexShrink: 0, fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{num}</span>
+          <div style={{ flex: 1, color: '#0F172A', fontWeight: 600 }}>{parseInlineMarkdown(body)}</div>
+        </div>
+      );
+    }
+    // Bullet list item
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+      const bulletText = trimmed.replace(/^[-*•]\s+/, '');
+      return (
+        <div key={idx} style={{ display: 'flex', gap: '8px', paddingLeft: '8px', margin: '3px 0', color: '#334155' }}>
+          <span style={{ color: '#0F5132', flexShrink: 0, fontWeight: 800 }}>•</span>
+          <div style={{ flex: 1, color: '#1E293B' }}>{parseInlineMarkdown(bulletText)}</div>
+        </div>
+      );
+    }
+    // Subsection headers e.g. "Post-Evacuation:" or "Status:"
+    if (trimmed.endsWith(':') && trimmed.length < 50 && !trimmed.includes('.')) {
+      return (
+        <div
+          key={idx}
+          style={{
+            fontWeight: 800,
+            color: '#0F5132',
+            fontSize: '12px',
+            margin: '8px 0 2px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.02em'
+          }}
+        >
+          {trimmed}
         </div>
       );
     }
     return (
-      <div key={idx} style={{ margin: '2px 0', color: 'var(--text-secondary)' }}>
-        {parseBold(trimmed)}
+      <div key={idx} style={{ margin: '3px 0', color: '#1E293B', lineHeight: 1.6 }}>
+        {parseInlineMarkdown(trimmed)}
       </div>
     );
   });
@@ -448,29 +522,30 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     if (res.type === 'ai_response') {
       return (
         <div style={{
-          backgroundColor: '#0D1015',
-          border: '1px solid var(--border-charcoal)',
-          borderRadius: '6px',
-          padding: '12px 14px',
-          margin: '6px 0'
+          backgroundColor: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '10px',
+          padding: '14px 16px',
+          margin: '8px 0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--safety-safe)' }} />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.04em' }}>
-                {res.title || 'AI AUDIT REPORT'}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid #E2E8F0', paddingBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 800, color: '#0F5132', letterSpacing: '0.04em' }}>
+                {res.title || 'AI AUDIT & ADVISORY REPORT'}
               </span>
             </div>
             {res.data && (res.data as any).elapsed_ms && (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#64748B' }}>
                 {(res.data as any).elapsed_ms}ms · {(res.data as any).tokens || 0} tokens
               </span>
             )}
           </div>
           <div style={{
-            fontSize: '12px',
-            color: 'var(--text-secondary)',
-            lineHeight: 1.5,
+            fontSize: '12.5px',
+            color: '#1E293B',
+            lineHeight: 1.6,
             fontFamily: 'var(--font-sans)'
           }}>
             {renderFormattedContent(res.output || '')}
@@ -483,24 +558,25 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
       const d = res.data;
       return (
         <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: '6px',
-          padding: '12px 16px',
-          margin: '6px 0'
+          backgroundColor: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          margin: '8px 0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 600 }}>
             {res.title || 'TELEMETRY RESULT'}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '26px', fontWeight: 800, color: 'var(--safety-safe)', fontFamily: 'var(--font-mono)' }}>
+            <span style={{ fontSize: '28px', fontWeight: 800, color: '#0F5132', fontFamily: 'var(--font-mono)' }}>
               {d.compliance_rate}%
             </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 500 }}>
               Operational Compliance
             </span>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+          <div style={{ fontSize: '12px', color: '#334155', lineHeight: 1.5 }}>
             {res.output}
           </div>
         </div>
@@ -510,20 +586,21 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     if (res.type === 'status_card' && res.data) {
       return (
         <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-medium)',
-          borderRadius: '6px',
-          padding: '12px 16px',
-          margin: '6px 0'
+          backgroundColor: '#F8FAFC',
+          border: '1px solid #E2E8F0',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          margin: '8px 0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
         }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--accent-citron)', marginBottom: '8px' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 800, color: '#0F5132', marginBottom: '10px' }}>
             {res.title?.toUpperCase()}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
             {Object.entries(res.data).map(([k, v]) => (
               <div key={k}>
-                <span style={{ color: 'var(--text-tertiary)' }}>{k.toUpperCase()}: </span>
-                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{String(v)}</span>
+                <span style={{ color: '#64748B' }}>{k.toUpperCase()}: </span>
+                <span style={{ color: '#0F172A', fontWeight: 700 }}>{String(v)}</span>
               </div>
             ))}
           </div>
@@ -534,24 +611,25 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     if (res.type === 'table' && res.columns && res.rows) {
       return (
         <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-charcoal)',
-          borderRadius: '6px',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '10px',
           overflow: 'hidden',
-          margin: '6px 0',
-          maxWidth: '100%'
+          margin: '8px 0',
+          maxWidth: '100%',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
         }}>
           {res.title && (
-            <div style={{ padding: '6px 12px', borderBottom: '1px solid var(--border-subtle)', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--accent-citron)' }}>
+            <div style={{ padding: '8px 14px', borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 800, color: '#0F5132' }}>
               {res.title.toUpperCase()}
             </div>
           )}
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left', fontFamily: 'var(--font-mono)' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-surface-elevated)' }}>
+                <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
                   {res.columns.map((col, idx) => (
-                    <th key={idx} style={{ padding: '6px 10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+                    <th key={idx} style={{ padding: '8px 12px', color: '#475569', textTransform: 'uppercase', fontWeight: 700 }}>
                       {col}
                     </th>
                   ))}
@@ -559,9 +637,9 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
               </thead>
               <tbody>
                 {res.rows.map((row, rIdx) => (
-                  <tr key={rIdx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <tr key={rIdx} style={{ borderBottom: '1px solid #F1F5F9' }}>
                     {row.map((cell, cIdx) => (
-                      <td key={cIdx} style={{ padding: '6px 10px', color: cIdx === 0 ? 'var(--accent-citron)' : '#FFFFFF' }}>
+                      <td key={cIdx} style={{ padding: '8px 12px', color: cIdx === 0 ? '#0F5132' : '#0F172A', fontWeight: cIdx === 0 ? 700 : 500 }}>
                         {String(cell)}
                       </td>
                     ))}
@@ -578,14 +656,14 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
       const isKeyError = res.output?.toLowerCase().includes('openrouter api key') || res.output?.toLowerCase().includes('sk-or-v1');
       return (
         <div style={{
-          padding: '10px 14px',
-          backgroundColor: 'var(--safety-violation-bg)',
-          border: '1px solid var(--safety-violation-border)',
-          borderRadius: '6px',
-          color: 'var(--safety-violation)',
+          padding: '12px 16px',
+          backgroundColor: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: '10px',
+          color: '#B91C1C',
           fontSize: '12px',
           fontFamily: 'var(--font-mono)',
-          margin: '6px 0',
+          margin: '8px 0',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px'
@@ -599,12 +677,16 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                   setKeyInput('');
                   setShowKeyModal(true);
                 }}
-                className="btn-citron"
                 style={{
                   fontSize: '11px',
-                  padding: '4px 10px',
+                  padding: '6px 12px',
                   fontFamily: 'var(--font-mono)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  backgroundColor: '#0F5132',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600
                 }}
               >
                 Configure OpenRouter Key
@@ -620,9 +702,13 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
         whiteSpace: 'pre-wrap',
         fontFamily: 'inherit',
         fontSize: '11.5px',
-        color: '#D8DCD3',
-        lineHeight: 1.5,
-        margin: '4px 0'
+        color: '#1E293B',
+        backgroundColor: '#F8FAFC',
+        border: '1px solid #E2E8F0',
+        borderRadius: '8px',
+        padding: '10px 14px',
+        lineHeight: 1.6,
+        margin: '6px 0'
       }}>
         {res.output}
       </pre>
@@ -655,9 +741,9 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
           bottom: 0,
           width: '580px',
           maxWidth: '92vw',
-          backgroundColor: '#090B0F',
-          borderLeft: '1px solid var(--border-charcoal)',
-          boxShadow: 'var(--shadow-elevated)',
+          backgroundColor: '#FFFFFF',
+          borderLeft: '1.5px solid #E2E8F0',
+          boxShadow: '0 20px 60px rgba(15, 23, 42, 0.15)',
           zIndex: 100,
           display: 'flex',
           flexDirection: 'column',
@@ -668,18 +754,18 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
       >
         {/* Slidebar Top Header - Simple & Clean */}
         <div style={{
-          height: '50px',
-          backgroundColor: '#11151B',
-          borderBottom: '1px solid var(--border-subtle)',
+          height: '52px',
+          backgroundColor: '#FFFFFF',
+          borderBottom: '1px solid #E2E8F0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 16px',
+          padding: '0 18px',
           flexShrink: 0
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.04em' }}>
-              TERMINAL
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 800, color: '#0F172A', letterSpacing: '0.04em' }}>
+              HELP & OPS CONSOLE
             </span>
             <button
               type="button"
@@ -690,14 +776,15 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '5px',
-                fontSize: '10px',
+                fontSize: '11px',
                 fontFamily: 'var(--font-mono)',
-                color: openrouterStatus?.connected ? 'var(--safety-safe)' : 'var(--accent-citron)',
-                background: 'transparent',
-                border: 'none',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                cursor: isAdministrator ? 'pointer' : 'default'
+                color: openrouterStatus?.connected ? '#0F5132' : '#B45309',
+                backgroundColor: openrouterStatus?.connected ? '#ECFDF5' : '#FEF3C7',
+                border: `1px solid ${openrouterStatus?.connected ? '#A7F3D0' : '#FDE68A'}`,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                cursor: isAdministrator ? 'pointer' : 'default',
+                fontWeight: 600
               }}
               title={openrouterStatus?.connected ? 'OpenRouter Cloud Neural Engine Online' : 'Local Safety Kernel Active. Click to configure OpenRouter API Key for Cloud LLM.'}
             >
@@ -705,7 +792,7 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                backgroundColor: openrouterStatus?.connected ? 'var(--safety-safe)' : 'var(--accent-citron)'
+                backgroundColor: openrouterStatus?.connected ? '#10B981' : '#F59E0B'
               }} />
               <span>{openrouterStatus?.connected ? 'Cloud AI Online' : 'Local Safety AI'}</span>
             </button>
@@ -719,13 +806,14 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 api.updateOpenRouterConfig({ model: e.target.value });
               }}
               style={{
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-charcoal)',
-                borderRadius: '5px',
-                padding: '3px 8px',
-                color: 'var(--accent-citron)',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                color: '#0F172A',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
+                fontSize: '11.5px',
+                fontWeight: 600,
                 outline: 'none',
                 cursor: 'pointer'
               }}
@@ -743,12 +831,13 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
               }}
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '10.5px',
-                padding: '3px 8px',
-                borderRadius: '5px',
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-charcoal)',
-                color: 'var(--text-secondary)',
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                color: '#334155',
                 cursor: 'pointer'
               }}
               title="Configure OpenRouter API Key"
@@ -759,17 +848,17 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             <button
               onClick={onClose}
               style={{
-                width: '26px',
-                height: '26px',
+                width: '28px',
+                height: '28px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'transparent',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '5px',
-                color: 'var(--text-secondary)',
+                background: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                borderRadius: '6px',
+                color: '#64748B',
                 cursor: 'pointer',
-                fontSize: '12px'
+                fontSize: '13px'
               }}
               title="Close Terminal [Esc]"
             >
@@ -780,11 +869,11 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
 
         {/* Saved conversations are scoped to the signed-in user. */}
         <div style={{
-          padding: '7px 12px',
+          padding: '8px 16px',
           display: 'flex',
           gap: '8px',
-          borderBottom: '1px solid var(--border-subtle)',
-          backgroundColor: '#0C0F14',
+          borderBottom: '1px solid #E2E8F0',
+          backgroundColor: '#F8FAFC',
           flexShrink: 0
         }}>
           <select
@@ -795,13 +884,14 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             style={{
               flex: 1,
               minWidth: 0,
-              backgroundColor: 'var(--bg-app)',
-              border: '1px solid var(--border-charcoal)',
-              borderRadius: '5px',
-              padding: '5px 8px',
-              color: 'var(--text-primary)',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              color: '#0F172A',
               fontFamily: 'var(--font-sans)',
-              fontSize: '11px'
+              fontSize: '12px',
+              fontWeight: 500
             }}
           >
             {conversations.map((conversation) => (
@@ -814,8 +904,21 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             type="button"
             onClick={handleCreateConversation}
             disabled={isLoading || isLoadingConversation}
-            className="btn-secondary"
-            style={{ padding: '4px 9px', fontSize: '11px', flexShrink: 0 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              backgroundColor: '#0F5132',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 2px rgba(15, 81, 50, 0.2)'
+            }}
             title="Start a new saved conversation"
           >
             <Plus size={13} />
@@ -825,9 +928,9 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
 
         {/* Minimal Quick Action Strip */}
         <div style={{
-          padding: '6px 16px',
-          backgroundColor: '#0C0F14',
-          borderBottom: '1px solid var(--border-subtle)',
+          padding: '8px 16px',
+          backgroundColor: '#F8FAFC',
+          borderBottom: '1px solid #E2E8F0',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
@@ -841,13 +944,15 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
               disabled={isLoading || isLoadingConversation}
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '10px',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                backgroundColor: 'var(--bg-surface-elevated)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer'
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '4px 10px',
+                borderRadius: '6px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #CBD5E1',
+                color: '#334155',
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}
             >
               {qa.label}
@@ -860,12 +965,12 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             style={{
               marginLeft: 'auto',
               fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
-              padding: '2px 6px',
-              borderRadius: '3px',
+              fontSize: '11px',
+              padding: '4px 8px',
+              borderRadius: '4px',
               background: 'transparent',
               border: 'none',
-              color: 'var(--text-tertiary)',
+              color: '#94A3B8',
               cursor: 'pointer'
             }}
           >
@@ -877,37 +982,38 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
         <div style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '14px 18px',
-          fontSize: '12px',
+          padding: '16px 20px',
+          fontSize: '12.5px',
           lineHeight: 1.6,
           fontFamily: 'var(--font-mono)',
-          color: '#E5E7EB',
+          backgroundColor: '#FFFFFF',
+          color: '#0F172A',
           userSelect: 'text'
         }}>
           {isLoadingConversation && (
-            <div style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginBottom: '10px' }}>
+            <div style={{ color: '#64748B', fontSize: '11.5px', marginBottom: '10px' }}>
               Loading saved conversation...
             </div>
           )}
           {history.map((item) => (
-            <div key={item.id} style={{ marginBottom: '12px' }}>
+            <div key={item.id} style={{ marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: 'var(--accent-citron)', fontWeight: 700 }}>protector@ops</span>
-                <span style={{ color: 'var(--text-muted)' }}>:~$</span>
-                <span style={{ color: '#F4F5F2', fontWeight: 600 }}>{item.command}</span>
-                <span style={{ fontSize: '9.5px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{item.timestamp}</span>
+                <span style={{ color: '#0F5132', fontWeight: 800 }}>protector@ops</span>
+                <span style={{ color: '#64748B' }}>:~$</span>
+                <span style={{ color: '#0F172A', fontWeight: 700 }}>{item.command}</span>
+                <span style={{ fontSize: '10px', color: '#94A3B8', marginLeft: 'auto' }}>{item.timestamp}</span>
               </div>
 
-              <div style={{ marginTop: '4px' }}>
+              <div style={{ marginTop: '6px' }}>
                 {renderResult(item.result)}
               </div>
             </div>
           ))}
 
           {isLoading && (
-            <div style={{ color: 'var(--accent-citron)', fontSize: '11px', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0' }} className="animate-signal-pulse">
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-citron)' }} />
-              <span>Executing command & processing system telemetry...</span>
+            <div style={{ color: '#0F5132', fontSize: '11.5px', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 0' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#0F5132' }} />
+              <span style={{ fontWeight: 600 }}>Executing command & processing system telemetry...</span>
             </div>
           )}
 
@@ -916,17 +1022,18 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
 
         {/* Input Bar - Simple & Clean */}
         <div style={{
-          padding: '12px 16px',
-          backgroundColor: '#11151B',
-          borderTop: '1px solid var(--border-subtle)',
+          padding: '14px 18px',
+          backgroundColor: '#FFFFFF',
+          borderTop: '1px solid #E2E8F0',
           flexShrink: 0
         }}>
           {(terminalError || voiceError) && (
             <div role="status" style={{
-              color: 'var(--safety-violation)',
-              fontSize: '11px',
+              color: '#DC2626',
+              fontSize: '11.5px',
               marginBottom: '8px',
-              lineHeight: 1.4
+              lineHeight: 1.4,
+              fontWeight: 500
             }}>
               {terminalError || voiceError}
             </div>
@@ -935,12 +1042,12 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            backgroundColor: 'var(--bg-app)',
-            border: '1px solid var(--border-charcoal)',
-            borderRadius: '6px',
-            padding: '4px 12px'
+            backgroundColor: '#F8FAFC',
+            border: '1.5px solid #CBD5E1',
+            borderRadius: '8px',
+            padding: '5px 12px'
           }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--accent-citron)', fontWeight: 700 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#0F5132', fontWeight: 800 }}>
               &gt;
             </span>
             <input
@@ -958,8 +1065,9 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 border: 'none',
                 outline: 'none',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '12px',
-                color: '#FFFFFF',
+                fontSize: '12.5px',
+                color: '#0F172A',
+                fontWeight: 500,
                 padding: '6px 0'
               }}
             />
@@ -975,10 +1083,10 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '5px',
-                border: `1px solid ${isListening ? 'var(--safety-violation-border)' : 'var(--border-medium)'}`,
-                backgroundColor: isListening ? 'var(--safety-violation-bg)' : 'var(--bg-surface-elevated)',
-                color: isListening ? 'var(--safety-violation)' : 'var(--text-secondary)',
+                borderRadius: '6px',
+                border: `1px solid ${isListening ? '#FECACA' : '#CBD5E1'}`,
+                backgroundColor: isListening ? '#FEF2F2' : '#FFFFFF',
+                color: isListening ? '#DC2626' : '#475569',
                 cursor: isLoading || isLoadingConversation ? 'not-allowed' : 'pointer',
                 flexShrink: 0
               }}
@@ -988,8 +1096,18 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
             <button
               onClick={() => handleExecute(inputVal)}
               disabled={isLoading || isLoadingConversation || !inputVal.trim()}
-              className="btn-citron"
-              style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '4px' }}
+              style={{
+                fontSize: '11.5px',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                backgroundColor: '#0F5132',
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: 700,
+                cursor: isLoading || isLoadingConversation || !inputVal.trim() ? 'not-allowed' : 'pointer',
+                boxShadow: '0 1px 3px rgba(15, 81, 50, 0.25)',
+                opacity: isLoading || isLoadingConversation || !inputVal.trim() ? 0.6 : 1
+              }}
             >
               Run
             </button>
@@ -1005,7 +1123,7 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
           backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
@@ -1015,33 +1133,33 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
           <div style={{
             width: '90%',
             maxWidth: '520px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-medium)',
-            borderRadius: '12px',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '16px',
             padding: '24px 28px',
-            boxShadow: '0 24px 64px rgba(0, 0, 0, 0.8)'
+            boxShadow: '0 24px 64px rgba(15, 23, 42, 0.2)'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid #E2E8F0', paddingBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 800, color: 'var(--accent-citron)' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
                   OPENROUTER API KEY CONFIGURATION
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setShowKeyModal(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '16px' }}
+                style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer', fontSize: '16px' }}
               >
                 ✕
               </button>
             </div>
 
-            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '16px' }}>
+            <p style={{ fontSize: '12.5px', color: '#475569', lineHeight: 1.5, marginBottom: '16px' }}>
               Configure your active OpenRouter API key for autonomous computer vision safety inspections and intelligent operations commands.
             </p>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#334155', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase' }}>
                 OpenRouter Key (sk-or-v1-...)
               </label>
               <input
@@ -1051,11 +1169,11 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
                 placeholder="sk-or-v1-..."
                 style={{
                   width: '100%',
-                  backgroundColor: 'var(--bg-app)',
-                  border: '1px solid var(--border-medium)',
-                  borderRadius: '6px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '8px',
                   padding: '9px 12px',
-                  color: 'var(--text-primary)',
+                  color: '#0F172A',
                   fontFamily: 'var(--font-mono)',
                   fontSize: '12px',
                   outline: 'none'
@@ -1067,16 +1185,33 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowKeyModal(false)}
-                className="btn-secondary"
-                style={{ fontSize: '12px', padding: '8px 16px' }}
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F1F5F9',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '8px',
+                  color: '#334155',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveKeyConfig}
-                className="btn-citron"
-                style={{ fontSize: '12px', padding: '8px 18px' }}
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 18px',
+                  backgroundColor: '#0F5132',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(15, 81, 50, 0.2)'
+                }}
               >
                 Save Configuration
               </button>
