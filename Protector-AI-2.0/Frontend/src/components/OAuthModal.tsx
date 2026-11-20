@@ -101,10 +101,10 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       setError('GitHub Client ID is not configured.');
       return;
     }
-    const redirectUri = window.location.origin + window.location.pathname;
+    // GitHub redirects to the registered Authorization callback URL in your GitHub OAuth App settings
     const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
       githubClientId
-    )}&scope=read:user,user:email&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    )}&scope=read:user,user:email`;
     window.location.href = authUrl;
   };
 
