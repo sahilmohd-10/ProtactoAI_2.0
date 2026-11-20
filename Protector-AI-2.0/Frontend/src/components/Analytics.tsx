@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { AnalyticsData, PPEStats } from '../types';
 import { api } from '../services/api';
-import { ArrowUpRight, Download, Filter, RefreshCw, Box } from 'lucide-react';
+import { ArrowUpRight, Download, Filter, RefreshCw, Box, Maximize2 } from 'lucide-react';
 import { Analytics3DChart } from './Analytics3DChart';
+import { ExpandedGraphModal, GraphModalType } from './ExpandedGraphModal';
 
 interface AnalyticsProps {
   analytics: AnalyticsData | null;
@@ -12,9 +13,10 @@ interface AnalyticsProps {
 export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('7d');
   const [hoveredMonth, setHoveredMonth] = useState<number>(4); // default May
+  const [expandedGraph, setExpandedGraph] = useState<GraphModalType>(null);
 
-  const complianceRate = stats?.compliance_rate ?? 98.4;
-  const activeWorkers = stats?.active_workers_monitored ?? 360524;
+  const complianceRate = stats?.compliance_rate ?? 95.6;
+  const activeWorkers = stats?.active_workers_monitored ?? 51;
   const activeViolations = stats?.active_violations ?? 4;
   const totalViolations = (stats as any)?.total_violations_today ?? 15491;
 
@@ -125,14 +127,21 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
         </div>
       </div>
 
-      {/* 4 Top KPI Cards (Matching Image 2 Exactly) */}
+      {/* 4 Top KPI Cards (Click to Open Expanded Graphs) */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: '20px'
       }}>
         {/* Card 1: Total Workforce / Total Cases */}
-        <div className="stat-card-modern">
+        <div
+          className="stat-card-modern"
+          onClick={() => setExpandedGraph('workforce')}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          title="Click to open detailed workforce deployment graph"
+        >
           <div className="stat-card-header">
             <span className="stat-card-title">Total Workforce</span>
             <span className="stat-card-arrow stat-card-arrow-red">
@@ -158,7 +167,14 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
         </div>
 
         {/* Card 2: PPE Compliance / Recovered */}
-        <div className="stat-card-modern">
+        <div
+          className="stat-card-modern"
+          onClick={() => setExpandedGraph('compliance')}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          title="Click to open detailed PPE compliance graph"
+        >
           <div className="stat-card-header">
             <span className="stat-card-title">PPE Compliance Rate</span>
             <span className="stat-card-arrow stat-card-arrow-green">
@@ -184,7 +200,14 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
         </div>
 
         {/* Card 3: Active Hazards / Active Cases */}
-        <div className="stat-card-modern">
+        <div
+          className="stat-card-modern"
+          onClick={() => setExpandedGraph('hazards')}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          title="Click to open detailed active hazards breakdown graph"
+        >
           <div className="stat-card-header">
             <span className="stat-card-title">Active Hazards</span>
             <span className="stat-card-arrow stat-card-arrow-red">
@@ -210,7 +233,14 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
         </div>
 
         {/* Card 4: Total Violations Logged */}
-        <div className="stat-card-modern">
+        <div
+          className="stat-card-modern"
+          onClick={() => setExpandedGraph('violations')}
+          role="button"
+          tabIndex={0}
+          style={{ cursor: 'pointer' }}
+          title="Click to open detailed safety violations log graph"
+        >
           <div className="stat-card-header">
             <span className="stat-card-title">Total Violations Logged</span>
             <span className="stat-card-arrow stat-card-arrow-red">
@@ -262,29 +292,42 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
             </h2>
             <button
               type="button"
-              onClick={() => alert('Detailed breakdown: 94.2% Protected, 4.6% Warning, 1.2% Infraction.')}
+              onClick={() => setExpandedGraph('compliance')}
               style={{
-                background: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#F1F5F9',
                 border: 'none',
-                color: '#64748B',
-                fontSize: '12.5px',
-                fontWeight: 600,
+                padding: '4px 10px',
+                borderRadius: '8px',
+                color: '#0F172A',
+                fontSize: '12px',
+                fontWeight: 700,
                 cursor: 'pointer'
               }}
             >
-              View Details
+              <Maximize2 size={12} />
+              <span>Open Graph</span>
             </button>
           </div>
 
-          {/* Semicircular / Radial Donut Progress Meter */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '28px 0 20px 0',
-            position: 'relative'
-          }}>
+          {/* Semicircular / Radial Donut Progress Meter (Click to Expand) */}
+          <div
+            onClick={() => setExpandedGraph('compliance')}
+            role="button"
+            tabIndex={0}
+            title="Click to open detailed compliance graph"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '28px 0 20px 0',
+              position: 'relative',
+              cursor: 'pointer'
+            }}
+          >
             <svg viewBox="0 0 200 120" style={{ width: '220px', height: '130px', overflow: 'visible' }}>
               {/* Outer Red Arc */}
               <path
@@ -405,8 +448,8 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
               </p>
             </div>
 
-            {/* Legend matching Image 2 */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Legend & Expand Action */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#DC2626' }} />
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Infractions</span>
@@ -415,11 +458,38 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#16A34A' }} />
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Safe Compliance</span>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setExpandedGraph('trajectory')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: '#F1F5F9',
+                  border: 'none',
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  color: '#0F172A',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                <Maximize2 size={12} />
+                <span>Open Graph</span>
+              </button>
             </div>
           </div>
 
-          {/* SVG Wavy Dual-Line Chart with Interactive Floating Tooltip */}
-          <div style={{ position: 'relative', width: '100%', height: '240px', marginTop: '10px' }}>
+          {/* SVG Wavy Dual-Line Chart (Click to Expand) */}
+          <div
+            onClick={() => setExpandedGraph('trajectory')}
+            role="button"
+            tabIndex={0}
+            title="Click to open detailed trajectory graph"
+            style={{ position: 'relative', width: '100%', height: '240px', marginTop: '10px', cursor: 'pointer' }}
+          >
             <svg
               viewBox="0 0 600 200"
               style={{ width: '100%', height: '100%', overflow: 'visible' }}
@@ -541,6 +611,14 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
           </div>
         </div>
       </div>
+
+      {/* Expanded Interactive Graph Modal */}
+      <ExpandedGraphModal
+        type={expandedGraph}
+        onClose={() => setExpandedGraph(null)}
+        stats={stats}
+        analytics={analytics}
+      />
     </div>
   );
 };
