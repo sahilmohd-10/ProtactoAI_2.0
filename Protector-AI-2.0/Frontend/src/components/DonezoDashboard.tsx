@@ -431,7 +431,8 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
             </h2>
             <button
               type="button"
-              onClick={() => onNavigate('attendance')}
+              onClick={() => window.open('/api/attendance/export-excel', '_blank')}
+              title="Download Live Attendance Register (.xlsx)"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -446,7 +447,8 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                 cursor: 'pointer'
               }}
             >
-              Full Register
+              <Download size={12} />
+              <span>Export Excel</span>
             </button>
           </div>
 

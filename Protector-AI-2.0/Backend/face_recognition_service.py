@@ -293,11 +293,11 @@ class FaceRecognitionService:
         augmented across lighting, micro-rotations, and zooms for maximum operational accuracy.
         """
         self.ensure_available()
-        if not isinstance(images, list) or len(images) < 1 or len(images) > 10:
-            raise ValueError("Provide between 1 and 10 face images for enrollment.")
+        if not isinstance(images, list) or len(images) < 1 or len(images) > 25:
+            raise ValueError("Provide between 1 and 25 face images for enrollment.")
         if any(not isinstance(image, str) for image in images):
             raise ValueError("Enrollment images must be encoded image data.")
-        if sum(len(image) for image in images) > 25_000_000:
+        if sum(len(image) for image in images) > 35_000_000:
             raise ValueError("Enrollment image data is too large. Reduce the camera resolution and try again.")
 
         raw_face_crops: list[np.ndarray] = []
@@ -331,12 +331,18 @@ class FaceRecognitionService:
                     center_crop = image[int(h * 0.05):int(h * 0.95), int(w * 0.05):int(w * 0.95)]
                     faces = [(cv2.resize(center_crop, FACE_SIZE), (0, 0, w, h))]
                 else:
+                    if len(images) > 1:
+                        # In multi-angle scan, skip transient frames where head was turning
+                        continue
                     raise ValueError("No clearly visible face detected in the enrollment image. Ensure good lighting and face camera directly.")
 
             # If multiple faces detected in one image, pick the PRIMARY (largest / most central) face
             faces.sort(key=lambda f: f[1][2] * f[1][3], reverse=True)
             primary_face_crop = faces[0][0]
             raw_face_crops.append(primary_face_crop)
+
+        if len(raw_face_crops) == 0:
+            raise ValueError("No clearly visible face detected in any of the captured angles. Ensure good lighting and face camera directly.")
 
         # Advanced Biometric Data Augmentation & Feature Training
         all_face_variations: list[np.ndarray] = []

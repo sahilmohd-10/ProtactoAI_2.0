@@ -4,7 +4,6 @@ import {
   Camera,
   AlertTriangle,
   BarChart3,
-  CalendarCheck,
   Users,
   Settings,
   HelpCircle,
@@ -37,7 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'console', label: 'Tasks / Camera', icon: Camera, badge: '12+' },
     { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
-    { id: 'attendance', label: 'Calendar / Shifts', icon: CalendarCheck },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'people', label: 'Team', icon: Users, adminOnly: true }
   ];
