@@ -409,5 +409,104 @@ class ProtectorAITestSuite(unittest.TestCase):
         self.assertTrue(stop_data["success"])
         self.assertEqual(stop_data["status"]["status"], "Stopped")
 
+    # ==========================================
+    # BIOMETRIC ATTENDANCE & EXCEL REGISTRY TESTS
+    # ==========================================
+
+    def test_18_attendance_system_and_excel(self):
+        import os
+        from pathlib import Path
+
+        # 1. Fetch attendance summary
+        res = self.client.get("/api/attendance/summary")
+        self.assertEqual(res.status_code, 200)
+        summary = res.get_json()
+        self.assertIn("total_enrolled", summary)
+        self.assertIn("present_today", summary)
+        self.assertIn("excel_path", summary)
+
+        # 2. Mark attendance manually
+        mark_res = self.client.post("/api/attendance/mark", json={
+            "person_name": "Mohd Sahil",
+            "status": "Present",
+            "notes": "Verified at Gate 1"
+        })
+        self.assertEqual(mark_res.status_code, 201)
+        mark_data = mark_res.get_json()
+        self.assertTrue(mark_data["success"])
+        self.assertEqual(mark_data["record"]["person_name"], "Mohd Sahil")
+
+        # 3. Query attendance records
+        list_res = self.client.get("/api/attendance?name=Sahil")
+        self.assertEqual(list_res.status_code, 200)
+        list_data = list_res.get_json()
+        self.assertGreaterEqual(list_data["total"], 1)
+
+        # 4. Trigger Excel sync
+        sync_res = self.client.post("/api/attendance/sync-excel")
+        self.assertEqual(sync_res.status_code, 200)
+        sync_data = sync_res.get_json()
+        self.assertTrue(sync_data["success"])
+
+        # 5. Export / download Excel
+        export_res = self.client.get("/api/attendance/export")
+        self.assertEqual(export_res.status_code, 200)
+        self.assertEqual(
+            export_res.mimetype,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        export_res.close()
+
+        # 6. Check Excel file on disk
+        excel_path = Path(summary["excel_path"])
+        self.assertTrue(excel_path.exists())
+
+    def test_19_mark_attendance_by_image_processing(self):
+        from unittest.mock import patch
+
+        # 1. Missing image returns 400
+        res_empty = self.client.post("/api/attendance/process-image", json={})
+        self.assertEqual(res_empty.status_code, 400)
+        self.assertIn("error", res_empty.get_json())
+
+        # 2. Blank black image returns 400 (no face detected)
+        import base64
+        import cv2
+        import numpy as np
+
+        blank_img = np.zeros((200, 200, 3), dtype=np.uint8)
+        _, buf = cv2.imencode(".jpg", blank_img)
+        b64_data = f"data:image/jpeg;base64,{base64.b64encode(buf.tobytes()).decode('ascii')}"
+
+        res_blank = self.client.post("/api/attendance/process-image", json={"image": b64_data})
+        self.assertEqual(res_blank.status_code, 400)
+        self.assertIn("No face detected", res_blank.get_json()["error"])
+
+        # 3. Successful match marking attendance
+        fake_matches = [{
+            "profile_id": 1,
+            "name": "Mohd Sahil",
+            "distance": 42.5,
+            "enrolled": True,
+            "box": (10, 10, 100, 100)
+        }]
+
+        with patch("app.face_recognition_service.recognize_all_matches", return_value=fake_matches):
+            res_match = self.client.post("/api/attendance/process-image", json={
+                "image": b64_data,
+                "camera_source": "Test Camera Optical Stream"
+            })
+            self.assertEqual(res_match.status_code, 200)
+            data = res_match.get_json()
+            self.assertTrue(data["success"])
+            self.assertIn("Mohd Sahil", data["recognized_workers"])
+            self.assertTrue(data["excel_synced"])
+
+            # Verify attendance record exists for today
+            rec = data["records"][0]
+            self.assertEqual(rec["person_name"], "Mohd Sahil")
+            self.assertIn(rec["status"], ["Present", "Half Day", "Full Day"])
+
 if __name__ == "__main__":
     unittest.main()
+

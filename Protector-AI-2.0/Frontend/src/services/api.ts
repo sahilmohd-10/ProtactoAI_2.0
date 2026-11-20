@@ -10,7 +10,9 @@ import {
   TerminalResult,
   FaceProfile,
   FaceVisitLog,
-  RecognizedPerson
+  RecognizedPerson,
+  AttendanceRecord,
+  AttendanceSummary
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000';
@@ -368,6 +370,107 @@ export const api = {
   async deletePerson(profileId: number): Promise<{ success: boolean; message: string }> {
     return fetchJson(`/api/people/${profileId}`, { method: 'DELETE' });
   },
+
+  // ==========================================
+  // ATTENDANCE & BIOMETRIC EXCEL REGISTRY
+  // ==========================================
+  async getAttendance(params?: {
+    date?: string;
+    name?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<{ records: AttendanceRecord[]; total: number }> {
+    const query = new URLSearchParams();
+    if (params?.date) query.set('date', params.date);
+    if (params?.name) query.set('name', params.name);
+    if (params?.status) query.set('status', params.status);
+    if (params?.limit) query.set('limit', params.limit.toString());
+    const qs = query.toString();
+    return fetchJson(`/api/attendance${qs ? `?${qs}` : ''}`);
+  },
+
+  async getAttendanceSummary(): Promise<AttendanceSummary> {
+    return fetchJson('/api/attendance/summary');
+  },
+
+  async markAttendance(params: {
+    person_name: string;
+    status?: string;
+    notes?: string;
+    date?: string;
+  }): Promise<{ success: boolean; message: string; record: AttendanceRecord }> {
+    return fetchJson('/api/attendance/mark', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    });
+  },
+
+  async processAttendanceImage(data: {
+    image?: string;
+    file?: File | Blob;
+    camera_source?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    recognized_workers: string[];
+    records: AttendanceRecord[];
+    excel_synced: boolean;
+    excel_path: string;
+    matches: any[];
+    timestamp: string;
+  }> {
+    const token = authStorage.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    let body: any;
+    if (data.file) {
+      const formData = new FormData();
+      formData.append('image', data.file, 'capture.jpg');
+      if (data.camera_source) formData.append('camera_source', data.camera_source);
+      body = formData;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify({
+        image: data.image,
+        camera_source: data.camera_source || 'Camera Optical Scan'
+      });
+    }
+
+    const res = await fetch(`${API_BASE}/api/attendance/process-image`, {
+      method: 'POST',
+      headers,
+      body
+    });
+
+    const resJson = await res.json();
+    if (!res.ok) {
+      throw new Error(resJson.error || resJson.message || `HTTP ${res.status}: Failed to process attendance image`);
+    }
+    return resJson;
+  },
+
+  async syncAttendanceExcel(): Promise<{
+    success: boolean;
+    message: string;
+    excel_path: string;
+    timestamp?: string;
+  }> {
+    return fetchJson('/api/attendance/sync-excel', {
+      method: 'POST'
+    });
+  },
+
+  getAttendanceExportUrl(): string {
+    return `${API_BASE}/api/attendance/export`;
+  },
+
+  getAttendanceCsvExportUrl(): string {
+    return `${API_BASE}/api/attendance/export-csv`;
+  },
+
 
   // ==========================================
   // AUTHENTICATION & RBAC

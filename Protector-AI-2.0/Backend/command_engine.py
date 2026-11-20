@@ -138,6 +138,38 @@ class CommandEngine:
                 }
             return {"type": "error", "output": res.get("error", "Failed to retrieve status.")}
 
+        # Handle 'attendance'
+        if cmd_lower in ("attendance", "att"):
+            sub = tokens[1].lower() if len(tokens) > 1 else "status"
+            if sub in ("status", "summary", "list"):
+                res = ToolRegistry.execute("get_attendance", {}, user_email)
+                if res.get("success"):
+                    d = res["data"]
+                    return {
+                        "type": "status_card",
+                        "title": f"Biometric Attendance Telemetry ({d.get('date')})",
+                        "data": {
+                            "Enrolled Personnel": d.get("total_enrolled"),
+                            "Present Today": d.get("present_today"),
+                            "Absent / Pending": d.get("absent_today"),
+                            "Attendance Rate": f"{d.get('attendance_rate')}%",
+                            "Excel Mirror File": d.get("excel_path"),
+                            "Excel Status": "CONNECTED & SYNCHRONIZED" if d.get("excel_exists") else "PENDING"
+                        },
+                        "output": f"Biometric Attendance ({d.get('date')}): {d.get('present_today')}/{d.get('total_enrolled')} present ({d.get('attendance_rate')}%). Live mirrored to {d.get('excel_path')}."
+                    }
+                return {"type": "error", "output": res.get("error", "Failed to retrieve attendance telemetry.")}
+            elif sub == "sync":
+                res = ToolRegistry.execute("sync_attendance_excel", {}, user_email)
+                if res.get("success"):
+                    return {
+                        "type": "text",
+                        "output": f"Biometric attendance database synchronized successfully to Excel: {res['data'].get('excel_path')}"
+                    }
+                return {"type": "error", "output": res.get("error", "Excel synchronization failed.")}
+            return {"type": "error", "output": "Usage: attendance [status | sync]"}
+
+
         # Handle 'theme'
         if cmd_lower == "theme":
             if len(tokens) > 1 and tokens[1].lower() in ("dark", "light", "system"):

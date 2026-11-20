@@ -414,16 +414,20 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
     : (workerStatus?.metrics?.compliance_rate || selectedCamera?.current_compliance || 95.6);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Section Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {/* Console Controls Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div className="section-tag">
-          <span className="section-tag-num">01</span>
-          <span>/ LIVE OPTICAL MONITORING</span>
+        <div>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            Live Camera Surveillance
+          </h2>
+          <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+            Active optical sensor stream and computer vision hazard detection.
+          </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Quick Real Camera Source Switcher */}
+          {/* Camera Source Selector */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -439,12 +443,11 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               disabled={workerLoading || isConnectingCam}
               style={{
                 background: cameraMode === 'hardware' ? 'var(--bg-surface)' : 'transparent',
-                border: cameraMode === 'hardware' ? '1px solid var(--border-charcoal)' : '1px solid transparent',
-                color: cameraMode === 'hardware' ? 'var(--accent-citron)' : 'var(--text-secondary)',
+                border: cameraMode === 'hardware' ? '1px solid var(--border-strong)' : '1px solid transparent',
+                color: cameraMode === 'hardware' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 borderRadius: '4px',
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)',
+                padding: '5px 12px',
+                fontSize: '12px',
                 fontWeight: 600,
                 cursor: workerLoading ? 'not-allowed' : 'pointer',
                 display: 'flex',
@@ -456,9 +459,9 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                backgroundColor: cameraMode === 'hardware' && isWorkerRunning ? 'var(--accent-citron)' : 'var(--text-tertiary)'
+                backgroundColor: cameraMode === 'hardware' && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
               }} />
-              {workerLoading && cameraMode === 'hardware' ? 'Connecting Hardware...' : 'Hardware Device 0'}
+              {workerLoading && cameraMode === 'hardware' ? 'Connecting...' : 'Device 0 (Hardware)'}
             </button>
 
             <button
@@ -467,12 +470,11 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               disabled={isConnectingCam || workerLoading}
               style={{
                 background: cameraMode === 'browser' ? 'var(--bg-surface)' : 'transparent',
-                border: cameraMode === 'browser' ? '1px solid var(--border-charcoal)' : '1px solid transparent',
-                color: cameraMode === 'browser' ? 'var(--safety-safe)' : 'var(--text-secondary)',
+                border: cameraMode === 'browser' ? '1px solid var(--border-strong)' : '1px solid transparent',
+                color: cameraMode === 'browser' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 borderRadius: '4px',
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontFamily: 'var(--font-mono)',
+                padding: '5px 12px',
+                fontSize: '12px',
                 fontWeight: 600,
                 cursor: isConnectingCam ? 'not-allowed' : 'pointer',
                 display: 'flex',
@@ -484,27 +486,25 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                backgroundColor: cameraMode === 'browser' && browserStream ? 'var(--safety-safe)' : 'var(--text-tertiary)'
+                backgroundColor: cameraMode === 'browser' && browserStream ? '#22C55E' : 'var(--text-tertiary)'
               }} />
-              {isConnectingCam ? 'Connecting...' : 'Direct Browser WebCam'}
+              {isConnectingCam ? 'Connecting...' : 'Browser WebCam'}
             </button>
           </div>
 
-          {/* Action Button Integrated Directly in Bar */}
+          {/* Start / Stop Stream Action */}
           {cameraMode === 'browser' ? (
             <button
               type="button"
               onClick={stopBrowserCamera}
               className="btn-danger"
               style={{
-                padding: '5px 14px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                letterSpacing: '0.04em',
+                padding: '6px 14px',
+                fontSize: '12px',
                 cursor: 'pointer'
               }}
             >
-              DISCONNECT WEBCAM
+              Disconnect WebCam
             </button>
           ) : isWorkerRunning ? (
             <button
@@ -513,14 +513,12 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               disabled={isWorkerTransitioning}
               className="btn-danger"
               style={{
-                padding: '5px 14px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                letterSpacing: '0.04em',
+                padding: '6px 14px',
+                fontSize: '12px',
                 cursor: isWorkerTransitioning ? 'not-allowed' : 'pointer'
               }}
             >
-              {workerLoading ? 'STOPPING...' : 'STOP ANALYSIS'}
+              {workerLoading ? 'Stopping...' : 'Stop Monitoring'}
             </button>
           ) : (
             <button
@@ -529,42 +527,36 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               disabled={isWorkerTransitioning}
               className="btn-citron"
               style={{
-                padding: '5px 14px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                letterSpacing: '0.04em',
+                padding: '6px 14px',
+                fontSize: '12px',
                 cursor: isWorkerTransitioning ? 'not-allowed' : 'pointer'
               }}
             >
-              {workerLoading ? 'STARTING...' : 'START ANALYSIS'}
+              {workerLoading ? 'Starting...' : 'Start Monitoring'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Conditionally display browser or hardware errors if present */}
+      {/* Camera Warnings / Notices */}
       {browserCamError && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(255, 77, 77, 0.08)',
-          border: '1px solid rgba(255, 77, 77, 0.35)',
+          padding: '10px 14px',
+          borderRadius: '6px',
+          backgroundColor: 'var(--safety-violation-bg)',
+          border: '1px solid var(--safety-violation-border)',
           gap: '12px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ color: 'var(--safety-violation)', fontSize: '13px' }}>⚠️</span>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              <strong style={{ color: 'var(--safety-violation)', fontFamily: 'var(--font-mono)' }}>CAMERA NOTICE: </strong>
-              {browserCamError}
-            </div>
+          <div style={{ fontSize: '12.5px', color: 'var(--safety-violation)' }}>
+            <strong>Camera Error: </strong>{browserCamError}
           </div>
           <button
             type="button"
             onClick={() => setBrowserCamError(null)}
-            style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}
           >
             Dismiss
           </button>
@@ -573,16 +565,15 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
 
       {workerError && (
         <div style={{
-          padding: '8px 12px',
+          padding: '10px 14px',
           borderRadius: '6px',
           backgroundColor: 'var(--safety-violation-bg)',
           border: '1px solid var(--safety-violation-border)',
-          fontSize: '12px',
+          fontSize: '12.5px',
           color: 'var(--safety-violation)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          fontFamily: 'var(--font-mono)'
+          justifyContent: 'space-between'
         }}>
           <span>{workerError}</span>
           <button
@@ -594,15 +585,15 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
         </div>
       )}
 
-      {/* Main Grid: Big Optical Canvas + Side Telemetry */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '20px' }}>
-        {/* Left: Central Video Canvas */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Main Grid: Video Stream + Side Telemetry */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: '18px' }}>
+        {/* Left: Video Feed & Camera Selection */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div
             style={{
               position: 'relative',
-              backgroundColor: '#05070B',
-              border: '1px solid var(--border-charcoal)',
+              backgroundColor: '#000000',
+              border: '1px solid var(--border-medium)',
               borderRadius: '8px',
               overflow: 'hidden',
               aspectRatio: '16 / 9',
@@ -612,14 +603,14 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               boxShadow: 'var(--shadow-card)'
             }}
           >
-            {/* Top Video HUD Overlay */}
+            {/* Top Video HUD Bar */}
             <div style={{
               position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
-              padding: '12px 18px',
-              background: 'linear-gradient(to bottom, rgba(5, 7, 11, 0.9) 0%, transparent 100%)',
+              padding: '10px 16px',
+              background: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 0%, transparent 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -627,51 +618,46 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
-                  width: '6px',
-                  height: '6px',
+                  width: '7px',
+                  height: '7px',
                   borderRadius: '50%',
-                  backgroundColor: isFeedActive ? 'var(--safety-safe)' : 'var(--text-tertiary)'
-                }} className={isFeedActive ? 'animate-signal-pulse' : ''} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.06em' }}>
+                  backgroundColor: isFeedActive ? '#22C55E' : 'var(--text-tertiary)'
+                }} />
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }}>
                   {cameraMode === 'browser'
-                    ? (browserStream ? 'REAL CAMERA · DIRECT BROWSER WEBCAM' : 'DIRECT BROWSER WEBCAM · OFFLINE')
+                    ? (browserStream ? 'Client WebCam (Live)' : 'WebCam Standby')
                     : isWorkerRunning
-                    ? (selectedCamera?.id === 'cam_01' ? 'REAL CAMERA · HARDWARE WEBCAM 0' : `${selectedCamera?.id.toUpperCase()} · ${selectedCamera?.name}`)
-                    : 'OPTICAL MONITORING · STOPPED (STANDBY)'}
+                    ? (selectedCamera?.id === 'cam_01' ? 'Hardware Camera 01 (Live)' : `${selectedCamera?.name}`)
+                    : 'Monitoring Stopped'}
                 </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)' }}>
+                <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.6)' }}>
                   {cameraMode === 'browser'
-                    ? (browserStream ? '(Local Client WebRTC Feed)' : '(Disconnected)')
+                    ? '(Browser Stream)'
                     : isWorkerRunning
-                    ? (selectedCamera?.id === 'cam_01' ? '(Physical Device Index 0)' : `(${selectedCamera?.location})`)
-                    : '(Optical Sensor Standby)'}
+                    ? '(DirectShow 0)'
+                    : '(Standby)'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {activeRecognizedWorker && (
                   <span style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '10.5px',
-                    fontWeight: 700,
-                    color: '#070A0F',
-                    backgroundColor: 'var(--safety-safe)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#FFFFFF',
+                    backgroundColor: 'rgba(34, 197, 94, 0.25)',
+                    border: '1px solid rgba(34, 197, 94, 0.5)',
                     padding: '2px 8px',
                     borderRadius: '4px',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    boxShadow: '0 0 10px rgba(52, 211, 153, 0.45)'
+                    gap: '4px'
                   }}>
-                    <span style={{ fontSize: '11px' }}>👤</span>
-                    <span>IDENTIFIED: {activeRecognizedWorker.toUpperCase()}</span>
+                    <span>Identified: {activeRecognizedWorker}</span>
                   </span>
                 )}
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: isFeedActive ? 'var(--accent-citron)' : 'var(--text-tertiary)', background: isFeedActive ? 'rgba(215, 255, 100, 0.12)' : 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '3px' }}>
-                  {isFeedActive ? 'YOLOV8-NANO' : 'SENSOR STANDBY'}
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '3px' }}>
-                  1280x720
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '3px' }}>
+                  YOLOv8
                 </span>
               </div>
             </div>
@@ -705,65 +691,37 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                   />
                 </div>
               ) : (
-                /* Blank Screen when Browser WebCam is Disconnected */
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: '#000000',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px'
-                  }}
-                >
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#222222' }} />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#555555', letterSpacing: '0.08em' }}>
-                    FEED STOPPED · SCREEN BLANK
-                  </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: 'var(--text-tertiary)' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#333333' }} />
+                  <span style={{ fontSize: '12px' }}>Camera Disconnected</span>
                 </div>
               )
             ) : !isWorkerRunning ? (
-              /* Blank Screen when Hardware Camera Monitoring is Stopped */
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  backgroundColor: '#000000',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px'
-                }}
-              >
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#222222' }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#555555', letterSpacing: '0.08em' }}>
-                  OPTICAL MONITORING STOPPED · SCREEN BLANK
-                </span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: 'var(--text-tertiary)' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#333333' }} />
+                <span style={{ fontSize: '12px' }}>Monitoring Paused</span>
               </div>
             ) : selectedCamera?.status === 'offline' ? (
-              <div style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--safety-violation)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Optical Feed Unavailable
+              <div style={{ padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--safety-violation)' }}>
+                  Camera Offline
                 </div>
-                <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', maxWidth: '340px', lineHeight: 1.5 }}>
-                  {selectedCamera.name} is currently offline. Switch to Real Camera 01 or Direct Browser WebCam for live streaming.
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '320px', margin: 0 }}>
+                  {selectedCamera.name} is unreachable. Switch to Camera 01 for live video.
                 </p>
                 <button
                   onClick={() => setSelectedCameraId('cam_01')}
                   className="btn-secondary"
-                  style={{ marginTop: '6px', fontSize: '11.5px', padding: '6px 12px' }}
+                  style={{ marginTop: '4px', fontSize: '11.5px', padding: '5px 12px' }}
                 >
-                  Switch to Real Camera 01
+                  Switch to Camera 01
                 </button>
               </div>
             ) : (
               <img
                 key={`stream-${selectedCameraId}-${streamEpoch}`}
                 src={streamUrl}
-                alt="Live Safety Optical Feed"
+                alt="Live Safety Stream"
                 style={{
                   width: '100%',
                   height: '100%',
@@ -777,7 +735,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                     const div = document.createElement('div');
                     div.className = 'stream-fallback';
                     div.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--text-secondary);';
-                    div.innerHTML = `<span style="font-family:var(--font-mono); font-size:12px;">CONNECTING TO REAL HARDWARE WEBCAM (DEVICE 0)...</span>`;
+                    div.innerHTML = `<span style="font-size:12px;">Connecting to hardware camera (Device 0)...</span>`;
                     parent.appendChild(div);
                   }
                 }}
@@ -785,20 +743,19 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
             )}
           </div>
 
-          {/* Camera Selection Grid (Optical Fleet) */}
-          <div className="precision-surface" style={{ padding: '14px 18px' }}>
+          {/* Camera Feeds Selector */}
+          <div className="precision-surface" style={{ padding: '14px 16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span className="section-tag">
-                <span className="section-tag-num">02</span>
-                <span>/ OPTICAL FLEET</span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                AVAILABLE CAMERAS
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)' }}>
-                {cameras.filter(c => c.status === 'online').length}/{cameras.length} ONLINE · REAL CAMERA READY
+              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                {cameras.filter(c => c.status === 'online').length}/{cameras.length} Online
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '8px' }}>
-              {/* Direct Browser WebCam Card */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+              {/* Direct WebCam */}
               <button
                 type="button"
                 onClick={startBrowserCamera}
@@ -807,48 +764,32 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '9px 12px',
+                  padding: '8px 12px',
                   borderRadius: '6px',
                   backgroundColor: cameraMode === 'browser' ? 'var(--bg-surface-elevated)' : 'transparent',
                   border: '1px solid',
-                  borderColor: cameraMode === 'browser' ? 'var(--safety-safe)' : 'var(--border-subtle)',
+                  borderColor: cameraMode === 'browser' ? 'var(--accent-citron)' : 'var(--border-subtle)',
                   cursor: isConnectingCam ? 'not-allowed' : 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.15s ease'
+                  textAlign: 'left'
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: cameraMode === 'browser' ? 'var(--safety-safe)' : 'var(--text-primary)' }}>
-                      Direct Browser WebCam
-                    </span>
-                    <span style={{
-                      fontSize: '8.5px',
-                      fontFamily: 'var(--font-mono)',
-                      color: 'var(--safety-safe)',
-                      backgroundColor: 'rgba(99, 214, 161, 0.15)',
-                      padding: '1px 4px',
-                      borderRadius: '3px',
-                      fontWeight: 700
-                    }}>
-                      WEBRTC
-                    </span>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: cameraMode === 'browser' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    Browser WebCam
                   </div>
-                  <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                    {isConnectingCam ? 'Connecting...' : 'Client Real-Time Camera'}
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                    Client Video
                   </div>
                 </div>
-
                 <span style={{
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  backgroundColor: cameraMode === 'browser' ? 'var(--safety-safe)' : 'var(--text-tertiary)',
-                  flexShrink: 0
-                }} className={cameraMode === 'browser' ? 'animate-signal-pulse' : ''} />
+                  backgroundColor: cameraMode === 'browser' && browserStream ? '#22C55E' : 'var(--text-tertiary)'
+                }} />
               </button>
 
-              {/* Hardware & Simulated Fleet Cameras */}
+              {/* Hardware Fleet */}
               {cameras.map((cam) => {
                 const isRealHardware = cam.id === 'cam_01' || cam.stream_source === '0';
                 const isSelected = cameraMode === 'hardware' && cam.id === selectedCameraId;
@@ -866,51 +807,29 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '9px 12px',
+                      padding: '8px 12px',
                       borderRadius: '6px',
                       backgroundColor: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
                       border: '1px solid',
                       borderColor: isSelected ? 'var(--accent-citron)' : 'var(--border-subtle)',
                       cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease'
+                      textAlign: 'left'
                     }}
                   >
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{
-                          fontSize: '12px',
-                          fontWeight: isSelected ? 700 : 600,
-                          color: isSelected ? 'var(--accent-citron)' : 'var(--text-primary)'
-                        }}>
-                          {isRealHardware ? 'Real Camera — Live WebCam' : cam.name}
-                        </span>
-                        {isRealHardware && (
-                          <span style={{
-                            fontSize: '8.5px',
-                            fontFamily: 'var(--font-mono)',
-                            color: 'var(--accent-citron)',
-                            backgroundColor: 'rgba(215, 255, 100, 0.15)',
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            fontWeight: 700
-                          }}>
-                            HARDWARE 0
-                          </span>
-                        )}
+                      <div style={{ fontSize: '12.5px', fontWeight: 600, color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                        {isRealHardware ? 'Hardware Camera 01' : cam.name}
                       </div>
-                      <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                        {isRealHardware ? 'Physical Device 0 (Local Hardware)' : cam.location}
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                        {cam.location}
                       </div>
                     </div>
-
                     <span style={{
                       width: '6px',
                       height: '6px',
                       borderRadius: '50%',
-                      backgroundColor: isOnline ? 'var(--safety-safe)' : 'var(--safety-violation)',
-                      flexShrink: 0
-                    }} className={isOnline && isRealHardware ? 'animate-signal-pulse' : ''} />
+                      backgroundColor: isOnline ? '#22C55E' : 'var(--safety-violation)'
+                    }} />
                   </button>
                 );
               })}
@@ -918,20 +837,18 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
           </div>
         </div>
 
-        {/* Right: Technical Controls & Detection Ticker */}
+        {/* Right: Live Telemetry Sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Quantitative Compliance Summary */}
-          {/* Quantitative Compliance Summary */}
-          <div className="precision-surface" style={{ padding: '18px' }}>
-            <div className="section-tag" style={{ marginBottom: '10px' }}>
-              <span className="section-tag-num">03</span>
-              <span>/ COMPLIANCE RATE</span>
-            </div>
+          {/* Compliance Card */}
+          <div className="precision-surface" style={{ padding: '16px' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              PPE COMPLIANCE
+            </span>
 
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', margin: '8px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '8px 0' }}>
               <span style={{
-                fontSize: '36px',
-                fontWeight: 800,
+                fontSize: '32px',
+                fontWeight: 700,
                 color: activeViolations > 0 ? 'var(--safety-violation)' : 'var(--safety-safe)',
                 fontFamily: 'var(--font-mono)',
                 lineHeight: 1
@@ -939,7 +856,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 {Math.round(activeCompliance)}%
               </span>
               <span className={`status-pill ${activeViolations > 0 ? 'status-pill-violation' : 'status-pill-safe'}`}>
-                {activeViolations > 0 ? 'Infraction Flagged' : 'Optimal'}
+                {activeViolations > 0 ? 'Violations Active' : 'Compliant'}
               </span>
             </div>
 
@@ -952,55 +869,59 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               marginTop: '12px'
             }}>
               <div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                   Workers
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                   {activeWorkers}
                 </div>
               </div>
 
               <div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                   Violations
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: activeViolations > 0 ? 'var(--safety-violation)' : 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: activeViolations > 0 ? 'var(--safety-violation)' : 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   {activeViolations}
                 </div>
               </div>
             </div>
 
-            {/* Identified Person(s) Live Badges */}
+            {/* Identified Workers Section */}
             {activeRecognizedWorkers.length > 0 && (
               <div style={{
                 marginTop: '14px',
-                padding: '10px 14px',
+                padding: '10px 12px',
                 borderRadius: '6px',
-                backgroundColor: 'rgba(52, 199, 89, 0.08)',
-                border: '1px solid rgba(52, 199, 89, 0.3)',
+                backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '6px'
               }}>
-                <div style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', color: 'var(--safety-safe)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>👤</span>
-                  <span>{activeRecognizedWorkers.length > 1 ? `IDENTIFIED PERSONNEL (${activeRecognizedWorkers.length})` : 'IDENTIFIED WORKER'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--safety-safe)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                    {activeRecognizedWorkers.length > 1 ? `Identified Personnel (${activeRecognizedWorkers.length})` : 'Identified Personnel'}
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'var(--safety-safe)', fontWeight: 500 }}>
+                    ✓ Marked Present
+                  </span>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {activeRecognizedWorkers.map((name, idx) => (
                     <span key={idx} style={{
                       fontSize: '12px',
-                      fontWeight: 700,
+                      fontWeight: 600,
                       color: 'var(--text-primary)',
-                      backgroundColor: 'rgba(52, 199, 89, 0.15)',
+                      backgroundColor: 'rgba(34, 197, 94, 0.15)',
                       padding: '3px 8px',
                       borderRadius: '4px',
-                      border: '1px solid rgba(52, 199, 89, 0.35)',
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '5px'
                     }}>
-                      <span>👤</span>
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: 'var(--safety-safe)' }} />
                       <span>{name}</span>
                     </span>
                   ))}

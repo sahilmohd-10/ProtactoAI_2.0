@@ -1,4 +1,5 @@
 import React from 'react';
+import { ShieldCheck, Users, Activity, AlertTriangle, ArrowRight } from 'lucide-react';
 import type { PPEStats, SystemStatus } from '../types';
 
 interface WelcomeHeroProps {
@@ -10,93 +11,181 @@ interface WelcomeHeroProps {
 
 export const WelcomeHero: React.FC<WelcomeHeroProps> = ({
   stats,
-  status
+  status,
+  onNavigate
 }) => {
+  const complianceRate = stats ? stats.compliance_rate : 95.6;
+  const activeWorkers = stats ? stats.active_workers_monitored : 42;
+  const activeViolations = stats ? stats.active_violations : 4;
+  const modelClasses = status?.model_classes || 25;
+
   return (
     <div style={{
-      marginBottom: '36px',
-      paddingBottom: '28px',
+      marginBottom: '24px',
+      paddingBottom: '20px',
       borderBottom: '1px solid var(--border-subtle)',
       display: 'flex',
       flexDirection: 'column',
-      gap: '24px'
+      gap: '16px'
     }}>
-      {/* Header Row: Section Label */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-        <div className="section-tag">
-          <span className="section-tag-num">00</span>
-          <span>/ PRECISION SAFETY CANVAS</span>
+      {/* Overview Heading */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 style={{
+            fontSize: '20px',
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            color: 'var(--text-primary)',
+            margin: 0
+          }}>
+            Operational Surveillance Console
+          </h1>
+          <p style={{
+            fontSize: '13px',
+            color: 'var(--text-secondary)',
+            margin: '4px 0 0 0'
+          }}>
+            Real-time workplace hazard detection, automated PPE compliance verification, and personnel surveillance.
+          </p>
         </div>
+
+        {onNavigate && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => onNavigate('incidents')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-medium)',
+                color: 'var(--text-primary)',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              <span>View Open Incidents</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Main Title & Statement */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <h1 className="display-title" style={{ fontSize: 'clamp(28px, 3.2vw, 44px)', maxWidth: '900px' }}>
-          Autonomous Industrial Safety & PPE Intelligence
-        </h1>
-        <p style={{
-          fontSize: '14px',
-          color: 'var(--text-secondary)',
-          maxWidth: '680px',
-          lineHeight: 1.6
-        }}>
-          Real-time computer vision inference running custom-trained YOLOv8 weights on 25 industrial hazard classes. Coupled with a validated command engine and deterministic tool execution.
-        </p>
-      </div>
-
-      {/* Quantitative Telemetry Strip (Open composition, not generic identical cards) */}
+      {/* Operational Metrics Strip */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '24px',
-        paddingTop: '20px',
-        borderTop: '1px solid var(--border-subtle)'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '12px'
       }}>
-        <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Compliance Rate
+        {/* Metric 1: Compliance */}
+        <div style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '8px',
+          padding: '14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              PPE COMPLIANCE
+            </span>
+            <ShieldCheck size={15} style={{ color: 'var(--safety-safe)' }} />
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--safety-safe)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-            {stats ? `${stats.compliance_rate}%` : '95.6%'}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            OSHA 1910 standard
-          </div>
-        </div>
-
-        <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Monitored Workers
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-            {stats ? stats.active_workers_monitored : 42}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            Active across optical bays
-          </div>
-        </div>
-
-        <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Inference Engine
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-            YOLOv8
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            {status?.model_classes || 25} Hazard Classes Loaded
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 700, color: 'var(--safety-safe)' }}>
+              {complianceRate}%
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              site average
+            </span>
           </div>
         </div>
 
-        <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Active Infractions
+        {/* Metric 2: Workers */}
+        <div style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '8px',
+          padding: '14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              DETECTED PERSONNEL
+            </span>
+            <Users size={15} style={{ color: 'var(--text-tertiary)' }} />
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--safety-violation)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-            {stats ? stats.active_violations : 4}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              {activeWorkers}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              monitored
+            </span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            Pending marshal resolution
+        </div>
+
+        {/* Metric 3: Active Violations */}
+        <div style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '8px',
+          padding: '14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              ACTIVE VIOLATIONS
+            </span>
+            <AlertTriangle size={15} style={{ color: activeViolations > 0 ? 'var(--safety-violation)' : 'var(--safety-safe)' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '24px',
+              fontWeight: 700,
+              color: activeViolations > 0 ? 'var(--safety-violation)' : 'var(--safety-safe)'
+            }}>
+              {activeViolations}
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              open infractions
+            </span>
+          </div>
+        </div>
+
+        {/* Metric 4: Vision Model */}
+        <div style={{
+          backgroundColor: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '8px',
+          padding: '14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              VISION MODEL
+            </span>
+            <Activity size={15} style={{ color: 'var(--text-tertiary)' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              YOLOv8
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              {modelClasses} classes
+            </span>
           </div>
         </div>
       </div>

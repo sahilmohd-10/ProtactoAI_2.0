@@ -6,18 +6,20 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, Response, send_from_directory
+from flask import Flask, request, jsonify, Response, send_from_directory, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import cv2
 import numpy as np
+from sqlalchemy import func
 
 import config
 from database import init_db, SessionLocal
 from seed_data import seed_all
 from models import (
     Incident, Camera, Zone, User, DailyMetric, AuditLog, UserSession,
-    TerminalConversation, TerminalMessage, FaceProfile, FaceVisitLog
+    TerminalConversation, TerminalMessage, FaceProfile, FaceVisitLog,
+    AttendanceRecord
 )
 from face_recognition_service import (
     FaceRecognitionUnavailable,
@@ -44,6 +46,18 @@ logger = logging.getLogger("ProtectorAI.App")
 # Initialize database
 init_db()
 seed_all()
+
+# Initialize Biometric Attendance Register & Excel Mirror
+try:
+    from attendance_service import attendance_service
+    _init_db_sess = SessionLocal()
+    attendance_service.seed_history_from_visit_logs(_init_db_sess)
+    attendance_service.sync_to_excel()
+    _init_db_sess.close()
+    logger.info("Biometric attendance registry initialized and synced to D:\\Downloads\\Attandance.xlsx")
+except Exception as _att_init_err:
+    logger.warning(f"Attendance initialization deferred: {_att_init_err}")
+
 
 app = Flask(__name__, static_folder=str(config.STATIC_DIR), static_url_path="/static")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -449,6 +463,11 @@ def detect_image():
             now_utc = datetime.now(timezone.utc)
             for m in matches:
                 pid = m.get("profile_id")
+                acc = m.get("accuracy", face_recognition_service.distance_to_accuracy(m.get("distance", 99.0)))
+                # STRICT REQUIREMENT: Only accept match and mark attendance if feature match >= 80%
+                if acc < 80.0:
+                    continue
+
                 matched_prof = next((p for p in profiles if p.id == pid), None)
                 if matched_prof:
                     last_seen = matched_prof.last_seen_at
@@ -459,16 +478,34 @@ def detect_image():
                             profile_id=pid,
                             recognized_at=now_utc,
                             match_distance=m.get("distance", 0.0),
-                            camera_source="Browser WebCam (Console)"
+                            camera_source=f"Browser WebCam (Console - {acc}% Match)"
                         ))
                         matched_prof.last_seen_at = now_utc
                         db.commit()
+
+                    # Automatically record attendance for detected enrolled worker
+                    try:
+                        from attendance_service import attendance_service
+                        attendance_service.record_attendance(
+                            db=db,
+                            person_name=matched_prof.name,
+                            profile_id=matched_prof.id,
+                            camera_source="Browser WebCam (Console)",
+                            verification_mode=f"Facial Biometrics ({round(acc)}% Feature Match)",
+                            force_excel_sync=True
+                        )
+                    except Exception as att_err:
+                        logger.debug(f"Direct detect attendance logging error: {att_err}")
     except Exception as e:
         logger.debug(f"Direct detect face recognition error: {e}")
     finally:
         db.close()
 
-    enrolled_names = [m["name"] for m in matches if m.get("name") and m.get("enrolled", True) and not any(k in m["name"].lower() for k in ["unregistered", "unsigned", "unknown"])]
+    enrolled_names = [
+        f"{m['name']} ({round(m.get('accuracy', 80))}% Match)" if m.get("accuracy") else m["name"]
+        for m in matches
+        if m.get("name") and m.get("enrolled", True) and m.get("accuracy", 80.0) >= 80.0 and not any(k in m["name"].lower() for k in ["unregistered", "unsigned", "unknown"])
+    ]
     recognized_names = list(dict.fromkeys(enrolled_names))
     yolo_workers = metrics.get("workers", 0)
     total_workers = max(yolo_workers, len(matches), len(recognized_names))
@@ -1225,6 +1262,20 @@ def recognize_people():
                     camera_source="People scanner"
                 ))
             profile.last_seen_at = now
+
+            # Record attendance for verified profile
+            try:
+                from attendance_service import attendance_service
+                attendance_service.record_attendance(
+                    db=db,
+                    person_name=profile.name,
+                    profile_id=profile.id,
+                    camera_source="Biometric People Scanner",
+                    verification_mode="Facial Biometrics"
+                )
+            except Exception as att_err:
+                logger.debug(f"Attendance record error during scan: {att_err}")
+
             results.append({
                 "person_id": profile.id,
                 "name": profile.name,
@@ -1294,6 +1345,274 @@ def delete_people_profile(profile_id):
         db.rollback()
         logger.exception("Failed to delete face profile %s.", profile_id)
         return jsonify({"error": "Could not delete the person profile."}), 500
+    finally:
+        db.close()
+
+
+# ==========================================
+# ATTENDANCE & BIOMETRIC EXCEL REGISTRY
+# ==========================================
+
+@app.route("/api/attendance", methods=["GET"])
+def get_attendance_records():
+    """List attendance records with optional filtering by date, personnel name, and status."""
+    date_filter = request.args.get("date")  # YYYY-MM-DD
+    name_filter = request.args.get("name")
+    status_filter = request.args.get("status")
+    limit = int(request.args.get("limit", 500))
+
+    db = SessionLocal()
+    try:
+        q = db.query(AttendanceRecord)
+        if date_filter and date_filter.lower() != "all":
+            q = q.filter(AttendanceRecord.date == date_filter)
+        if name_filter:
+            q = q.filter(func.lower(AttendanceRecord.person_name).like(f"%{name_filter.lower()}%"))
+        if status_filter and status_filter.lower() != "all":
+            q = q.filter(func.lower(AttendanceRecord.status) == status_filter.lower())
+
+        from attendance_service import attendance_service
+        records = q.order_by(AttendanceRecord.date.desc(), AttendanceRecord.first_in.desc()).limit(limit).all()
+        return jsonify({
+            "records": [attendance_service.enrich_record_dict(r.to_dict()) for r in records],
+            "total": len(records)
+        })
+    finally:
+        db.close()
+
+
+@app.route("/api/attendance/summary", methods=["GET"])
+def get_attendance_summary():
+    """Get today's attendance summary, enrolled statistics, and Excel telemetry."""
+    db = SessionLocal()
+    try:
+        from attendance_service import attendance_service
+        summary = attendance_service.get_summary(db)
+        return jsonify(summary)
+    finally:
+        db.close()
+
+
+@app.route("/api/attendance/mark", methods=["POST"])
+def mark_attendance_manual():
+    """Manual attendance check-in or status adjustment."""
+    body = request.get_json(silent=True) or {}
+    person_name = body.get("person_name")
+    status = body.get("status", "Present")
+    notes = body.get("notes", "Manual Dashboard Check-in")
+    date_str = body.get("date")
+
+    if not person_name or not isinstance(person_name, str) or not person_name.strip():
+        return jsonify({"error": "Personnel name is required."}), 400
+
+    db = SessionLocal()
+    try:
+        from attendance_service import attendance_service
+        record = attendance_service.mark_manual(
+            db=db,
+            person_name=person_name.strip(),
+            status=status,
+            notes=notes,
+            date_str=date_str
+        )
+        return jsonify({
+            "success": True,
+            "message": f"Attendance successfully recorded for {person_name}.",
+            "record": record.to_dict()
+        }), 201
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+    except Exception as ex:
+        db.rollback()
+        logger.exception("Failed to mark manual attendance.")
+        return jsonify({"error": f"Failed to mark attendance: {ex}"}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/attendance/process-image", methods=["POST"])
+@app.route("/api/attendance/mark-by-image", methods=["POST"])
+def mark_attendance_by_image():
+    """
+    Process an image from camera capture or upload to identify enrolled personnel
+    and mark them 'Present' in the biometric attendance register and Excel sheet.
+    """
+    frame = None
+    camera_source = "Camera Optical Scan"
+
+    # 1. Check if multipart/form-data with file
+    if "image" in request.files:
+        try:
+            file = request.files["image"]
+            img_bytes = file.read()
+            frame = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+            camera_source = request.form.get("camera_source", "Camera Image Upload")
+        except Exception as e:
+            return jsonify({"error": f"Failed to read image file: {e}"}), 400
+
+    # 2. Check if JSON with base64 data URL
+    elif request.is_json or request.get_json(silent=True):
+        body = request.get_json(silent=True) or {}
+        img_data = body.get("image") or body.get("image_base64")
+        camera_source = body.get("camera_source", "Camera Optical Scan")
+        if img_data:
+            try:
+                frame = face_recognition_service.decode_image(img_data)
+            except Exception as e:
+                return jsonify({"error": f"Failed to decode base64 image: {e}"}), 400
+
+    # 3. Check if form field with base64
+    elif "image_base64" in request.form:
+        try:
+            frame = face_recognition_service.decode_image(request.form["image_base64"])
+            camera_source = request.form.get("camera_source", "Camera Optical Scan")
+        except Exception as e:
+            return jsonify({"error": f"Failed to decode base64 image: {e}"}), 400
+
+    if frame is None:
+        return jsonify({"error": "No valid image provided. Provide an 'image' file or base64 'image' string."}), 400
+
+    db = SessionLocal()
+    try:
+        profiles = db.query(FaceProfile).all()
+        if not profiles:
+            return jsonify({
+                "success": False,
+                "error": "No enrolled personnel profiles found in database. Please enroll personnel under People management first."
+            }), 400
+
+        # Perform biometric matching
+        matches = face_recognition_service.recognize_all_matches(frame, profiles)
+        enrolled_matches = [
+            m for m in matches
+            if m.get("enrolled") and m.get("name") and not any(k in m["name"].lower() for k in ["unregistered", "unsigned", "unknown"])
+        ]
+
+        if not enrolled_matches:
+            raw_faces = face_recognition_service.detect_faces(frame)
+            if raw_faces:
+                return jsonify({
+                    "success": False,
+                    "faces_detected": len(raw_faces),
+                    "error": "Face detected in camera image, but no matching enrolled profile was found. Please ensure the person is enrolled."
+                }), 404
+            else:
+                return jsonify({
+                    "success": False,
+                    "faces_detected": 0,
+                    "error": "No face detected in the image. Please ensure clear lighting and that the person is facing the camera."
+                }), 400
+
+        from attendance_service import attendance_service
+        now_utc = datetime.now(timezone.utc)
+        records_logged = []
+        recognized_names = []
+
+        for m in enrolled_matches:
+            p_name = m["name"]
+            pid = m.get("profile_id")
+            matched_prof = next((p for p in profiles if p.id == pid), None) if pid else None
+
+            if matched_prof:
+                matched_prof.last_seen_at = now_utc
+                db.add(FaceVisitLog(
+                    profile_id=matched_prof.id,
+                    recognized_at=now_utc,
+                    match_distance=m.get("distance", 0.0),
+                    camera_source=camera_source
+                ))
+                db.commit()
+
+            rec, is_new = attendance_service.record_attendance(
+                db=db,
+                person_name=p_name,
+                profile_id=pid,
+                camera_source=camera_source,
+                verification_mode="Facial Biometrics",
+                force_excel_sync=True
+            )
+            records_logged.append(rec.to_dict())
+            recognized_names.append(p_name)
+
+        # Force synchronous sync to Excel workbook
+        sync_ok, sync_msg = attendance_service.sync_to_excel()
+
+        return jsonify({
+            "success": True,
+            "message": f"Successfully marked Present: {', '.join(recognized_names)}",
+            "recognized_workers": recognized_names,
+            "records": records_logged,
+            "excel_synced": sync_ok,
+            "excel_path": str(attendance_service.excel_path),
+            "matches": enrolled_matches,
+            "timestamp": now_utc.isoformat()
+        }), 200
+    except Exception as ex:
+        db.rollback()
+        logger.exception("Failed to process image for attendance.")
+        return jsonify({"error": f"Image processing failed: {ex}"}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/attendance/sync-excel", methods=["POST"])
+def sync_attendance_excel():
+    """Force synchronization to D:\\Downloads\\Attandance.xlsx."""
+    try:
+        from attendance_service import attendance_service
+        success, message = attendance_service.sync_to_excel()
+        if success:
+            return jsonify({
+                "success": True,
+                "message": message,
+                "excel_path": str(attendance_service.excel_path),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": message,
+                "excel_path": str(attendance_service.excel_path)
+            }), 500
+    except Exception as ex:
+        logger.exception("Failed to force sync attendance excel.")
+        return jsonify({"error": f"Sync failed: {ex}"}), 500
+
+
+@app.route("/api/attendance/export", methods=["GET"])
+def export_attendance_excel():
+    """Download the current Excel workbook."""
+    try:
+        from attendance_service import attendance_service
+        attendance_service.sync_to_excel()
+        if not attendance_service.excel_path.exists():
+            return jsonify({"error": "Attendance spreadsheet not found."}), 404
+        return send_file(
+            str(attendance_service.excel_path),
+            as_attachment=True,
+            download_name="Attandance.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as ex:
+        logger.exception("Failed to export attendance spreadsheet.")
+        return jsonify({"error": str(ex)}), 500
+
+
+@app.route("/api/attendance/export-csv", methods=["GET"])
+def export_attendance_csv():
+    """Export attendance records as an RFC-4180 CSV file for payroll/HRIS."""
+    db = SessionLocal()
+    try:
+        from attendance_service import attendance_service
+        csv_content = attendance_service.export_csv(db)
+        return Response(
+            csv_content,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=attendance_{datetime.now().strftime('%Y%m%d')}.csv"}
+        )
+    except Exception as ex:
+        logger.exception("Failed to export attendance CSV.")
+        return jsonify({"error": str(ex)}), 500
     finally:
         db.close()
 

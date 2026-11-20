@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Terminal, Shield, LogOut } from 'lucide-react';
 import type { SystemStatus, AuthUser } from '../types';
 
 interface HeaderProps {
@@ -23,13 +23,14 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const getBreadcrumbTitle = (mod: string) => {
     switch (mod) {
-      case 'console': return 'Live Optical Console';
-      case 'incidents': return 'Incident Log & Auditing';
-      case 'analytics': return 'Safety Telemetry Analytics';
-      case 'people': return 'Consent-Based People Log';
-      case 'team': return 'Team Access & Authorization';
-      case 'settings': return 'System Settings & Diagnostics';
-      default: return 'Overview';
+      case 'console': return 'Live Monitoring Console';
+      case 'incidents': return 'Incident Management & Audit';
+      case 'analytics': return 'Safety Analytics & Metrics';
+      case 'attendance': return 'Biometric Attendance Register';
+      case 'people': return 'Personnel Registry & Biometrics';
+      case 'team': return 'Team Management & Access';
+      case 'settings': return 'System Health & Diagnostics';
+      default: return 'Operational Overview';
     }
   };
 
@@ -37,56 +38,64 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header style={{
-      height: '52px',
+      height: '56px',
       backgroundColor: 'var(--bg-app)',
       borderBottom: '1px solid var(--border-subtle)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 28px',
+      padding: '0 24px',
       position: 'sticky',
       top: 0,
       zIndex: 40
     }}>
-      {/* Left: Section Identity */}
+      {/* Left: Module title & operational status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <span style={{
-          fontSize: '13.5px',
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          color: 'var(--text-primary)'
+        <h2 style={{
+          fontSize: '14px',
+          fontWeight: 600,
+          letterSpacing: '-0.01em',
+          color: 'var(--text-primary)',
+          margin: 0
         }}>
           {getBreadcrumbTitle(activeModule)}
-        </span>
+        </h2>
 
-        {currentUser && (
+        {/* System Engine Status Dot */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          backgroundColor: 'rgba(34, 197, 94, 0.08)',
+          border: '1px solid rgba(34, 197, 94, 0.2)'
+        }}>
           <span style={{
-            fontSize: '10px',
-            fontFamily: 'var(--font-mono)',
-            padding: '2px 7px',
-            borderRadius: '4px',
-            border: '1px solid',
-            borderColor: isAdministrator ? 'rgba(215, 255, 100, 0.3)' : 'rgba(99, 214, 161, 0.3)',
-            backgroundColor: isAdministrator ? 'rgba(215, 255, 100, 0.1)' : 'rgba(99, 214, 161, 0.1)',
-            color: isAdministrator ? 'var(--accent-citron)' : 'var(--safety-safe)',
-            fontWeight: 700,
-            letterSpacing: '0.05em'
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            backgroundColor: '#22C55E'
+          }} />
+          <span style={{
+            fontSize: '11px',
+            fontWeight: 500,
+            color: '#4ADE80'
           }}>
-            {currentUser.role.toUpperCase()}
+            YOLOv8 Active
           </span>
-        )}
+        </div>
       </div>
 
-
-      {/* Right: Functional Triggers */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {/* Terminal Slidebar Trigger */}
+      {/* Right: Functional Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Terminal Trigger */}
         {onOpenTerminal && (
           <button
             onClick={onOpenTerminal}
             style={{
               height: '32px',
-              padding: '0 12px',
+              padding: '0 10px',
               borderRadius: '6px',
               border: '1px solid var(--border-medium)',
               backgroundColor: 'var(--bg-surface-elevated)',
@@ -95,28 +104,29 @@ export const Header: React.FC<HeaderProps> = ({
               gap: '6px',
               cursor: 'pointer',
               color: 'var(--text-primary)',
-              fontFamily: 'var(--font-mono)',
               fontSize: '12px',
-              fontWeight: 600,
-              transition: 'all 0.15s ease'
+              fontWeight: 500,
+              transition: 'border-color 0.15s ease'
             }}
-            title="Open Terminal Slidebar [⌘K]"
+            title="Open Command Terminal (⌘K or Ctrl+K)"
           >
-            <span style={{ color: 'var(--accent-citron)' }}>&gt;_</span>
+            <Terminal size={13} style={{ color: 'var(--accent-citron)' }} />
             <span>Terminal</span>
-            <span style={{
-              fontSize: '9.5px',
-              color: 'var(--accent-citron)',
-              backgroundColor: 'rgba(215, 255, 100, 0.1)',
-              padding: '1px 5px',
-              borderRadius: '3px'
+            <kbd style={{
+              fontSize: '10px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-tertiary)',
+              backgroundColor: 'var(--bg-app)',
+              padding: '1px 4px',
+              borderRadius: '3px',
+              border: '1px solid var(--border-subtle)'
             }}>
               ⌘K
-            </span>
+            </kbd>
           </button>
         )}
 
-        {/* Minimal Theme Switcher */}
+        {/* Theme Toggle */}
         <button
           onClick={onToggleTheme}
           style={{
@@ -136,25 +146,20 @@ export const Header: React.FC<HeaderProps> = ({
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
         </button>
 
-        {/* Logout button */}
+        {/* User Role Tag */}
         {currentUser && (
-          <button
-            onClick={onLogout}
-            style={{
-              height: '32px',
-              padding: '0 10px',
-              borderRadius: '6px',
-              border: '1px solid var(--border-subtle)',
-              backgroundColor: 'transparent',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '11px',
-              color: 'var(--text-tertiary)',
-              cursor: 'pointer'
-            }}
-            title="Sign out of Protector AI"
-          >
-            LOGOUT
-          </button>
+          <span style={{
+            fontSize: '11px',
+            padding: '3px 8px',
+            borderRadius: '4px',
+            border: '1px solid',
+            borderColor: isAdministrator ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-medium)',
+            backgroundColor: isAdministrator ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-surface-elevated)',
+            color: isAdministrator ? '#34D399' : 'var(--text-secondary)',
+            fontWeight: 600
+          }}>
+            {currentUser.role}
+          </span>
         )}
       </div>
     </header>

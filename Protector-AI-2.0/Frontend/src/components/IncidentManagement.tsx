@@ -102,13 +102,12 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
       {/* Top Header & Export */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <div className="section-tag" style={{ marginBottom: '6px' }}>
-            <span className="section-tag-num">02</span>
-            <span>/ INCIDENT AUDIT TRAIL</span>
-          </div>
-          <h2 className="display-title" style={{ fontSize: '24px' }}>
-            Safety Violations & Infraction Records
-          </h2>
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            Incident Audit Log
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+            Real-time optical infraction tracking, safety violation investigations, and audit trails.
+          </p>
         </div>
 
         <button
@@ -119,27 +118,27 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
         </button>
       </div>
 
-      {/* Filter Bar (Clean, Typography-driven) */}
+      {/* Filter Bar */}
       <div className="precision-surface" style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Search Box */}
           <div style={{ position: 'relative', flex: 1, minWidth: '280px', maxWidth: '460px', display: 'flex', alignItems: 'center' }}>
-            <span style={{ position: 'absolute', left: '10px', color: 'var(--text-tertiary)', fontSize: '13px', pointerEvents: 'none' }}>
+            <span style={{ position: 'absolute', left: '12px', color: 'var(--text-tertiary)', fontSize: '13px', pointerEvents: 'none' }}>
               🔍
             </span>
             <input
               type="text"
-              placeholder="Search person name, incident ID, category, or location..."
+              placeholder="Search by worker name, incident ID, category, or location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 backgroundColor: 'var(--bg-app)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '5px',
-                padding: '8px 30px 8px 30px',
+                borderRadius: '6px',
+                padding: '8px 32px 8px 34px',
                 color: 'var(--text-primary)',
-                fontSize: '12px',
-                fontFamily: 'var(--font-mono)',
+                fontSize: '12.5px',
+                fontFamily: 'var(--font-sans)',
                 outline: 'none',
                 width: '100%'
               }}
@@ -156,7 +155,6 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
                   color: 'var(--text-tertiary)',
                   cursor: 'pointer',
                   padding: '2px 6px',
-                  fontFamily: 'var(--font-mono)',
                   fontSize: '12px'
                 }}
                 title="Clear search"
@@ -168,7 +166,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
 
           {/* Severity Filter Pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginRight: '4px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500, marginRight: '4px' }}>
               Severity:
             </span>
             {['All', 'Critical', 'High', 'Medium', 'Low'].map((sev) => (
@@ -176,25 +174,25 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
                 key={sev}
                 onClick={() => setSeverityFilter(sev)}
                 style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '10.5px',
-                  padding: '4px 8px',
-                  borderRadius: '3px',
+                  fontSize: '11px',
+                  padding: '4px 10px',
+                  borderRadius: '5px',
                   border: '1px solid',
                   borderColor: severityFilter === sev ? 'var(--accent-citron)' : 'var(--border-subtle)',
                   backgroundColor: severityFilter === sev ? 'var(--accent-citron-subtle)' : 'transparent',
                   color: severityFilter === sev ? 'var(--accent-citron)' : 'var(--text-secondary)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  fontWeight: severityFilter === sev ? 600 : 400
                 }}
               >
-                {sev.toUpperCase()}
+                {sev}
               </button>
             ))}
           </div>
 
           {/* Status Filter Pills */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginRight: '4px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500, marginRight: '4px' }}>
               Status:
             </span>
             {['All', 'Open', 'In Review', 'Acknowledged', 'Resolved'].map((stat) => (
@@ -202,18 +200,18 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
                 key={stat}
                 onClick={() => setStatusFilter(stat)}
                 style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '10.5px',
-                  padding: '4px 8px',
-                  borderRadius: '3px',
+                  fontSize: '11px',
+                  padding: '4px 10px',
+                  borderRadius: '5px',
                   border: '1px solid',
                   borderColor: statusFilter === stat ? 'var(--accent-citron)' : 'var(--border-subtle)',
                   backgroundColor: statusFilter === stat ? 'var(--accent-citron-subtle)' : 'transparent',
                   color: statusFilter === stat ? 'var(--accent-citron)' : 'var(--text-secondary)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  fontWeight: statusFilter === stat ? 600 : 400
                 }}
               >
-                {stat.toUpperCase()}
+                {stat}
               </button>
             ))}
           </div>
@@ -224,22 +222,19 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
       <div className="precision-surface" style={{ overflow: 'hidden' }}>
         <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
-              DATABASE AUDIT RECORDS ({filteredIncidents.length} TOTAL)
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Logged Incidents ({filteredIncidents.length} total)
             </span>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(52, 211, 153, 0.08)', border: '1px solid rgba(52, 211, 153, 0.25)', padding: '2px 8px', borderRadius: '4px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '2px 8px', borderRadius: '4px' }}>
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--safety-safe)' }} className="animate-signal-pulse" />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--safety-safe)', fontWeight: 600 }}>
-                LIVE AUTO-REFRESH (3s)
+              <span style={{ fontSize: '11px', color: 'var(--safety-safe)', fontWeight: 500 }}>
+                Live Stream Auto-Refresh
               </span>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>
-              PAGE {validCurrentPage} OF {totalPages}
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--accent-citron)' }}>
-              SQLITE VERIFIED
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+              Page {validCurrentPage} of {totalPages}
             </span>
           </div>
         </div>
@@ -253,13 +248,13 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-surface-elevated)' }}>
-                  <th style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Incident ID & Title</th>
-                  <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Category</th>
-                  <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Severity</th>
-                  <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Location</th>
-                  <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Person / Name</th>
-                  <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Incident</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Category</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Severity</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Location</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Personnel</th>
+                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Status</th>
+                  <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>

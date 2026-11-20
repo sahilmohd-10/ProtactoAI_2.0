@@ -82,6 +82,61 @@ export interface FaceVisitLog {
   camera_source: string;
 }
 
+export interface AttendanceRecord {
+  id: number;
+  date: string;
+  profile_id?: number | null;
+  person_name: string;
+  first_in: string | null;
+  last_out: string | null;
+  total_hours: number;
+  status: string;
+  check_in_count: number;
+  camera_source: string;
+  verification_mode: string;
+  notes: string;
+  updated_at?: string | null;
+  shift?: string;
+  punctuality?: 'On Time' | 'Late Arrival' | 'On Duty' | string;
+  late_minutes?: number;
+  overtime_hours?: number;
+  active_now?: boolean;
+  department?: string;
+}
+
+export interface WeeklyAttendanceTrend {
+  date: string;
+  day: string;
+  present: number;
+  absent: number;
+  rate: number;
+  on_time: number;
+  late: number;
+}
+
+export interface AttendanceSummary {
+  date: string;
+  total_enrolled: number;
+  present_today: number;
+  absent_today: number;
+  attendance_rate: number;
+  excel_path: string;
+  onedrive_url?: string;
+  excel_exists: boolean;
+  last_excel_sync: string | null;
+  records_today: AttendanceRecord[];
+  on_time_count?: number;
+  late_count?: number;
+  overtime_count?: number;
+  total_overtime_hours?: number;
+  average_hours?: number;
+  punctuality_rate?: number;
+  active_on_site_now?: number;
+  shift_distribution?: Record<string, number>;
+  weekly_trend?: WeeklyAttendanceTrend[];
+}
+
+
 export interface Zone {
   id: string;
   name: string;

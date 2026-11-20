@@ -131,11 +131,25 @@ TOOL_DEFINITIONS = {
     },
     "navigate_to_module": {
         "name": "navigate_to_module",
-        "description": "Direct the UI to navigate to a target module (console, incidents, analytics, zones, team, settings, terminal).",
+        "description": "Direct the UI to navigate to a target module (console, incidents, analytics, attendance, zones, team, settings, terminal).",
         "parameters": {
-            "module": {"type": "string", "enum": ["console", "incidents", "analytics", "zones", "team", "settings", "terminal"], "required": True}
+            "module": {"type": "string", "enum": ["console", "incidents", "analytics", "attendance", "zones", "team", "settings", "terminal"], "required": True}
         },
         "is_mutation": False,
+        "requires_confirmation": False
+    },
+    "get_attendance": {
+        "name": "get_attendance",
+        "description": "Retrieve daily attendance registry, present workers, and sync status for D:\\Downloads\\Attandance.xlsx.",
+        "parameters": {},
+        "is_mutation": False,
+        "requires_confirmation": False
+    },
+    "sync_attendance_excel": {
+        "name": "sync_attendance_excel",
+        "description": "Trigger synchronization of biometric attendance database into D:\\Downloads\\Attandance.xlsx.",
+        "parameters": {},
+        "is_mutation": True,
         "requires_confirmation": False
     }
 }
@@ -449,3 +463,19 @@ class ToolRegistry:
             "target": mod,
             "message": f"Navigating to {mod.capitalize()} module."
         }
+
+    @staticmethod
+    def _tool_get_attendance(db, args, user_email):
+        from attendance_service import attendance_service
+        return attendance_service.get_summary(db)
+
+    @staticmethod
+    def _tool_sync_attendance_excel(db, args, user_email):
+        from attendance_service import attendance_service
+        success, msg = attendance_service.sync_to_excel()
+        return {
+            "success": success,
+            "message": msg,
+            "excel_path": str(attendance_service.excel_path)
+        }
+

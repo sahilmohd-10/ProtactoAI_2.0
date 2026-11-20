@@ -8,6 +8,7 @@ import { Analytics } from './components/Analytics';
 import { TeamAccess } from './components/TeamAccess';
 import { SystemHealth } from './components/SystemHealth';
 import { PeopleManagement } from './components/PeopleManagement';
+import { AttendanceManagement } from './components/AttendanceManagement';
 import { CommandTerminal } from './components/CommandTerminal';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
@@ -206,11 +207,11 @@ export function App() {
   // 1. Initial Session Verification Screen
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#090B0F] text-[#F4F5F2] font-mono">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-[#D7FF64] border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs tracking-widest text-[#969FA9] uppercase">
-            Verifying Security Session...
+      <div style={{ minHeight: '100vh', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '24px', height: '24px', border: '2px solid var(--accent-citron)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            Verifying session...
           </span>
         </div>
       </div>
@@ -295,6 +296,10 @@ export function App() {
               analytics={analytics}
               stats={ppeStats}
             />
+          )}
+
+          {activeModule === 'attendance' && (
+            <AttendanceManagement />
           )}
 
           {activeModule === 'people' && !isOperator && (

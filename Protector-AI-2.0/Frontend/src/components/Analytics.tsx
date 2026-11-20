@@ -88,13 +88,12 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <div className="section-tag" style={{ marginBottom: '6px' }}>
-            <span className="section-tag-num">03</span>
-            <span>/ COMPLIANCE METRICS & TRENDS</span>
-          </div>
-          <h2 className="display-title" style={{ fontSize: '24px' }}>
-            Safety Telemetry Analytics
-          </h2>
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            Compliance Analytics & Trends
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+            Comprehensive safety performance indicators, PPE compliance metrics, and risk distributions.
+          </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -103,7 +102,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
             alignItems: 'center',
             backgroundColor: 'var(--bg-surface)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: '5px',
+            borderRadius: '6px',
             padding: '2px'
           }}>
             {[7, 14, 30].map((d) => (
@@ -117,8 +116,8 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
                   backgroundColor: selectedRange === d ? 'var(--bg-surface-elevated)' : 'transparent',
                   color: selectedRange === d ? 'var(--accent-citron)' : 'var(--text-tertiary)',
                   fontSize: '11px',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: selectedRange === d ? 700 : 500,
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: selectedRange === d ? 600 : 400,
                   cursor: 'pointer'
                 }}
               >
@@ -136,56 +135,56 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
         </div>
       </div>
 
-      {/* KPI Cards Strip (Minimal, Typographic) */}
+      {/* KPI Cards Strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <div className="precision-surface" style={{ padding: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
               Mean Compliance
             </span>
             <span className="status-pill status-pill-safe">+1.4% WoW</span>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--safety-safe)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+          <div style={{ fontSize: '26px', fontWeight: 700, color: 'var(--safety-safe)', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
             {analytics ? `${analytics.average_compliance}%` : '95.6%'}
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            Rolling multi-camera average
+          <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            Rolling fleet camera average
           </div>
         </div>
 
         <div className="precision-surface" style={{ padding: '18px' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Peak Risk Hours
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
             14:00 – 16:00
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
             Shift changeover interval
           </div>
         </div>
 
         <div className="precision-surface" style={{ padding: '18px' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Top Infraction Category
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--safety-violation)', marginTop: '4px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--safety-violation)', marginTop: '6px' }}>
             Missing Hardhat (37%)
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            Sector 4 Bay A gantry area
+          <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            Primary optical detector flag
           </div>
         </div>
 
         <div className="precision-surface" style={{ padding: '18px' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
-            Resolution Speed
+          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+            Resolution Rate
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+          <div style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
             92.8%
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-            Under 5 minutes response
+          <div style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            Within 5-minute standard
           </div>
         </div>
       </div>
@@ -195,12 +194,11 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
         {/* Compliance Trend Chart */}
         <div className="precision-surface" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div className="section-tag">
-              <span className="section-tag-num">01</span>
-              <span>/ 7-DAY COMPLIANCE TRAJECTORY</span>
-            </div>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>
-              OSHA 1910 TARGET 95%
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              7-Day Compliance Trajectory
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+              OSHA Standard: 95%
             </span>
           </div>
 
@@ -209,9 +207,10 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
 
         {/* Category Breakdown */}
         <div className="precision-surface" style={{ padding: '20px' }}>
-          <div className="section-tag" style={{ marginBottom: '14px' }}>
-            <span className="section-tag-num">02</span>
-            <span>/ INFRACTIONS BY CATEGORY</span>
+          <div style={{ marginBottom: '14px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Infractions by Category
+            </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -244,9 +243,10 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics }) => {
 
       {/* Hourly Intensity Bar Chart */}
       <div className="precision-surface" style={{ padding: '20px' }}>
-        <div className="section-tag" style={{ marginBottom: '16px' }}>
-          <span className="section-tag-num">03</span>
-          <span>/ HOURLY INCIDENT INTENSITY (24H CYCLE)</span>
+        <div style={{ marginBottom: '16px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Hourly Incident Intensity (24-Hour Cycle)
+          </span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '12px' }}>

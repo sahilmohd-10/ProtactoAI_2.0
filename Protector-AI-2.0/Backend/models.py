@@ -246,3 +246,38 @@ class DailyMetric(Base):
             "high_count": self.high_count,
             "medium_count": self.medium_count
         }
+
+class AttendanceRecord(Base):
+    __tablename__ = "attendance_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date = Column(String(20), nullable=False, index=True)  # YYYY-MM-DD
+    profile_id = Column(Integer, nullable=True, index=True)
+    person_name = Column(String(120), nullable=False, index=True)
+    first_in = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    last_out = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    total_hours = Column(Float, default=0.0)
+    status = Column(String(30), default="Present")  # Present, Full Day, Half Day, On-Duty, Late
+    check_in_count = Column(Integer, default=1)
+    camera_source = Column(String(100), default="Optical Scanner")
+    verification_mode = Column(String(50), default="Facial Biometrics")  # Facial Biometrics, Manual, Optical Scanner
+    notes = Column(Text, default="")
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "profile_id": self.profile_id,
+            "person_name": self.person_name,
+            "first_in": self.first_in.isoformat() if self.first_in else None,
+            "last_out": self.last_out.isoformat() if self.last_out else None,
+            "total_hours": round(self.total_hours, 2),
+            "status": self.status,
+            "check_in_count": self.check_in_count,
+            "camera_source": self.camera_source,
+            "verification_mode": self.verification_mode,
+            "notes": self.notes,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+

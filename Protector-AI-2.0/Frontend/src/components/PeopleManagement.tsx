@@ -210,16 +210,11 @@ export const PeopleManagement: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
       {/* Top Banner Header */}
       <div>
-        <div className="section-tag">
-          <span className="section-tag-num">04</span>
-          <span>/ BIOMETRIC IDENTITY ENROLLMENT</span>
-        </div>
-        <h1 className="display-title" style={{ fontSize: '28px', marginTop: '10px' }}>
-          Personnel & Face Models
+        <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+          Personnel & Face Recognition Models
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '6px', maxWidth: '820px', lineHeight: 1.6 }}>
-          Register authorized workers and personnel models for optical verification. When camera monitoring is active in the{' '}
-          <strong style={{ color: 'var(--accent-citron)' }}>Console</strong>, Protector AI will automatically identify enrolled people, verify safety compliance, and link their name directly to safety incident reports.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px', maxWidth: '820px', lineHeight: 1.5 }}>
+          Register authorized workers for biometric facial verification. During live monitoring, Protector AI automatically verifies safety compliance and links enrolled personnel to audit records and attendance logs.
         </p>
       </div>
 

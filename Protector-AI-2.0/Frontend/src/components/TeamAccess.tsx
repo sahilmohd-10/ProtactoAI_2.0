@@ -161,15 +161,11 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
       {/* Header & Section Title */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <div className="section-tag" style={{ marginBottom: '6px' }}>
-            <span className="section-tag-num">04</span>
-            <span>/ AUTHORIZED PERSONNEL & RBAC</span>
-          </div>
-          <h2 className="display-title" style={{ fontSize: '24px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-            Team Access & Role Authorization
-          </h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '640px' }}>
-            Manage authorized site personnel credentials, toggle operational statuses, and configure access roles.
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            Team Access & Role Permissions
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0', maxWidth: '640px' }}>
+            Manage user accounts, assign Administrator or Operator roles, and configure role-based access control.
           </p>
         </div>
 

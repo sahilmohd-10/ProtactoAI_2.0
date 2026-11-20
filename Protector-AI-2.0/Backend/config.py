@@ -36,6 +36,17 @@ SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 # Dataset validation images for synthetic / backup feed
 DATASET_SAMPLE_DIR = Path(r"D:\1\valid\images")
 
+# Attendance Excel File Paths (Live OneDrive Cloud Sync & Local Backup)
+ONEDRIVE_DIR = Path(os.getenv("ONEDRIVE", Path.home() / "OneDrive"))
+ONEDRIVE_DOCS_PATH = ONEDRIVE_DIR / "Documents" / "Attandance.xlsx"
+BACKUP_ATTENDANCE_PATH = Path(r"D:\Downloads\Attandance.xlsx")
+
+DEFAULT_ATTENDANCE_PATH = ONEDRIVE_DOCS_PATH if ONEDRIVE_DOCS_PATH.parent.exists() else BACKUP_ATTENDANCE_PATH
+ATTENDANCE_EXCEL_PATH = Path(os.getenv("ATTENDANCE_EXCEL_PATH", str(DEFAULT_ATTENDANCE_PATH)))
+ONEDRIVE_LIVE_URL = "https://d.docs.live.net/13FB1DC024CF6090/Documents/Attandance.xlsx"
+
+
+
 # Server Config
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", 5000))

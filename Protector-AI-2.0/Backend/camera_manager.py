@@ -158,11 +158,14 @@ class PersistentCameraWorker:
                         now_ts = time.time()
                         for m in matches:
                             p_name = m.get("name")
-                            if p_name and m.get("enrolled", True) and not any(k in p_name.lower() for k in ["unregistered", "unsigned", "unknown"]):
+                            acc = m.get("accuracy", face_recognition_service.distance_to_accuracy(m.get("distance", 99.0)))
+                            # STRICT REQUIREMENT: Only accept match and mark attendance if feature match >= 80%
+                            if p_name and m.get("enrolled", True) and acc >= 80.0 and not any(k in p_name.lower() for k in ["unregistered", "unsigned", "unknown"]):
                                 self.active_people[p_name] = {
                                     "box": m.get("box"),
                                     "timestamp": now_ts,
                                     "profile_id": m.get("profile_id"),
+                                    "accuracy": acc,
                                     "enrolled": True
                                 }
                                 # Register visit if enrolled and cooldown elapsed
@@ -177,10 +180,24 @@ class PersistentCameraWorker:
                                             profile_id=matched_prof.id,
                                             recognized_at=now_utc,
                                             match_distance=m.get("distance", 0.0),
-                                            camera_source=f"Live Optical Stream ({self.camera_id.upper()})"
+                                            camera_source=f"Live Optical Stream ({self.camera_id.upper()} - {acc}% Match)"
                                         ))
                                         matched_prof.last_seen_at = now_utc
                                         db.commit()
+
+                                    # Update biometric attendance record and sync to Excel immediately
+                                    try:
+                                        from attendance_service import attendance_service
+                                        attendance_service.record_attendance(
+                                            db=db,
+                                            person_name=matched_prof.name,
+                                            profile_id=matched_prof.id,
+                                            camera_source=f"Live Optical Stream ({self.camera_id.upper()})",
+                                            verification_mode=f"Facial Biometrics ({round(acc)}% Feature Match)",
+                                            force_excel_sync=True
+                                        )
+                                    except Exception as att_err:
+                                        logger.debug(f"Attendance logging error: {att_err}")
 
                         # Purge people not seen in last 5 seconds
                         self.active_people = {n: v for n, v in self.active_people.items() if (now_ts - v.get("timestamp", 0)) < 5.0}
@@ -346,15 +363,20 @@ class PersistentCameraWorker:
             now_ts = time.time()
 
             # STRICT FACE IDENTIFICATION:
-            # ONLY assign name(s) if face(s) are ACTUALLY visible and recognized in this exact image!
-            # If no face is visible or matched, DO NOT guess or inherit past names!
+            # ONLY assign name(s) if face(s) are ACTUALLY visible and recognized with >= 80% feature match accuracy!
+            # If accuracy < 80%, DO NOT assign the person's name (stays Unassigned Worker)!
             recognized_in_frame = []
             try:
                 profiles = db.query(FaceProfile).all()
                 if profiles:
                     raw_to_check = self.latest_raw_frame if self.latest_raw_frame is not None else annotated_frame
                     matches = face_recognition_service.recognize_all_matches(raw_to_check, profiles)
-                    recognized_in_frame = [m["name"] for m in matches if m.get("name") and m.get("enrolled", True) and not any(k in m["name"].lower() for k in ["unregistered", "unsigned", "unknown"])]
+                    for m in matches:
+                        acc = m.get("accuracy", face_recognition_service.distance_to_accuracy(m.get("distance", 99.0)))
+                        if m.get("name") and m.get("enrolled", True) and acc >= 80.0:
+                            p_name = m["name"]
+                            if not any(k in p_name.lower() for k in ["unregistered", "unsigned", "unknown"]):
+                                recognized_in_frame.append(f"{p_name} ({round(acc)}% Match)")
             except Exception as ex:
                 logger.debug(f"Direct face match on incident frame: {ex}")
 

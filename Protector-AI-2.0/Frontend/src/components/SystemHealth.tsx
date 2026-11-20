@@ -196,15 +196,11 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ status, onRefresh })
       {/* Header & Section Title */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <div className="section-tag" style={{ marginBottom: '6px' }}>
-            <span className="section-tag-num">05</span>
-            <span>/ SYSTEM DIAGNOSTICS & TELEMETRY</span>
-          </div>
-          <h2 className="display-title" style={{ fontSize: '24px', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-            System Settings & Hardware Telemetry
-          </h2>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '640px' }}>
-            Real-time inference pipeline benchmarks, runtime environment gauges, and neural reasoning configurations.
+          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            System Diagnostics & Settings
+          </h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0', maxWidth: '640px' }}>
+            Real-time inference pipeline benchmarks, runtime hardware telemetry, and configuration preferences.
           </p>
         </div>
 

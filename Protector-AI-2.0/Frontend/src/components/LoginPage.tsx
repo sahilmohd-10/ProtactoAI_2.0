@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ShieldCheck, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -51,34 +52,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
 
   return (
     <div className="auth-viewport">
-      {/* Precision ambient background glow */}
-      <div className="auth-ambient-glow" />
-
       <div className="auth-card-container">
-        {/* Brand header */}
+        {/* Brand Header */}
         <div className="auth-brand-header">
-          <div className="auth-brand-badge">
-            <span className="auth-brand-badge-dot" />
-            <span>Industrial Safety Platform 2.0</span>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--bg-surface-elevated)',
+            border: '1px solid var(--border-medium)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--accent-citron)',
+            marginBottom: '4px'
+          }}>
+            <ShieldCheck size={22} />
           </div>
           <h1 className="auth-title">
             Protector AI
           </h1>
           <p className="auth-subtitle">
-            Autonomous Safety Operations &amp; PPE Vision Control
+            Industrial Safety Operations &amp; PPE Monitoring
           </p>
         </div>
 
         {/* Card */}
         <div className="auth-card">
           <div className="auth-card-header">
-            <h2 className="auth-card-title">Authenticate Access</h2>
-            <p className="auth-card-desc">Select your designated operational role to proceed.</p>
+            <h2 className="auth-card-title">Sign in</h2>
+            <p className="auth-card-desc">Enter your credentials to access the safety workspace.</p>
           </div>
 
           {error && (
-            <div className="auth-error-banner">
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--safety-violation)', marginTop: '4px', flexShrink: 0 }} />
+            <div className="auth-error-banner" role="alert">
               <span>{error}</span>
             </div>
           )}
@@ -87,11 +94,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
             {/* Role selector segmented control */}
             <div className="auth-field">
               <label className="auth-label">
-                Operational Role
+                Account Role
               </label>
-              <div className="auth-role-selector">
+              <div className="auth-role-selector" role="tablist">
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={role === 'Administrator'}
                   onClick={() => setRole('Administrator')}
                   className={`auth-role-btn ${role === 'Administrator' ? 'active' : ''}`}
                 >
@@ -99,6 +108,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 </button>
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={role === 'Operator'}
                   onClick={() => setRole('Operator')}
                   className={`auth-role-btn ${role === 'Operator' ? 'active' : ''}`}
                 >
@@ -117,7 +128,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. admin or alex.vance@protector.ai"
+                placeholder="name@company.com or username"
                 autoComplete="username"
                 className="auth-input"
                 disabled={loading}
@@ -135,7 +146,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter account password"
+                  placeholder="••••••••"
                   autoComplete="current-password"
                   className="auth-input"
                   style={{ paddingRight: '40px' }}
@@ -147,16 +158,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="auth-eye-btn"
                 >
-                  {showPassword ? (
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
@@ -170,31 +172,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               {loading ? (
                 <>
                   <div className="spinner-icon" />
-                  <span>Verifying Credentials...</span>
+                  <span>Signing in...</span>
                 </>
               ) : (
-                <span>Log In as {role}</span>
+                <>
+                  <span>Sign in as {role}</span>
+                  <ArrowRight size={15} />
+                </>
               )}
             </button>
           </form>
 
-
           {/* Switch to Register */}
           <div className="auth-switch-text">
-            Don't have an operator account?{' '}
+            Don't have an operator account?
             <button
               type="button"
               onClick={onSwitchToRegister}
               className="auth-link"
             >
-              Create Account
+              Create account
             </button>
           </div>
-        </div>
-
-        {/* Security badge footer */}
-        <div className="auth-footer-note">
-          Argon2id Encrypted &middot; Backend RBAC Enforcement &middot; v2.0
         </div>
       </div>
     </div>
