@@ -259,10 +259,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               <SpinningDevice3D size={360} />
               <div style={{ textAlign: 'center', marginTop: '20px', maxWidth: '380px' }}>
                 <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
-                  Industrial Intelligence 2.0
+                  Industrial Safety Intelligence
                 </h3>
                 <p style={{ fontSize: '13.5px', color: '#94A3B8', margin: '8px 0 0 0' }}>
-                  Real-time neural inference protecting human workforce across high-hazard environments.
+                  Real-time automated surveillance protecting human workforce across high-hazard environments.
                 </p>
               </div>
             </div>

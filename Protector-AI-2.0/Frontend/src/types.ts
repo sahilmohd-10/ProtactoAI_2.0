@@ -172,6 +172,8 @@ export interface Incident {
   assigned_to: string;
   resolution_notes: string;
   resolved_at?: string;
+  confidence?: number;
+  time_ago?: string;
 }
 
 export interface SystemStatus {

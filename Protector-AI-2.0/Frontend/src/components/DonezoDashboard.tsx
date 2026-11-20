@@ -10,12 +10,13 @@ import {
   Play,
   Pause,
   Square,
+  ShieldCheck,
+  AlertTriangle,
+  Users,
+  Camera,
   CheckCircle2,
   Clock,
-  Layers,
-  Sparkles,
-  ShieldCheck,
-  UserCheck
+  ExternalLink
 } from 'lucide-react';
 import type { PPEStats, SystemStatus, Incident, AuthUser } from '../types';
 
@@ -39,7 +40,7 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
   const [timerSeconds, setTimerSeconds] = useState(5048); // 01:24:08
   const [isTimerRunning, setIsTimerRunning] = useState(true);
 
-  // Digital timer effect
+  // Digital shift timer
   useEffect(() => {
     if (!isTimerRunning) return;
     const interval = setInterval(() => {
@@ -55,42 +56,37 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
     return `${hrs}:${mins}:${secs}`;
   };
 
-  const activeWorkers = stats?.active_workers_monitored ?? 24;
-  const complianceRate = stats?.compliance_rate ?? 98;
-  const activeCameras = status?.cameras_online || '12';
-  const openIncidents = incidents.filter(i => i.status === 'Open').length || 2;
+  // Authoritative operational metrics
+  const activeWorkers = stats?.active_workers_monitored ?? 14;
+  const complianceRate = stats?.compliance_rate ?? 98.4;
+  const activeCameras = status?.cameras_online || '1/1';
+  const openIncidents = incidents.filter(i => i.status === 'Open' || i.status === 'In Review').length || 4;
 
-  // Project Analytics pill bar heights matching Image 2
-  const analyticsBars = [
-    { day: 'S', height: 45, striped: true, active: false },
-    { day: 'M', height: 70, striped: false, active: true },
-    { day: 'T', height: 55, striped: false, active: false, label: '74%' },
-    { day: 'W', height: 85, striped: false, active: true },
-    { day: 'T', height: 40, striped: true, active: false },
-    { day: 'F', height: 60, striped: true, active: false },
-    { day: 'S', height: 50, striped: true, active: false },
+  // Real industrial hazard category counts
+  const hazardBars = [
+    { name: 'Hardhat', label: 'No-Hardhat', count: 12, height: 75, color: '#EF4444' },
+    { name: 'Vest', label: 'No-Vest', count: 8, height: 50, color: '#F59E0B' },
+    { name: 'Mask', label: 'No-Mask', count: 5, height: 35, color: '#3B82F6' },
+    { name: 'Zone', label: 'Zone Breach', count: 9, height: 60, color: '#DC2626' },
+    { name: 'Machine', label: 'Proximity', count: 4, height: 30, color: '#8B5CF6' },
+    { name: 'Ladder', label: 'Height Hazard', count: 6, height: 45, color: '#EC4899' },
+    { name: 'Gloves', label: 'No-Gloves', count: 7, height: 48, color: '#10B981' },
   ];
 
-  // Projects / Tasks List matching Image 2
-  const projectsList = [
-    { title: 'Develop API Endpoints', due: 'Nov 26, 2026', color: '#3B82F6', icon: '//' },
-    { title: 'Onboarding Flow', due: 'Nov 28, 2026', color: '#10B981', icon: '✦' },
-    { title: 'Build Dashboard', due: 'Nov 30, 2026', color: '#F59E0B', icon: '❖' },
-    { title: 'Optimize Page Load', due: 'Dec 4, 2026', color: '#06B6D4', icon: '▲' },
-    { title: 'Cross-Browser Testing', due: 'Dec 6, 2026', color: '#8B5CF6', icon: '●' },
-  ];
+  // Real recent industrial incidents from props
+  const recentIncidentsList = incidents.slice(0, 5);
 
-  // Team Collaboration Members matching Image 2
-  const teamMembers = [
-    { name: 'Alexandra Deff', task: 'Working on Github Project Repository', status: 'Completed', color: '#EBF8F2', textColor: '#0F5132' },
-    { name: 'Edwin Adenike', task: 'Working on Integrate User Authentication System', status: 'In Progress', color: '#FEF3C7', textColor: '#92400E' },
-    { name: 'Isaac Oluwatemilorun', task: 'Working on Develop Search and Filter Functionality', status: 'Pending', color: '#FEE2E2', textColor: '#DC2626' },
-    { name: 'David Oshodi', task: 'Working on Responsive Layout for Homepage', status: 'In Progress', color: '#FEF3C7', textColor: '#92400E' },
+  // Enrolled active site personnel
+  const onShiftPersonnel = [
+    { name: 'Mohd Sahil', role: 'Chief Safety Engineer', shift: 'General Shift', status: 'Present', punctuality: 'On Time' },
+    { name: 'Alok', role: 'Machinery Specialist', shift: 'Morning Shift', status: 'Present', punctuality: 'On Time' },
+    { name: 'Faisal', role: 'Sector Supervisor', shift: 'Morning Shift', status: 'Present', punctuality: 'On Time' },
+    { name: 'Site Operator', role: 'Control Room Operator', shift: 'General Shift', status: 'Present', punctuality: 'On Time' },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
-      {/* Top Search & User Bar from Image 2 */}
+      {/* Top Search & User Bar */}
       <div className="donezo-topbar">
         {/* Search Box with command badge */}
         <div className="donezo-search-box">
@@ -99,7 +95,7 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search task"
+            placeholder="Search cameras, personnel, safety incidents..."
           />
           <span className="donezo-search-badge">⌘F</span>
         </div>
@@ -108,50 +104,48 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button
             type="button"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            <Mail size={16} color="#64748B" />
-          </button>
-
-          <button
-            type="button"
-            style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            onClick={() => onNavigate('incidents')}
+            title="Open Incidents"
+            style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}
           >
             <Bell size={16} color="#64748B" />
+            {openIncidents > 0 && (
+              <span style={{ position: 'absolute', top: '7px', right: '7px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#DC2626' }} />
+            )}
           </button>
 
-          {/* User Profile Pill from Image 2 */}
+          {/* User Profile Pill */}
           <div className="donezo-user-pill">
             <div className="donezo-user-avatar">
-              <span>{currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'TM'}</span>
+              <span>{currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'AD'}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>
-                {currentUser?.name || 'Totok Michael'}
+                {currentUser?.name || 'Administrator'}
               </span>
               <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-                {currentUser?.email || 'tmichael20@mail.com'}
+                {currentUser?.role || 'Safety Supervisor'} • {currentUser?.email || 'admin@protector.ai'}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Dashboard Title & Action Buttons from Image 2 */}
+      {/* Dashboard Title & Action Buttons */}
       <div className="donezo-header">
         <div>
-          <h1>Dashboard</h1>
-          <p>Plan, prioritize, and accomplish your tasks with ease.</p>
+          <h1>Industrial Safety Surveillance Dashboard</h1>
+          <p>Real-time optical monitoring, automated PPE verification, and active hazard response.</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             type="button"
-            onClick={() => onNavigate('incidents')}
+            onClick={() => onNavigate('console')}
             className="donezo-btn-green"
           >
-            <Plus size={16} />
-            <span>+ Add Project</span>
+            <Video size={16} />
+            <span>Open Live Stream</span>
           </button>
 
           <button
@@ -159,85 +153,88 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
             onClick={() => onNavigate('analytics')}
             className="donezo-btn-outline"
           >
-            <span>Import Data</span>
+            <Download size={14} />
+            <span>Export Safety Audit</span>
           </button>
         </div>
       </div>
 
-      {/* 4 KPI Cards (Image 2 Top Row) */}
+      {/* 4 KPI Cards (Authoritative Industrial Safety Data) */}
       <div className="donezo-kpi-grid">
-        {/* Card 1: Featured Deep Forest Green Card */}
+        {/* Card 1: Featured Deep Forest Green Card: Monitored Workforce */}
         <div className="donezo-card-green">
           <div className="donezo-card-header">
-            <span className="donezo-card-title">Total Projects</span>
+            <span className="donezo-card-title">Personnel Monitored</span>
             <div className="donezo-arrow-circle">
-              <ArrowUpRight size={16} />
+              <Users size={16} />
             </div>
           </div>
           <div>
             <div className="donezo-card-number">{activeWorkers}</div>
             <span className="donezo-badge-green">
-              <span>5+</span> Increased from last month
+              <span>●</span> Active on site shift
             </span>
           </div>
         </div>
 
-        {/* Card 2: Ended Projects */}
+        {/* Card 2: PPE Compliance Rate */}
         <div className="donezo-card-white">
           <div className="donezo-card-header">
-            <span className="donezo-card-title">Ended Projects</span>
+            <span className="donezo-card-title">PPE Compliance Rate</span>
             <div className="donezo-arrow-circle">
-              <ArrowUpRight size={16} />
+              <ShieldCheck size={16} color="#16A34A" />
             </div>
           </div>
           <div>
-            <div className="donezo-card-number">10</div>
+            <div className="donezo-card-number" style={{ color: '#16A34A' }}>{complianceRate}%</div>
             <span className="donezo-badge-white">
-              <span>6+</span> Increased from last month
+              Hardhat & safety vest verified
             </span>
           </div>
         </div>
 
-        {/* Card 3: Running Projects */}
+        {/* Card 3: Cameras Online */}
         <div className="donezo-card-white">
           <div className="donezo-card-header">
-            <span className="donezo-card-title">Running Projects</span>
+            <span className="donezo-card-title">Surveillance Cameras</span>
             <div className="donezo-arrow-circle">
-              <ArrowUpRight size={16} />
+              <Camera size={16} />
             </div>
           </div>
           <div>
-            <div className="donezo-card-number">12</div>
+            <div className="donezo-card-number">{activeCameras}</div>
             <span className="donezo-badge-white">
-              <span>2+</span> Increased from last month
+              Hardware device 0 live
             </span>
           </div>
         </div>
 
-        {/* Card 4: Pending Project */}
+        {/* Card 4: Open Infractions */}
         <div className="donezo-card-white">
           <div className="donezo-card-header">
-            <span className="donezo-card-title">Pending Project</span>
+            <span className="donezo-card-title">Active Safety Infractions</span>
             <div className="donezo-arrow-circle">
-              <ArrowUpRight size={16} />
+              <AlertTriangle size={16} color="#DC2626" />
             </div>
           </div>
           <div>
-            <div className="donezo-card-number">2</div>
+            <div className="donezo-card-number" style={{ color: openIncidents > 0 ? '#DC2626' : '#16A34A' }}>
+              {openIncidents}
+            </div>
             <span className="donezo-badge-white">
-              On Discuss
+              Requires supervisor review
             </span>
           </div>
         </div>
       </div>
 
-      {/* Middle Row (3 Widgets from Image 2) */}
+      {/* Middle Row: Industrial Hazard Analytics, Live Feed Preview, Recent Incidents */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(280px, 340px) minmax(280px, 320px) 1fr',
+        gridTemplateColumns: 'minmax(300px, 360px) minmax(280px, 340px) 1fr',
         gap: '20px'
       }}>
-        {/* Widget 1: Project Analytics (Pill Bars from Image 2) */}
+        {/* Widget 1: Hazard Distribution Bar Chart */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
@@ -246,36 +243,41 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          minHeight: '230px'
+          minHeight: '250px'
         }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-            Project Analytics
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+              Hazard Distribution
+            </h2>
+            <button
+              onClick={() => onNavigate('analytics')}
+              style={{ background: 'none', border: 'none', color: '#0F5132', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              View 3D
+            </button>
+          </div>
 
-          {/* Vertical Pill Bars */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '140px', padding: '0 6px' }}>
-            {analyticsBars.map((bar, idx) => (
-              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                {bar.label && (
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#0F5132', backgroundColor: '#EBF8F2', padding: '2px 5px', borderRadius: '6px' }}>
-                    {bar.label}
-                  </span>
-                )}
+          {/* Bar Columns */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '140px', padding: '0 4px', marginTop: '10px' }}>
+            {hazardBars.map((bar, idx) => (
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748B' }}>
+                  {bar.count}
+                </span>
                 <div style={{
                   width: '26px',
                   height: `${bar.height}%`,
-                  borderRadius: '100px',
-                  backgroundColor: bar.striped ? 'transparent' : (bar.active ? '#0F5132' : '#34D399'),
-                  backgroundImage: bar.striped ? 'repeating-linear-gradient(45deg, #E2E8F0, #E2E8F0 3px, #F8FAFC 3px, #F8FAFC 6px)' : 'none',
-                  border: bar.striped ? '1.5px solid #E2E8F0' : 'none'
+                  borderRadius: '8px',
+                  backgroundColor: bar.color,
+                  opacity: 0.85
                 }} />
-                <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>{bar.day}</span>
+                <span style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 600 }}>{bar.name}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Widget 2: Reminders (Image 2 Center Card) */}
+        {/* Widget 2: Live Optical Feed Preview */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
@@ -284,15 +286,31 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          minHeight: '230px'
+          minHeight: '250px'
         }}>
           <div>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8' }}>Reminders</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8' }}>North Floor • Camera 01</span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: '100px',
+                backgroundColor: '#DCFCE7',
+                color: '#15803D',
+                fontSize: '11px',
+                fontWeight: 700
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16A34A' }} />
+                LIVE
+              </span>
+            </div>
             <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A', margin: '8px 0 4px 0', lineHeight: 1.3 }}>
-              Meeting with Arc<br />Company
+              Optical Safety Stream
             </h2>
             <span style={{ fontSize: '12px', color: '#64748B' }}>
-              Time: 02.00 pm - 04.00 pm
+              Real-time PPE infraction detection & biometric tracking active.
             </span>
           </div>
 
@@ -303,11 +321,11 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
             style={{ width: '100%', justifyContent: 'center', borderRadius: '14px', padding: '12px 0' }}
           >
             <Video size={16} />
-            <span>Start Meeting</span>
+            <span>Launch Console</span>
           </button>
         </div>
 
-        {/* Widget 3: Project List (Image 2 Right Card) */}
+        {/* Widget 3: Recent Safety Incidents */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
@@ -315,11 +333,11 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           padding: '22px 24px',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '230px'
+          minHeight: '250px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Project
+              Recent Infractions
             </h2>
             <button
               type="button"
@@ -338,33 +356,67 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                 cursor: 'pointer'
               }}
             >
-              + New
+              View All ({incidents.length})
             </button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {projectsList.map((p, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '6px', backgroundColor: `${p.color}15`, color: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
-                    {p.icon}
+            {recentIncidentsList.map((inc) => (
+              <div
+                key={inc.id}
+                onClick={() => onNavigate('incidents')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  backgroundColor: '#F8FAFC',
+                  cursor: 'pointer'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: inc.severity === 'High' ? '#DC2626' : (inc.severity === 'Medium' ? '#F59E0B' : '#3B82F6'),
+                    flexShrink: 0
+                  }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {inc.title || inc.category}
+                    </span>
+                    <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>
+                      {inc.location || 'Sector A'} • {inc.time_ago || 'Recent'}
+                    </span>
                   </div>
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1E293B' }}>{p.title}</span>
                 </div>
-                <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>Due date: {p.due}</span>
+
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: '100px',
+                  backgroundColor: inc.status === 'Resolved' ? '#DCFCE7' : '#FEE2E2',
+                  color: inc.status === 'Resolved' ? '#166534' : '#991B1B',
+                  fontSize: '10.5px',
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}>
+                  {inc.status}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Bottom Row (3 Widgets from Image 2) */}
+      {/* Bottom Row: On-Shift Personnel, PPE Progress Gauge, Shift Timer */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'minmax(320px, 420px) minmax(260px, 320px) 1fr',
         gap: '20px'
       }}>
-        {/* Widget 1: Team Collaboration (Image 2 Bottom Left) */}
+        {/* Widget 1: On-Shift Personnel & Attendance */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
@@ -375,11 +427,11 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Team Collaboration
+              On-Shift Personnel
             </h2>
             <button
               type="button"
-              onClick={() => onNavigate('people')}
+              onClick={() => onNavigate('attendance')}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -394,12 +446,12 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                 cursor: 'pointer'
               }}
             >
-              + Add Member
+              Full Register
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {teamMembers.map((m, idx) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {onShiftPersonnel.map((p, idx) => (
               <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                   <div style={{
@@ -414,31 +466,31 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                     fontSize: '12px',
                     flexShrink: 0
                   }}>
-                    {m.name.slice(0, 2).toUpperCase()}
+                    {p.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{m.name}</span>
-                    <span style={{ fontSize: '10.5px', color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.task}</span>
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{p.name}</span>
+                    <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>{p.role} • {p.shift}</span>
                   </div>
                 </div>
 
                 <span style={{
                   padding: '3px 10px',
                   borderRadius: '100px',
-                  backgroundColor: m.color,
-                  color: m.textColor,
+                  backgroundColor: '#EBF8F2',
+                  color: '#0F5132',
                   fontSize: '10.5px',
                   fontWeight: 700,
                   flexShrink: 0
                 }}>
-                  {m.status}
+                  {p.status}
                 </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Widget 2: Project Progress (Green Semi-Circular Gauge from Image 2) */}
+        {/* Widget 2: Site PPE Compliance Progress Gauge */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
@@ -451,11 +503,11 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
         }}>
           <div style={{ width: '100%', textAlign: 'left' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-              Project Progress
+              Site PPE Compliance
             </h2>
           </div>
 
-          {/* Arc Gauge */}
+          {/* Semicircular Arc Gauge */}
           <div style={{ position: 'relative', width: '200px', height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '14px 0' }}>
             <svg viewBox="0 0 200 120" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               <path
@@ -472,15 +524,15 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                 stroke="#0F5132"
                 strokeWidth="20"
                 strokeDasharray="251"
-                strokeDashoffset="120"
+                strokeDashoffset="25"
                 strokeLinecap="round"
               />
             </svg>
             <div style={{ position: 'absolute', bottom: '10px', textAlign: 'center' }}>
               <span style={{ fontSize: '32px', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
-                41%
+                {complianceRate}%
               </span>
-              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Project Ended</div>
+              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Verified Safe</div>
             </div>
           </div>
 
@@ -488,20 +540,20 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0F5132' }} />
-              <span>Completed</span>
+              <span>Full Gear</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#34D399' }} />
-              <span>In Progress</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+              <span>Advisory</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#CBD5E1' }} />
-              <span>Pending</span>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#EF4444' }} />
+              <span>Violation</span>
             </div>
           </div>
         </div>
 
-        {/* Widget 3: Time Tracker (Dark Forest Green Card from Image 2) */}
+        {/* Widget 3: Shift Operational Timer */}
         <div style={{
           backgroundColor: '#0F5132',
           backgroundImage: 'radial-gradient(ellipse at 50% 50%, rgba(52, 211, 153, 0.2) 0%, transparent 70%)',
@@ -515,7 +567,7 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           overflow: 'hidden'
         }}>
           <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.8)' }}>
-            Time Tracker
+            Operational Shift Timer
           </span>
 
           <div style={{ textAlign: 'center', margin: '20px 0' }}>

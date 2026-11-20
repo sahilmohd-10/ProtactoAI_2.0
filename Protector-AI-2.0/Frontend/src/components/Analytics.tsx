@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { AnalyticsData, PPEStats } from '../types';
 import { api } from '../services/api';
-import { ArrowUpRight, Download, Filter, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, Download, Filter, RefreshCw, Box } from 'lucide-react';
+import { Analytics3DChart } from './Analytics3DChart';
 
 interface AnalyticsProps {
   analytics: AnalyticsData | null;
@@ -234,6 +235,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
           </svg>
         </div>
       </div>
+
+      {/* Interactive 3D Industrial Safety Analytics Visualizer */}
+      <Analytics3DChart analytics={analytics} stats={stats} />
 
       {/* Middle Section: Ratio of Compliance + Dual Wavy Trend Line (Image 2 Exactly) */}
       <div style={{

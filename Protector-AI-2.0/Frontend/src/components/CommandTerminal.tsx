@@ -147,7 +147,7 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       result: {
         type: 'text',
-        output: 'PROTECTOR AI 2.0 COMMAND TERMINAL · OPENROUTER NEURAL KERNEL READY\nType "help" for structured command reference or ask any question in natural language.'
+        output: 'PROTECTOR AI 2.0 COMMAND TERMINAL · OPERATIONAL COMMAND SYSTEM READY\nType "help" for structured command reference or ask any question in natural language.'
       }
     }
   ]);
@@ -183,7 +183,7 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     result: {
       type: 'text',
-      output: 'PROTECTOR AI 2.0 COMMAND TERMINAL · OPENROUTER NEURAL KERNEL READY\nType "help" for structured command reference or ask any question in natural language.'
+      output: 'PROTECTOR AI 2.0 COMMAND TERMINAL · OPERATIONAL COMMAND SYSTEM READY\nType "help" for structured command reference or ask any question in natural language.'
     }
   }];
 
@@ -907,7 +907,7 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
           {isLoading && (
             <div style={{ color: 'var(--accent-citron)', fontSize: '11px', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0' }} className="animate-signal-pulse">
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-citron)' }} />
-              <span>OpenRouter AI executing command / reasoning neural inferences...</span>
+              <span>Executing command & processing system telemetry...</span>
             </div>
           )}
 

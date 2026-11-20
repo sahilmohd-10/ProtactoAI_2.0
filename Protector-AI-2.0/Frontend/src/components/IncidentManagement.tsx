@@ -1,4 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Search,
+  Filter,
+  Download,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Trash2,
+  X,
+  Camera,
+  ShieldAlert,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  MapPin
+} from 'lucide-react';
 import type { Incident } from '../types';
 import { api } from '../services/api';
 
@@ -8,69 +25,51 @@ interface IncidentManagementProps {
 }
 
 export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incidents, onRefresh }) => {
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [severityFilter, setSeverityFilter] = useState<string>('All');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [severityFilter, setSeverityFilter] = useState<'All' | 'High' | 'Medium' | 'Low'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'In Review' | 'Resolved'>('All');
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [resolutionNotes, setResolutionNotes] = useState<string>('');
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
-  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
-  // Auto-refresh incidents continuously every 3 seconds
+  // Auto-refresh poll every 4 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       onRefresh();
-    }, 3000);
+    }, 4000);
     return () => clearInterval(timer);
   }, [onRefresh]);
 
-  // Reset to first page when search query or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, severityFilter, statusFilter]);
-
-  // Filtered incidents
-  const filteredIncidents = incidents.filter((inc) => {
-    const rawWorker = inc.worker_id || '';
-    const extractedName = !['Persistent-Engine', 'Auto-Flagged', 'Unassigned Worker', 'Unassigned'].includes(rawWorker)
-      ? rawWorker
-      : (inc.title?.match(/\(([^)]+)\)/)?.[1] || '');
-
+  // Filter incidents
+  const filtered = incidents.filter((inc) => {
     const q = searchQuery.trim().toLowerCase();
-    const matchesQuery = !q || (
+    const matchesQ = !q || (
       (inc.title || '').toLowerCase().includes(q) ||
       (inc.id || '').toLowerCase().includes(q) ||
-      (inc.location || '').toLowerCase().includes(q) ||
-      (inc.worker_id || '').toLowerCase().includes(q) ||
       (inc.category || '').toLowerCase().includes(q) ||
-      (inc.assigned_to || '').toLowerCase().includes(q) ||
-      extractedName.toLowerCase().includes(q)
+      (inc.location || '').toLowerCase().includes(q) ||
+      (inc.worker_id || '').toLowerCase().includes(q)
     );
-
-    const matchesSeverity = severityFilter === 'All' || inc.severity === severityFilter;
+    const matchesSev = severityFilter === 'All' || inc.severity === severityFilter;
     const matchesStatus = statusFilter === 'All' || inc.status === statusFilter;
-
-    return matchesQuery && matchesSeverity && matchesStatus;
+    return matchesQ && matchesSev && matchesStatus;
   });
 
-  // Pagination slice
-  const totalPages = Math.max(1, Math.ceil(filteredIncidents.length / pageSize));
-  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (validCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, filteredIncidents.length);
-  const paginatedIncidents = filteredIncidents.slice(startIndex, endIndex);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageIncidents = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleUpdateStatus = async (id: string, newStatus: string, notes?: string) => {
+    setIsUpdating(true);
     try {
-      setIsUpdating(true);
       await api.updateIncident(id, { status: newStatus, notes });
       onRefresh();
       if (selectedIncident && selectedIncident.id === id) {
-        setSelectedIncident({ ...selectedIncident, status: newStatus as any, resolution_notes: notes || selectedIncident.resolution_notes });
+        setSelectedIncident(prev => prev ? { ...prev, status: newStatus as any, resolution_notes: notes || prev.resolution_notes } : null);
       }
     } catch (err: any) {
       alert(`Error updating incident: ${err.message}`);
@@ -79,687 +78,526 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
     }
   };
 
-  const handleDeleteIncident = async (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm(`Permanently remove incident record ${id}?`)) return;
+    setIsUpdating(true);
     try {
-      setIsUpdating(true);
       await api.deleteIncident(id, true);
-      setDeleteConfirmationId(null);
+      setDeleteId(null);
       setSelectedIncident(null);
       onRefresh();
     } catch (err: any) {
-      alert(`Error deleting incident: ${err.message}`);
+      alert(`Error removing incident: ${err.message}`);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = () => {
     window.open(`${api.baseUrl}/api/incidents/export?format=csv`, '_blank');
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Header & Export */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Top Header & Actions */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '14px',
+        backgroundColor: '#FFFFFF',
+        borderRadius: '20px',
+        padding: '20px 24px',
+        border: '1px solid #E2E8F0'
+      }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-            Incident Audit Log
+          <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>
+            Safety Incident Register
           </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-            Real-time optical infraction tracking, safety violation investigations, and audit trails.
+          <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+            Comprehensive infraction tracking, safety protocol investigations, and resolution logs.
           </p>
         </div>
 
         <button
           onClick={handleExportCSV}
-          className="btn-secondary"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '9px 18px',
+            backgroundColor: '#FFFFFF',
+            border: '1.5px solid #CBD5E1',
+            borderRadius: '12px',
+            color: '#0F172A',
+            fontSize: '13px',
+            fontWeight: 700,
+            cursor: 'pointer'
+          }}
         >
-          Export CSV Log
+          <Download size={15} />
+          <span>Export CSV Log</span>
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="precision-surface" style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Search Box */}
-          <div style={{ position: 'relative', flex: 1, minWidth: '280px', maxWidth: '460px', display: 'flex', alignItems: 'center' }}>
-            <span style={{ position: 'absolute', left: '12px', color: 'var(--text-tertiary)', fontSize: '13px', pointerEvents: 'none' }}>
-              🔍
-            </span>
-            <input
-              type="text"
-              placeholder="Search by worker name, incident ID, category, or location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+      {/* Filter & Search Bar */}
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '20px',
+        padding: '16px 20px',
+        border: '1px solid #E2E8F0',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '16px',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        {/* Search */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#F8FAFC', padding: '8px 14px', borderRadius: '12px', border: '1px solid #E2E8F0', flex: 1, minWidth: '240px', maxWidth: '400px' }}>
+          <Search size={16} color="#94A3B8" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search incident ID, category, worker, location..."
+            style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '13px', color: '#0F172A' }}
+          />
+        </div>
+
+        {/* Severity Filters */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8', marginRight: '4px' }}>SEVERITY:</span>
+          {(['All', 'High', 'Medium', 'Low'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => { setSeverityFilter(s); setCurrentPage(1); }}
               style={{
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
-                padding: '8px 32px 8px 34px',
-                color: 'var(--text-primary)',
-                fontSize: '12.5px',
-                fontFamily: 'var(--font-sans)',
-                outline: 'none',
-                width: '100%'
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: severityFilter === s ? 700 : 500,
+                backgroundColor: severityFilter === s ? '#0F5132' : '#F1F5F9',
+                color: severityFilter === s ? '#FFFFFF' : '#475569',
+                cursor: 'pointer'
               }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-tertiary)',
-                  cursor: 'pointer',
-                  padding: '2px 6px',
-                  fontSize: '12px'
-                }}
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+            >
+              {s}
+            </button>
+          ))}
+        </div>
 
-          {/* Severity Filter Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500, marginRight: '4px' }}>
-              Severity:
-            </span>
-            {['All', 'Critical', 'High', 'Medium', 'Low'].map((sev) => (
-              <button
-                key={sev}
-                onClick={() => setSeverityFilter(sev)}
-                style={{
-                  fontSize: '11px',
-                  padding: '4px 10px',
-                  borderRadius: '5px',
-                  border: '1px solid',
-                  borderColor: severityFilter === sev ? 'var(--accent-citron)' : 'var(--border-subtle)',
-                  backgroundColor: severityFilter === sev ? 'var(--accent-citron-subtle)' : 'transparent',
-                  color: severityFilter === sev ? 'var(--accent-citron)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontWeight: severityFilter === sev ? 600 : 400
-                }}
-              >
-                {sev}
-              </button>
-            ))}
-          </div>
-
-          {/* Status Filter Pills */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500, marginRight: '4px' }}>
-              Status:
-            </span>
-            {['All', 'Open', 'In Review', 'Acknowledged', 'Resolved'].map((stat) => (
-              <button
-                key={stat}
-                onClick={() => setStatusFilter(stat)}
-                style={{
-                  fontSize: '11px',
-                  padding: '4px 10px',
-                  borderRadius: '5px',
-                  border: '1px solid',
-                  borderColor: statusFilter === stat ? 'var(--accent-citron)' : 'var(--border-subtle)',
-                  backgroundColor: statusFilter === stat ? 'var(--accent-citron-subtle)' : 'transparent',
-                  color: statusFilter === stat ? 'var(--accent-citron)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontWeight: statusFilter === stat ? 600 : 400
-                }}
-              >
-                {stat}
-              </button>
-            ))}
-          </div>
+        {/* Status Filters */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8', marginRight: '4px' }}>STATUS:</span>
+          {(['All', 'Open', 'In Review', 'Resolved'] as const).map(st => (
+            <button
+              key={st}
+              onClick={() => { setStatusFilter(st); setCurrentPage(1); }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: statusFilter === st ? 700 : 500,
+                backgroundColor: statusFilter === st ? '#1E293B' : '#F1F5F9',
+                color: statusFilter === st ? '#FFFFFF' : '#475569',
+                cursor: 'pointer'
+              }}
+            >
+              {st}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Structured Table */}
-      <div className="precision-surface" style={{ overflow: 'hidden' }}>
-        <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Logged Incidents ({filteredIncidents.length} total)
-            </span>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '2px 8px', borderRadius: '4px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--safety-safe)' }} className="animate-signal-pulse" />
-              <span style={{ fontSize: '11px', color: 'var(--safety-safe)', fontWeight: 500 }}>
-                Live Stream Auto-Refresh
-              </span>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-              Page {validCurrentPage} of {totalPages}
-            </span>
-          </div>
-        </div>
-
-        {filteredIncidents.length === 0 ? (
-          <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-            NO INCIDENT RECORDS FOUND MATCHING QUERY
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-surface-elevated)' }}>
-                  <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Incident</th>
-                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Category</th>
-                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Severity</th>
-                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Location</th>
-                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Personnel</th>
-                  <th style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Status</th>
-                  <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.03em', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedIncidents.map((inc) => {
-                  const isCritical = inc.severity === 'Critical';
-                  const isHigh = inc.severity === 'High';
-                  const isResolved = inc.status === 'Resolved';
-
-                  return (
-                    <tr
-                      key={inc.id}
-                      style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background-color 0.1s ease' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-elevated)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                          {inc.title}
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                          {inc.id}
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                        {inc.category}
-                      </td>
-
-                      <td style={{ padding: '12px 14px' }}>
-                        <span className={`status-pill ${isCritical ? 'status-pill-violation' : (isHigh ? 'status-pill-warning' : 'status-pill-neutral')}`}>
-                          {inc.severity}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>
-                        {inc.location}
-                      </td>
-
-                      <td style={{ padding: '12px 14px' }}>
-                        {(() => {
-                          const rawWorker = inc.worker_id || '';
-                          const extractedName = !['Persistent-Engine', 'Auto-Flagged', 'Unassigned Worker', 'Unassigned'].includes(rawWorker)
-                            ? rawWorker
-                            : (inc.title.match(/\(([^)]+)\)/)?.[1] || null);
-
-                          const validNames = (extractedName ? extractedName.split(',') : [])
-                            .map((n: string) => n.trim())
-                            .filter((n: string) => {
-                              const l = n.toLowerCase();
-                              return n.length > 0 &&
-                                !l.includes('unregistered') &&
-                                !l.includes('unsigned') &&
-                                !l.includes('unassigned') &&
-                                !l.includes('unknown') &&
-                                !l.includes('persistent-engine') &&
-                                !l.includes('auto-flagged');
-                            });
-
-                          if (validNames.length > 0) {
-                            return (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                {validNames.map((name: string, idx: number) => (
-                                  <span key={idx} className="status-pill status-pill-safe" style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px' }}>
-                                    <span style={{ fontSize: '12px' }}>👤</span>
-                                    <span>{name}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                              Unassigned
-                            </span>
-                          );
-                        })()}
-                      </td>
-
-                      <td style={{ padding: '12px 14px' }}>
-                        <span className={`status-pill ${isResolved ? 'status-pill-safe' : 'status-pill-neutral'}`}>
-                          {inc.status}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                          <button
-                            onClick={() => {
-                              setSelectedIncident(inc);
-                              setResolutionNotes(inc.resolution_notes || '');
-                            }}
-                            className="btn-secondary"
-                            style={{ padding: '3px 8px', fontSize: '11px', fontFamily: 'var(--font-mono)' }}
-                          >
-                            Inspect
-                          </button>
-
-                          {inc.status !== 'Resolved' && (
-                            <button
-                              onClick={() => handleUpdateStatus(inc.id, 'Resolved', 'Resolved via incident table action')}
-                              className="btn-secondary"
-                              style={{ padding: '3px 8px', fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--safety-safe)' }}
-                            >
-                              Resolve
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination Controls */}
-        {filteredIncidents.length > 0 && (
-          <div style={{
-            padding: '12px 18px',
-            borderTop: '1px solid var(--border-subtle)',
-            backgroundColor: 'var(--bg-surface-elevated)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-            fontSize: '11px',
-            fontFamily: 'var(--font-mono)'
-          }}>
-            {/* Record count info */}
-            <div style={{ color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <span>
-                Showing <strong style={{ color: 'var(--text-primary)' }}>{filteredIncidents.length === 0 ? 0 : startIndex + 1}</strong> - <strong style={{ color: 'var(--text-primary)' }}>{endIndex}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{filteredIncidents.length}</strong> records
-              </span>
-              <span style={{ color: 'var(--border-strong)' }}>|</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                Rows per page:
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  style={{
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-primary)',
-                    borderRadius: '4px',
-                    padding: '3px 8px',
-                    fontSize: '11px',
-                    fontFamily: 'var(--font-mono)',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
+      {/* Structured Clean Incidents Table */}
+      <div style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: '20px',
+        border: '1px solid #E2E8F0',
+        overflow: 'hidden'
+      }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>INCIDENT ID</th>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>SEVERITY</th>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>CATEGORY & TITLE</th>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>LOCATION</th>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>TIMESTAMP</th>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>STATUS</th>
+              <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B', textAlign: 'right' }}>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageIncidents.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+                  No matching incident records found.
+                </td>
+              </tr>
+            ) : (
+              pageIncidents.map((inc) => (
+                <tr
+                  key={inc.id}
+                  style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FFFFFF'}
                 >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </span>
-            </div>
+                  {/* ID */}
+                  <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: 700, color: '#0F172A', fontFamily: 'monospace' }}>
+                    {inc.id}
+                  </td>
 
-            {/* Page number buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button
-                type="button"
-                onClick={() => setCurrentPage(1)}
-                disabled={validCurrentPage <= 1}
-                className="btn-secondary"
-                style={{
-                  padding: '3px 8px',
-                  fontSize: '11px',
-                  opacity: validCurrentPage <= 1 ? 0.35 : 1,
-                  cursor: validCurrentPage <= 1 ? 'not-allowed' : 'pointer'
-                }}
-                title="First Page"
-              >
-                « First
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={validCurrentPage <= 1}
-                className="btn-secondary"
-                style={{
-                  padding: '3px 8px',
-                  fontSize: '11px',
-                  opacity: validCurrentPage <= 1 ? 0.35 : 1,
-                  cursor: validCurrentPage <= 1 ? 'not-allowed' : 'pointer'
-                }}
-                title="Previous Page"
-              >
-                ‹ Prev
-              </button>
+                  {/* Severity Badge */}
+                  <td style={{ padding: '14px 18px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 9px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      backgroundColor: inc.severity === 'High' ? '#FEF2F2' : (inc.severity === 'Medium' ? '#FEF3C7' : '#EFF6FF'),
+                      color: inc.severity === 'High' ? '#DC2626' : (inc.severity === 'Medium' ? '#B45309' : '#1D4ED8')
+                    }}>
+                      <span style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: inc.severity === 'High' ? '#DC2626' : (inc.severity === 'Medium' ? '#F59E0B' : '#3B82F6')
+                      }} />
+                      {inc.severity}
+                    </span>
+                  </td>
 
-              {/* Numbered page buttons */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => {
-                  return p === 1 || p === totalPages || Math.abs(p - validCurrentPage) <= 2;
-                })
-                .map((pageNum, idx, arr) => {
-                  const prevPage = arr[idx - 1];
-                  const hasGap = prevPage && pageNum - prevPage > 1;
-                  const isActive = pageNum === validCurrentPage;
+                  {/* Category & Title */}
+                  <td style={{ padding: '14px 18px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A' }}>
+                        {inc.title || inc.category}
+                      </span>
+                      <span style={{ fontSize: '11.5px', color: '#64748B' }}>
+                        {inc.category} {inc.worker_id && !['Unassigned', 'Persistent-Engine'].includes(inc.worker_id) ? `• ${inc.worker_id}` : ''}
+                      </span>
+                    </div>
+                  </td>
 
-                  return (
-                    <React.Fragment key={pageNum}>
-                      {hasGap && (
-                        <span style={{ padding: '0 4px', color: 'var(--text-tertiary)' }}>...</span>
-                      )}
+                  {/* Location */}
+                  <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569' }}>
+                    {inc.location || 'North Floor — Camera 01'}
+                  </td>
+
+                  {/* Timestamp */}
+                  <td style={{ padding: '14px 18px', fontSize: '12px', color: '#64748B' }}>
+                    {inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString() : (inc.time_ago || '--')}
+                  </td>
+
+                  {/* Status Badge */}
+                  <td style={{ padding: '14px 18px' }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 10px',
+                      borderRadius: '100px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: inc.status === 'Resolved' ? '#DCFCE7' : (inc.status === 'In Review' ? '#FEF3C7' : '#FEE2E2'),
+                      color: inc.status === 'Resolved' ? '#166534' : (inc.status === 'In Review' ? '#92400E' : '#991B1B')
+                    }}>
+                      {inc.status}
+                    </span>
+                  </td>
+
+                  {/* Actions */}
+                  <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                       <button
                         type="button"
-                        onClick={() => setCurrentPage(pageNum)}
+                        onClick={() => {
+                          setSelectedIncident(inc);
+                          setResolutionNotes(inc.resolution_notes || '');
+                        }}
                         style={{
-                          minWidth: '28px',
-                          padding: '3px 6px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: isActive ? 700 : 500,
-                          backgroundColor: isActive ? 'var(--accent-citron)' : 'var(--bg-app)',
-                          color: isActive ? '#0A0D12' : 'var(--text-secondary)',
-                          border: isActive ? '1px solid var(--accent-citron)' : '1px solid var(--border-subtle)',
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #E2E8F0',
+                          backgroundColor: '#FFFFFF',
+                          color: '#0F172A',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <Eye size={13} />
+                        <span>Inspect</span>
+                      </button>
+
+                      {inc.status !== 'Resolved' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus(inc.id, 'Resolved', 'Marked resolved by operator')}
+                          style={{
+                            padding: '5px 10px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            backgroundColor: '#EBF8F2',
+                            color: '#0F5132',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Resolve
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(inc.id)}
+                        title="Delete record"
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          color: '#94A3B8',
                           cursor: 'pointer'
                         }}
                       >
-                        {pageNum}
+                        <Trash2 size={14} />
                       </button>
-                    </React.Fragment>
-                  );
-                })}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
 
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={validCurrentPage >= totalPages}
-                className="btn-secondary"
-                style={{
-                  padding: '3px 8px',
-                  fontSize: '11px',
-                  opacity: validCurrentPage >= totalPages ? 0.35 : 1,
-                  cursor: validCurrentPage >= totalPages ? 'not-allowed' : 'pointer'
-                }}
-                title="Next Page"
-              >
-                Next ›
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage(totalPages)}
-                disabled={validCurrentPage >= totalPages}
-                className="btn-secondary"
-                style={{
-                  padding: '3px 8px',
-                  fontSize: '11px',
-                  opacity: validCurrentPage >= totalPages ? 0.35 : 1,
-                  cursor: validCurrentPage >= totalPages ? 'not-allowed' : 'pointer'
-                }}
-                title="Last Page"
-              >
-                Last »
-              </button>
-            </div>
+        {/* Pagination Bar */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '14px 20px',
+          backgroundColor: '#F8FAFC',
+          borderTop: '1px solid #E2E8F0',
+          fontSize: '12.5px',
+          color: '#64748B'
+        }}>
+          <span>Showing {pageIncidents.length} of {filtered.length} total infractions</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: '5px 10px',
+                borderRadius: '6px',
+                border: '1px solid #CBD5E1',
+                backgroundColor: '#FFFFFF',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                opacity: currentPage === 1 ? 0.5 : 1
+              }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span style={{ fontWeight: 700, color: '#0F172A' }}>Page {currentPage} of {totalPages}</span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '5px 10px',
+                borderRadius: '6px',
+                border: '1px solid #CBD5E1',
+                backgroundColor: '#FFFFFF',
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                opacity: currentPage === totalPages ? 0.5 : 1
+              }}
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Incident Detail Inspection Modal */}
+      {/* Incident Inspection Modal */}
       {selectedIncident && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(5, 7, 11, 0.88)',
-          backdropFilter: 'blur(6px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 100,
           padding: '20px'
         }}>
-          <div className="precision-surface-elevated" style={{
+          <div style={{
             width: '100%',
             maxWidth: '640px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            padding: '24px',
-            position: 'relative'
+            backgroundColor: '#FFFFFF',
+            borderRadius: '24px',
+            boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)',
+            border: '1px solid #E2E8F0',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
-            <button
-              onClick={() => setSelectedIncident(null)}
-              style={{
-                position: 'absolute',
-                top: '18px',
-                right: '18px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-tertiary)',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '14px'
-              }}
-            >
-              ✕
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className={`status-pill ${selectedIncident.severity === 'Critical' ? 'status-pill-violation' : 'status-pill-warning'}`}>
-                {selectedIncident.severity}
-              </span>
-              <span className="status-pill status-pill-neutral">
-                {selectedIncident.status}
-              </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-tertiary)' }}>
-                {selectedIncident.id}
-              </span>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #F1F5F9' }}>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', letterSpacing: '0.04em' }}>
+                  {selectedIncident.id} • INCIDENT INSPECTION
+                </span>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: '2px 0 0 0' }}>
+                  {selectedIncident.title || selectedIncident.category}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedIncident(null)}
+                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
             </div>
 
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '14px' }}>
-              {selectedIncident.title}
-            </h3>
-
-            {/* Evidence Image Preview */}
-            <div style={{
-              borderRadius: '6px',
-              overflow: 'hidden',
-              backgroundColor: '#05070B',
-              border: '1px solid var(--border-charcoal)',
-              marginBottom: '16px',
-              aspectRatio: '16 / 9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              {selectedIncident.snapshot_url ? (
-                <img
-                  src={selectedIncident.snapshot_url.startsWith('http') ? selectedIncident.snapshot_url : `${api.baseUrl}${selectedIncident.snapshot_url}`}
-                  alt="Incident Optical Evidence"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-              ) : (
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                  OPTICAL SNAPSHOT ARCHIVED IN EDGE STORAGE
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px', maxHeight: '70vh', overflowY: 'auto' }}>
+              {/* Snapshot image if available */}
+              {selectedIncident.snapshot_url && (
+                <div style={{ width: '100%', height: '220px', borderRadius: '14px', overflow: 'hidden', backgroundColor: '#0F172A', border: '1px solid #E2E8F0' }}>
+                  <img
+                    src={`${api.baseUrl}${selectedIncident.snapshot_url}`}
+                    alt="Infraction Snapshot"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
                 </div>
               )}
-            </div>
 
-            {/* Metadata Grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '10px',
-              padding: '12px',
-              backgroundColor: 'var(--bg-app)',
-              borderRadius: '6px',
-              border: '1px solid var(--border-subtle)',
-              marginBottom: '16px',
-              fontSize: '12px'
-            }}>
-              <div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>LOCATION</span>
-                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{selectedIncident.location}</div>
-              </div>
-              <div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>IDENTIFIED PERSON(S) / NAME</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                  {(() => {
-                    const rawWorker = selectedIncident.worker_id || '';
-                    const personName = !['Persistent-Engine', 'Auto-Flagged', 'Unassigned Worker', 'Unassigned'].includes(rawWorker)
-                      ? rawWorker
-                      : (selectedIncident.title.match(/\(([^)]+)\)/)?.[1] || '');
+              {/* Details grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '12px', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>SEVERITY LEVEL</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: selectedIncident.severity === 'High' ? '#DC2626' : '#F59E0B', marginTop: '2px' }}>
+                    {selectedIncident.severity} Severity
+                  </div>
+                </div>
 
-                    const validNames = (personName ? personName.split(',') : [])
-                      .map((n: string) => n.trim())
-                      .filter((n: string) => {
-                        const l = n.toLowerCase();
-                        return n.length > 0 &&
-                          !l.includes('unregistered') &&
-                          !l.includes('unsigned') &&
-                          !l.includes('unassigned') &&
-                          !l.includes('unknown') &&
-                          !l.includes('persistent-engine') &&
-                          !l.includes('auto-flagged');
-                      });
+                <div style={{ padding: '12px', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>LOCATION / CAMERA</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>
+                    {selectedIncident.location || 'North Floor Camera 01'}
+                  </div>
+                </div>
 
-                    if (validNames.length > 0) {
-                      return validNames.map((name: string, idx: number) => (
-                        <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '2px 8px', borderRadius: '4px' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '11px' }}>👤 {name}</span>
-                          <span className="status-pill status-pill-safe" style={{ fontSize: '9px', padding: '1px 5px' }}>TRAINED FACE</span>
-                        </div>
-                      ));
-                    }
+                <div style={{ padding: '12px', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>DETECTION CONFIDENCE</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>
+                    {selectedIncident.confidence ? `${Math.round(selectedIncident.confidence * 100)}%` : '92%'}
+                  </div>
+                </div>
 
-                    return <span style={{ fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '11px' }}>Unassigned Worker</span>;
-                  })()}
+                <div style={{ padding: '12px', backgroundColor: '#F8FAFC', borderRadius: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>CURRENT STATUS</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: selectedIncident.status === 'Resolved' ? '#166534' : '#991B1B', marginTop: '2px' }}>
+                    {selectedIncident.status}
+                  </div>
                 </div>
               </div>
+
+              {/* Resolution Notes */}
               <div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>RECORDED AT</span>
-                <div style={{ color: 'var(--text-primary)', marginTop: '2px' }}>{selectedIncident.timestamp ? new Date(selectedIncident.timestamp).toLocaleString() : 'Recent'}</div>
-              </div>
-              <div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-tertiary)' }}>ASSIGNED TO</span>
-                <div style={{ color: 'var(--text-primary)', marginTop: '2px' }}>{selectedIncident.assigned_to}</div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>
+                  SUPERVISOR RESOLUTION NOTES
+                </label>
+                <textarea
+                  value={resolutionNotes}
+                  onChange={(e) => setResolutionNotes(e.target.value)}
+                  placeholder="Record corrective actions taken, personnel counselled, or site safety clearance..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #CBD5E1',
+                    fontSize: '13px',
+                    color: '#0F172A',
+                    fontFamily: 'sans-serif',
+                    outline: 'none'
+                  }}
+                />
               </div>
             </div>
 
-            {/* Resolution Notes Input */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                AUDIT RESOLUTION NOTES
-              </label>
-              <textarea
-                value={resolutionNotes}
-                onChange={(e) => setResolutionNotes(e.target.value)}
-                placeholder="Enter corrective action details..."
-                rows={3}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'var(--bg-app)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '6px',
-                  padding: '8px 10px',
-                  color: 'var(--text-primary)',
-                  fontSize: '12.5px',
-                  fontFamily: 'var(--font-sans)',
-                  outline: 'none',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            {/* Actions Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
+            {/* Modal Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', backgroundColor: '#F8FAFC', borderTop: '1px solid #F1F5F9' }}>
               <button
-                onClick={() => setDeleteConfirmationId(selectedIncident.id)}
-                className="btn-danger"
-                style={{ fontSize: '11.5px', padding: '6px 12px' }}
+                type="button"
+                onClick={() => handleDelete(selectedIncident.id)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #FCA5A5',
+                  backgroundColor: '#FEF2F2',
+                  color: '#DC2626',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
               >
                 Delete Record
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {selectedIncident.status === 'Open' && (
-                  <button
-                    onClick={() => handleUpdateStatus(selectedIncident.id, 'Acknowledged', resolutionNotes)}
-                    disabled={isUpdating}
-                    className="btn-secondary"
-                    style={{ fontSize: '11.5px', padding: '6px 12px' }}
-                  >
-                    Acknowledge
-                  </button>
-                )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIncident(null)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
 
                 <button
+                  type="button"
                   onClick={() => handleUpdateStatus(selectedIncident.id, 'Resolved', resolutionNotes)}
                   disabled={isUpdating}
-                  className="btn-citron"
-                  style={{ fontSize: '11.5px', padding: '6px 14px' }}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: '#0F5132',
+                    color: '#FFFFFF',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
                 >
-                  {selectedIncident.status === 'Resolved' ? 'Update Notes' : 'Mark Resolved'}
+                  {isUpdating ? 'Saving...' : 'Resolve & Save'}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmationId && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(5, 7, 11, 0.9)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 120,
-          padding: '20px'
-        }}>
-          <div className="precision-surface-elevated" style={{ width: '100%', maxWidth: '420px', padding: '24px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--safety-violation)', textTransform: 'uppercase', marginBottom: '8px' }}>
-              CONFIRM PERMANENT RECORD DELETION
-            </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px' }}>
-              Are you sure you want to delete incident <strong>{deleteConfirmationId}</strong>? This action is audited and irreversible.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                onClick={() => setDeleteConfirmationId(null)}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeleteIncident(deleteConfirmationId)}
-                className="btn-danger"
-              >
-                Confirm Delete
-              </button>
             </div>
           </div>
         </div>

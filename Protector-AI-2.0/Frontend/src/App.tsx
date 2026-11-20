@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
-import { WelcomeHero } from './components/WelcomeHero';
 import { LiveConsole } from './components/LiveConsole';
 import { IncidentManagement } from './components/IncidentManagement';
 import { Analytics } from './components/Analytics';

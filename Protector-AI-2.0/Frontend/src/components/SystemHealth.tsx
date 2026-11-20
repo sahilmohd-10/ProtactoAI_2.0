@@ -63,7 +63,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ status, onRefresh })
     setActiveModel(newModel);
     try {
       await api.updateOpenRouterConfig({ model: newModel });
-      showNotification(`Active neural model set to ${newModel.split('/')[1] || newModel}`);
+      showNotification(`Active reasoning model set to ${newModel.split('/')[1] || newModel}`);
     } catch {
       // fallback
     }
@@ -218,7 +218,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ status, onRefresh })
               backgroundColor: isBenchmarking ? 'var(--accent-citron)' : 'var(--text-secondary)',
               animation: isBenchmarking ? 'pulse 1s infinite' : 'none'
             }} />
-            {isBenchmarking ? 'Benchmarking YOLOv8...' : 'Run Neural Benchmark'}
+            {isBenchmarking ? 'Benchmarking YOLOv8...' : 'Run Vision Benchmark'}
           </button>
 
           <button
@@ -395,7 +395,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ status, onRefresh })
         }}>
           <div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--accent-citron)', fontWeight: 700, letterSpacing: '0.05em' }}>
-              NEURAL INFERENCE BENCHMARK REPORT
+              COMPUTER VISION BENCHMARK REPORT
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
               Evaluated 5 consecutive inference cycles with 640x640 tensor frames on {benchmarkResult.device}.
@@ -599,7 +599,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ status, onRefresh })
           <div>
             <div className="section-tag" style={{ marginBottom: '6px' }}>
               <span className="section-tag-num">02</span>
-              <span>/ NEURAL COGNITION GATEWAY</span>
+              <span>/ CLOUD REASONING GATEWAY</span>
             </div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
               OpenRouter Multi-Model Reasoning
@@ -783,7 +783,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ status, onRefresh })
           <span>/ AUTOMATED SAFETY DISPATCH PREFERENCES</span>
         </div>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          Automated edge actions executed upon neural identification of non-compliant personnel or perimeter violations.
+          Automated edge actions executed upon optical identification of non-compliant personnel or perimeter violations.
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
