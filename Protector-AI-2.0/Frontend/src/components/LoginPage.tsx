@@ -205,18 +205,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               <SpinningDevice3D size={290} />
             </div>
 
-            {/* Bottom Slider Control Pill from Image 3 */}
-            <div
-              className="smartnest-slider-bar"
+            {/* Single "Start" Button */}
+            <button
+              type="button"
               onClick={() => setSubView('login')}
+              style={{
+                width: '100%',
+                padding: '16px 0',
+                backgroundColor: '#2563EB',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '100px',
+                fontSize: '16px',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 8px 24px rgba(37, 99, 235, 0.35)',
+                transition: 'all 0.2s ease',
+                marginTop: '16px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#1D4ED8';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#2563EB';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
-              <span style={{ color: '#94A3B8', fontSize: '16px', paddingLeft: '8px' }}>←</span>
-              <div className="smartnest-slider-play-btn">
-                <Play size={20} fill="#0F172A" />
-              </div>
-              <span style={{ color: '#FFFFFF', fontWeight: 700, fontSize: '15px' }}>Start</span>
-              <span style={{ color: '#94A3B8', fontSize: '15px', paddingRight: '8px' }}>&gt;&gt;&gt;</span>
-            </div>
+              <span>Start</span>
+              <ArrowRight size={18} strokeWidth={2.4} />
+            </button>
           </div>
         )}
 
