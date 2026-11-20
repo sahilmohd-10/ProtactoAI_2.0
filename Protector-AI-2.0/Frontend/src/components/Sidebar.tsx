@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'console', label: 'Tasks / Camera', icon: Camera, badge: '12+' },
+    { id: 'console', label: 'Tasks / Camera', icon: Camera },
     { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'people', label: 'Team', icon: Users, adminOnly: true }

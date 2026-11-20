@@ -97,7 +97,12 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
     setIsUpdating(true);
     try {
       const idsToDelete = deleteAll ? filtered.map((i) => i.id) : Array.from(selectedIds);
-      await api.batchDeleteIncidents(idsToDelete, deleteAll && filtered.length === incidents.length);
+      try {
+        await api.batchDeleteIncidents(idsToDelete, deleteAll && filtered.length === incidents.length);
+      } catch {
+        // Robust fallback: delete via individual confirmed endpoints
+        await Promise.all(idsToDelete.map((id) => api.deleteIncident(id, true).catch(() => null)));
+      }
       setSelectedIds(new Set());
       setSelectedIncident(null);
       onRefresh();

@@ -937,21 +937,13 @@ def update_incident(incident_id):
         return jsonify({"error": res.get("error")}), 400
     return jsonify(res.get("data"))
 
-@app.route("/api/incidents/<incident_id>", methods=["DELETE"])
-def delete_incident(incident_id):
-    confirmed = request.args.get("confirmed", "false").lower() == "true"
-    res = ToolRegistry.execute("delete_incident", {"incident_id": incident_id}, confirmed=confirmed)
-    if res.get("requires_confirmation"):
-        return jsonify(res), 200
-    if not res.get("success"):
-        return jsonify({"error": res.get("error")}), 400
-    return jsonify(res.get("data"))
-
-@app.route("/api/incidents/batch-delete", methods=["POST"])
+@app.route("/api/incidents/batch-delete", methods=["POST", "DELETE"])
 def batch_delete_incidents():
     body = request.get_json(silent=True) or {}
     incident_ids = body.get("incident_ids", [])
     delete_all = body.get("delete_all", False)
+    if not delete_all and request.args.get("delete_all", "").lower() == "true":
+        delete_all = True
 
     db = SessionLocal()
     try:
@@ -977,6 +969,18 @@ def batch_delete_incidents():
         return jsonify({"error": str(e)}), 500
     finally:
         db.close()
+
+@app.route("/api/incidents/<incident_id>", methods=["DELETE"])
+def delete_incident(incident_id):
+    if incident_id in ("batch-delete", "export", "stats"):
+        return jsonify({"error": "Invalid incident ID"}), 400
+    confirmed = request.args.get("confirmed", "false").lower() == "true"
+    res = ToolRegistry.execute("delete_incident", {"incident_id": incident_id}, confirmed=confirmed)
+    if res.get("requires_confirmation"):
+        return jsonify(res), 200
+    if not res.get("success"):
+        return jsonify({"error": res.get("error")}), 400
+    return jsonify(res.get("data"))
 
 @app.route("/api/incidents/export", methods=["GET"])
 def export_incidents():
