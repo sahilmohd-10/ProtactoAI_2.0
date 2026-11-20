@@ -37,24 +37,38 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
   onNavigate
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [timerSeconds, setTimerSeconds] = useState(5048); // 01:24:08
-  const [isTimerRunning, setIsTimerRunning] = useState(true);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [isLive, setIsLive] = useState(true);
+  const [use24Hour, setUse24Hour] = useState(false);
 
-  // Digital shift timer
+  // Real-time computer clock synchronization
   useEffect(() => {
-    if (!isTimerRunning) return;
-    const interval = setInterval(() => {
-      setTimerSeconds(prev => prev + 1);
-    }, 1000);
+    if (!isLive) return;
+    const tick = () => setCurrentTime(new Date());
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [isTimerRunning]);
+  }, [isLive]);
 
-  const formatTimer = (totalSecs: number) => {
-    const hrs = String(Math.floor(totalSecs / 3600)).padStart(2, '0');
-    const mins = String(Math.floor((totalSecs % 3600) / 60)).padStart(2, '0');
-    const secs = String(totalSecs % 60).padStart(2, '0');
-    return `${hrs}:${mins}:${secs}`;
+  // Format real-time computer clock
+  const getFormattedClock = () => {
+    if (use24Hour) {
+      const hrs = String(currentTime.getHours()).padStart(2, '0');
+      const mins = String(currentTime.getMinutes()).padStart(2, '0');
+      const secs = String(currentTime.getSeconds()).padStart(2, '0');
+      return { timeStr: `${hrs}:${mins}:${secs}`, suffix: '24H' };
+    }
+    let h = currentTime.getHours();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12;
+    const hrs = String(h).padStart(2, '0');
+    const mins = String(currentTime.getMinutes()).padStart(2, '0');
+    const secs = String(currentTime.getSeconds()).padStart(2, '0');
+    return { timeStr: `${hrs}:${mins}:${secs}`, suffix: ampm };
   };
+
+  const { timeStr, suffix } = getFormattedClock();
 
   // Authoritative operational metrics
   const activeWorkers = stats?.active_workers_monitored ?? 14;
@@ -555,10 +569,10 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           </div>
         </div>
 
-        {/* Widget 3: Shift Operational Timer */}
+        {/* Widget 3: Real-Time Computer System Clock */}
         <div style={{
           backgroundColor: '#0F5132',
-          backgroundImage: 'radial-gradient(ellipse at 50% 50%, rgba(52, 211, 153, 0.2) 0%, transparent 70%)',
+          backgroundImage: 'radial-gradient(ellipse at 50% 50%, rgba(52, 211, 153, 0.22) 0%, transparent 70%)',
           borderRadius: '24px',
           padding: '24px',
           color: '#FFFFFF',
@@ -568,23 +582,58 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           position: 'relative',
           overflow: 'hidden'
         }}>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.8)' }}>
-            Operational Shift Timer
-          </span>
-
-          <div style={{ textAlign: 'center', margin: '20px 0' }}>
-            <span style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '2px', fontFamily: 'monospace' }}>
-              {formatTimer(timerSeconds)}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.9)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={15} />
+              <span>Operational Shift Time</span>
+            </span>
+            <span style={{
+              fontSize: '10px',
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              padding: '2px 8px',
+              borderRadius: '12px',
+              backgroundColor: isLive ? 'rgba(52, 211, 153, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+              color: isLive ? '#6EE7B7' : '#FCA5A5',
+              border: `1px solid ${isLive ? 'rgba(52, 211, 153, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: isLive ? '#34D399' : '#EF4444' }} />
+              {isLive ? 'LIVE PC' : 'PAUSED'}
             </span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
+          <div style={{ textAlign: 'center', margin: '16px 0 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '2px', fontFamily: 'monospace', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+                {timeStr}
+              </span>
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#A7F3D0', fontFamily: 'monospace' }}>
+                {suffix}
+              </span>
+            </div>
+            <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.8)', marginTop: '4px', fontWeight: 500 }}>
+              {currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
             <button
               type="button"
-              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              onClick={() => {
+                if (!isLive) {
+                  setCurrentTime(new Date());
+                  setIsLive(true);
+                } else {
+                  setIsLive(false);
+                }
+              }}
+              title={isLive ? 'Pause Clock' : 'Resume Live Clock'}
               style={{
-                width: '44px',
-                height: '44px',
+                width: '42px',
+                height: '42px',
                 borderRadius: '50%',
                 backgroundColor: '#FFFFFF',
                 color: '#0F5132',
@@ -596,15 +645,19 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                 boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
               }}
             >
-              {isTimerRunning ? <Pause size={18} fill="#0F5132" /> : <Play size={18} fill="#0F5132" />}
+              {isLive ? <Pause size={17} fill="#0F5132" /> : <Play size={17} fill="#0F5132" />}
             </button>
 
             <button
               type="button"
-              onClick={() => setTimerSeconds(0)}
+              onClick={() => {
+                setCurrentTime(new Date());
+                setIsLive(true);
+              }}
+              title="Resync with Computer Time"
               style={{
-                width: '44px',
-                height: '44px',
+                width: '42px',
+                height: '42px',
                 borderRadius: '50%',
                 backgroundColor: '#DC2626',
                 color: '#FFFFFF',
@@ -616,7 +669,26 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
                 boxShadow: '0 4px 14px rgba(0,0,0,0.2)'
               }}
             >
-              <Square size={16} fill="#FFFFFF" />
+              <Square size={15} fill="#FFFFFF" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setUse24Hour(!use24Hour)}
+              title="Toggle 12h / 24h format"
+              style={{
+                height: '32px',
+                padding: '0 10px',
+                borderRadius: '16px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              {use24Hour ? '12H' : '24H'}
             </button>
           </div>
         </div>
