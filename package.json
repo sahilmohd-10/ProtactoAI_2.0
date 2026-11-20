@@ -1,0 +1,8 @@
+{
+  "name": "protector-ai-2.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix Protector-AI-2.0/Frontend run build",
+    "install": "npm --prefix Protector-AI-2.0/Frontend install"
+  }
+}

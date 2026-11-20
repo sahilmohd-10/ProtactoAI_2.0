@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm --prefix Protector-AI-2.0/Frontend run build",
+  "outputDirectory": "Protector-AI-2.0/Frontend/dist",
+  "installCommand": "npm --prefix Protector-AI-2.0/Frontend install"
+}
