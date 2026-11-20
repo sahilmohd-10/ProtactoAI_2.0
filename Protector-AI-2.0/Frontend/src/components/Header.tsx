@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Terminal, Shield, LogOut } from 'lucide-react';
+import { Sun, Moon, Terminal } from 'lucide-react';
 import type { SystemStatus, AuthUser } from '../types';
 
 interface HeaderProps {
@@ -9,7 +9,6 @@ interface HeaderProps {
   onToggleTheme: () => void;
   onOpenTerminal?: () => void;
   currentUser: AuthUser | null;
-  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,8 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   onOpenTerminal,
-  currentUser,
-  onLogout
+  currentUser
 }) => {
   const getBreadcrumbTitle = (mod: string) => {
     switch (mod) {
@@ -35,20 +33,13 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const isAdministrator = currentUser?.role === 'Administrator';
+  const isModelOnline = systemStatus?.model_status.toLowerCase() === 'online';
+  const modelStatusLabel = systemStatus
+    ? isModelOnline ? 'Model online' : `Model ${systemStatus.model_status}`
+    : 'Checking model';
 
   return (
-    <header style={{
-      height: '56px',
-      backgroundColor: 'var(--bg-app)',
-      borderBottom: '1px solid var(--border-subtle)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 24px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 40
-    }}>
+    <header className="app-header">
       {/* Left: Module title & operational status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <h2 style={{
@@ -62,28 +53,9 @@ export const Header: React.FC<HeaderProps> = ({
         </h2>
 
         {/* System Engine Status Dot */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '2px 8px',
-          borderRadius: '4px',
-          backgroundColor: 'rgba(34, 197, 94, 0.08)',
-          border: '1px solid rgba(34, 197, 94, 0.2)'
-        }}>
-          <span style={{
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            backgroundColor: '#22C55E'
-          }} />
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 500,
-            color: '#4ADE80'
-          }}>
-            YOLOv8 Active
-          </span>
+        <div className={`system-status-pill ${systemStatus ? isModelOnline ? 'online' : 'offline' : 'pending'}`}>
+          <span className="system-status-dot" />
+          <span>{modelStatusLabel}</span>
         </div>
       </div>
 

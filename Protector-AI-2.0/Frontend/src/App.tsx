@@ -32,7 +32,7 @@ export function App() {
 
   // Application Layout States
   const [activeModule, setActiveModule] = useState<string>('console');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [isTerminalOpen, setIsTerminalOpen] = useState<boolean>(false);
 
   // Application Telemetry States
@@ -241,7 +241,7 @@ export function App() {
   const isOperator = currentUser.role === 'Operator';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-app)' }}>
+    <div className="app-shell" style={{ backgroundColor: 'var(--bg-app)' }}>
       {/* Sleek Fixed Sidebar */}
       <Sidebar
         activeModule={activeModule}
@@ -252,7 +252,7 @@ export function App() {
       />
 
       {/* Main Layout Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div className="app-main">
         {/* Top Floating Glass Header */}
         <Header
           systemStatus={systemStatus}
@@ -261,11 +261,10 @@ export function App() {
           onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           onOpenTerminal={() => setIsTerminalOpen(true)}
           currentUser={currentUser}
-          onLogout={handleLogout}
         />
 
         {/* Content Viewport */}
-        <main style={{ flex: 1, padding: '24px 28px', maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
+        <main className="app-content">
           {/* Welcome Showcase Banner - Optical Console View Only */}
           {activeModule === 'console' && (
             <WelcomeHero

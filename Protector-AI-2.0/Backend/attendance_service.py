@@ -719,21 +719,47 @@ class AttendanceService:
                 temp_path = Path(temp_path_str)
                 wb.save(str(temp_path))
 
-                targets = [target_path]
-                if hasattr(config, "BACKUP_ATTENDANCE_PATH") and target_path != config.BACKUP_ATTENDANCE_PATH and config.BACKUP_ATTENDANCE_PATH.parent.exists():
-                    targets.append(config.BACKUP_ATTENDANCE_PATH)
+                # Candidate synchronization targets (Live OneDrive, D:\Downloads, C:\Downloads, and Backend data)
+                candidate_paths = [
+                    target_path,
+                    Path(r"D:\Downloads\Attandance.xlsx"),
+                    Path(r"D:\Downloads\Attendance.xlsx"),
+                    Path(r"C:\Users\sahil\OneDrive\Documents\Attandance.xlsx"),
+                    Path(r"C:\Users\sahil\OneDrive\Documents\Attendance.xlsx"),
+                    Path(r"C:\Users\sahil\Downloads\Attandance.xlsx"),
+                    Path(r"C:\Users\sahil\Downloads\Attendance.xlsx"),
+                    getattr(config, "DATA_DIR", Path("data")) / "attendance.xlsx",
+                ]
+                if hasattr(config, "BACKUP_ATTENDANCE_PATH"):
+                    candidate_paths.append(config.BACKUP_ATTENDANCE_PATH)
+                if hasattr(config, "DEFAULT_ATTENDANCE_PATH"):
+                    candidate_paths.append(config.DEFAULT_ATTENDANCE_PATH)
 
-                alt_name = "Attendance.xlsx" if target_path.name.lower() == "attandance.xlsx" else "Attandance.xlsx"
-                alt_path = target_path.with_name(alt_name)
-                targets.append(alt_path)
+                # Deduplicate while preserving order
+                targets = []
+                seen_targets = set()
+                for cp in candidate_paths:
+                    try:
+                        resolved = str(cp.resolve()).lower()
+                        if resolved not in seen_targets:
+                            seen_targets.add(resolved)
+                            targets.append(cp)
+                    except Exception:
+                        if str(cp) not in seen_targets:
+                            seen_targets.add(str(cp))
+                            targets.append(cp)
 
                 saved_count = 0
+                locked_targets = []
                 for dest in targets:
                     try:
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(temp_path, dest)
                         saved_count += 1
                         logger.info(f"Excel workbook synchronized to: {dest}")
+                    except PermissionError:
+                        locked_targets.append(str(dest))
+                        logger.warning(f"Excel workbook {dest} is open and locked by Microsoft Excel. Close the file in Excel to allow background syncing.")
                     except Exception as err:
                         logger.warning(f"Could not copy attendance workbook to {dest}: {err}")
 
@@ -742,7 +768,10 @@ class AttendanceService:
                 except Exception:
                     pass
 
-                return True, f"Attendance workbook saved and synchronized to {target_path}"
+                msg = f"Attendance workbook synchronized to {saved_count} locations."
+                if locked_targets:
+                    msg += f" (Note: {len(locked_targets)} file(s) currently open in Excel will update once closed)."
+                return True, msg
             except Exception as e:
                 logger.exception("Error while synchronizing Excel workbook.")
                 return False, f"Failed to synchronize Excel: {str(e)}"
