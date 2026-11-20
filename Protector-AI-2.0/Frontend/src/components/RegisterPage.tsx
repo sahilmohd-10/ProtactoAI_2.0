@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -103,54 +103,47 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
       <div className="auth-bg-decor-circle auth-bg-shape-2" />
 
       <div className="auth-modern-layout">
-        {/* Left Hero / Teaser Card (Image 1 Left Card) */}
-        <aside className="auth-hero-card">
-          <div className="auth-hero-illustration">
-            <svg viewBox="0 0 240 200" fill="none" style={{ width: '100%', height: '100%' }}>
-              <circle cx="120" cy="100" r="82" fill="#EFF6FF" />
-              <path d="M190 140 C190 120 205 110 205 110 C205 110 208 126 195 140 Z" fill="#60A5FA" />
-              <path d="M192 140 C192 125 180 115 180 115 C180 115 178 128 188 140 Z" fill="#93C5FD" />
-              <rect x="184" y="138" width="14" height="20" rx="3" fill="#64748B" />
-              <path d="M40 156 L205 156" stroke="#CBD5E1" strokeWidth="3" strokeLinecap="round" />
-              <path d="M68 95 L68 155" stroke="#94A3B8" strokeWidth="4" strokeLinecap="round" />
-              <circle cx="104" cy="73" r="12" fill="#FBBF24" />
-              <path d="M96 66 C98 60 112 60 114 66 C114 68 108 67 106 69 C102 69 98 68 96 66 Z" fill="#1E293B" />
-              <path d="M92 90 C92 84 116 84 116 90 L120 125 L88 125 Z" fill="#1D4ED8" />
-              <path d="M116 98 L138 120 L132 125 L112 104 Z" fill="#1E40AF" />
-              <path d="M128 122 L158 122 L150 144 L122 144 Z" fill="#334155" />
-              <rect x="110" y="112" width="9" height="12" rx="2" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1.5" />
-              <path d="M90 125 L120 125 L144 175 L132 175 L110 135 L96 175 L84 175 Z" fill="#0F172A" />
-            </svg>
-          </div>
-
-          <h2 className="auth-hero-title">
-            Discover Your<br />Safety Workspace here
-          </h2>
-          <p className="auth-hero-desc">
-            Explore all industrial safety capabilities, automated PPE compliance, and unified workforce intelligence.
-          </p>
-
-          <div className="auth-hero-buttons">
+        <main className="auth-single-card">
+          {/* Top Back Navigation Button */}
+          <div style={{ marginBottom: '14px' }}>
             <button
               type="button"
               onClick={onSwitchToLogin}
-              className="auth-hero-btn-register"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'none',
+                border: 'none',
+                color: '#64748B',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '4px 0'
+              }}
             >
-              Login
-            </button>
-            <button
-              type="button"
-              className="auth-hero-btn-login"
-            >
-              Register
+              <ArrowLeft size={16} />
+              <span>Back to Login</span>
             </button>
           </div>
-        </aside>
 
-        {/* Center / Right Form Card (Image 1 Right Card: Create Account) */}
-        <main className="auth-main-card">
-          <h1 className="auth-card-main-title">Create Account</h1>
-          <p className="auth-card-main-subtitle">
+          <h1 style={{
+            fontSize: '28px',
+            fontWeight: 800,
+            color: '#1E3A8A',
+            letterSpacing: '-0.02em',
+            margin: '0 0 6px 0'
+          }}>
+            Create Account
+          </h1>
+
+          <p style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            color: '#1E293B',
+            margin: '0 0 20px 0',
+            lineHeight: 1.4
+          }}>
             Create an account so you can explore all<br />the safety features
           </p>
 
@@ -331,7 +324,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
             </button>
 
             {/* Already have an account link */}
-            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '16px' }}>
               <button
                 type="button"
                 onClick={onSwitchToLogin}
@@ -343,7 +336,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
           </form>
 
           {/* Social / SSO Section */}
-          <div style={{ marginTop: '22px', textAlign: 'center' }}>
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -363,9 +356,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 title="Sign in with Google"
                 onClick={onSwitchToLogin}
                 style={{
-                  width: '52px',
-                  height: '42px',
-                  borderRadius: '10px',
+                  width: '54px',
+                  height: '44px',
+                  borderRadius: '12px',
                   backgroundColor: '#ECEFF1',
                   border: 'none',
                   display: 'flex',
@@ -384,9 +377,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 title="Sign in with Apple"
                 onClick={onSwitchToLogin}
                 style={{
-                  width: '52px',
-                  height: '42px',
-                  borderRadius: '10px',
+                  width: '54px',
+                  height: '44px',
+                  borderRadius: '12px',
                   backgroundColor: '#ECEFF1',
                   border: 'none',
                   display: 'flex',
@@ -394,7 +387,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                   justifyContent: 'center',
                   cursor: 'pointer',
                   fontWeight: 700,
-                  fontSize: '16px',
+                  fontSize: '17px',
                   color: '#1E293B'
                 }}
               >
@@ -405,9 +398,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 title="Enterprise SSO"
                 onClick={onSwitchToLogin}
                 style={{
-                  width: '52px',
-                  height: '42px',
-                  borderRadius: '10px',
+                  width: '54px',
+                  height: '44px',
+                  borderRadius: '12px',
                   backgroundColor: '#ECEFF1',
                   border: 'none',
                   display: 'flex',
