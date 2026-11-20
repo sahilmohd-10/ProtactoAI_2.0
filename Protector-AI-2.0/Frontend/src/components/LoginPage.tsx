@@ -183,11 +183,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
         <div className="auth-hero-full-container">
           {/* Left Hero Details */}
           <div className="auth-hero-full-left">
-            <div className="auth-hero-full-badge">
-              <ShieldCheck size={16} />
-              <span>PROTECTOR AI • SAFETY INTELLIGENCE</span>
-            </div>
-
             <h1 className="auth-hero-full-title">
               Control<br />Everything in<br />One Place.
             </h1>
@@ -205,22 +200,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               <span>Start</span>
               <ArrowRight size={20} strokeWidth={2.4} />
             </button>
-
-            {/* Feature Highlights */}
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', fontSize: '13.5px' }}>
-                <CheckCircle2 size={16} color="#34D399" />
-                <span>YOLOv8 25 Hazard Classes</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', fontSize: '13.5px' }}>
-                <CheckCircle2 size={16} color="#34D399" />
-                <span>Deep Biometric Attendance</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', fontSize: '13.5px' }}>
-                <CheckCircle2 size={16} color="#34D399" />
-                <span>Zero Latency Live Video</span>
-              </div>
-            </div>
           </div>
 
           {/* Right 3D Spinning Surveillance Hardware Unit */}
