@@ -50,12 +50,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="donezo-sidebar">
       <div>
-        {/* Top Brand Logo (Green Mark + Brand from Image 2) */}
+        {/* Top Brand Logo */}
         <div className="donezo-brand">
           <div className="donezo-brand-icon">
             <ShieldCheck size={22} color="#0F5132" strokeWidth={2.4} />
           </div>
-          <span className="donezo-brand-text">Donezo</span>
+          <span className="donezo-brand-text">ProtectoAI</span>
         </div>
 
         {/* MENU Section */}
