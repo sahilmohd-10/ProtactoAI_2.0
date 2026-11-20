@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Loader2, ArrowRight, UserCheck, Shield, ExternalLink } from 'lucide-react';
+import { X, Loader2, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -16,14 +16,10 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   provider,
   onClose,
   onSuccess,
-  defaultRole = 'Administrator'
+  defaultRole = 'Operator'
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [customEmail, setCustomEmail] = useState('');
-  const [customName, setCustomName] = useState('');
-  const [customUsername, setCustomUsername] = useState('');
   const [googleClientId, setGoogleClientId] = useState<string>(
     import.meta.env.VITE_GOOGLE_CLIENT_ID || '512272700093-5ebjj1071qjq04j9mdbci2idvtftpkau.apps.googleusercontent.com'
   );
@@ -75,7 +71,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           g.accounts.id.renderButton(btnContainer, {
             theme: 'filled_blue',
             size: 'large',
-            width: 380,
+            width: 360,
             text: 'continue_with',
             shape: 'pill'
           });
@@ -112,51 +108,6 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     window.location.href = authUrl;
   };
 
-  const handleOAuthLogin = async (payload: {
-    email: string;
-    name: string;
-    username?: string;
-    avatar?: string;
-  }) => {
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await api.oauthLogin({
-        provider,
-        email: payload.email.trim().toLowerCase(),
-        name: payload.name.trim(),
-        username: payload.username?.trim(),
-        avatar: payload.avatar,
-        role: defaultRole
-      });
-
-      if (res.success && res.user) {
-        onSuccess(res.user);
-        onClose();
-      } else {
-        setError('Authentication failed. Please verify credentials.');
-      }
-    } catch (err: any) {
-      setError(err.message || 'OAuth authentication failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCustomSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customEmail || !customEmail.includes('@')) {
-      setError('Please provide a valid email address.');
-      return;
-    }
-    const nameToUse = customName.trim() || customEmail.split('@')[0];
-    handleOAuthLogin({
-      email: customEmail,
-      name: nameToUse,
-      username: customUsername.trim() || undefined
-    });
-  };
-
   return (
     <div
       style={{
@@ -177,7 +128,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       <div
         style={{
           width: '100%',
-          maxWidth: '460px',
+          maxWidth: '440px',
           backgroundColor: '#FFFFFF',
           borderRadius: '24px',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
@@ -275,7 +226,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '24px 28px' }}>
+        <div style={{ padding: '28px 24px' }}>
           {error && (
             <div
               style={{
@@ -314,12 +265,17 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                 Synchronizing session token and credentials
               </div>
             </div>
-          ) : !showCustomInput ? (
-            <div>
-              {/* Real OAuth Live Trigger Buttons */}
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              <div style={{ fontSize: '13px', color: '#64748B', textAlign: 'center', lineHeight: 1.5 }}>
+                {provider === 'google'
+                  ? 'Authenticate securely using your Google Workspace or Personal account:'
+                  : 'Authorize Protector AI 2.0 with your official GitHub account:'}
+              </div>
+
               {provider === 'google' ? (
-                <div style={{ marginBottom: '14px' }}>
-                  <div id="google-live-btn-slot" style={{ display: 'flex', justifyContent: 'center' }} />
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'center', minHeight: '44px' }}>
+                  <div id="google-live-btn-slot" />
                 </div>
               ) : (
                 <button
@@ -327,441 +283,38 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                   onClick={handleLaunchGitHubOAuth}
                   style={{
                     width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '12px',
+                    padding: '14px 20px',
+                    borderRadius: '14px',
                     backgroundColor: '#0F172A',
                     color: '#FFFFFF',
                     fontWeight: 700,
-                    fontSize: '13.5px',
+                    fontSize: '14px',
                     border: 'none',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '10px',
-                    marginBottom: '14px',
-                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.15)'
+                    gap: '12px',
+                    boxShadow: '0 4px 14px rgba(15, 23, 42, 0.25)',
+                    transition: 'all 0.15s ease'
                   }}
+                  onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#1E293B')}
+                  onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#0F172A')}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFFFFF">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#FFFFFF">
                     <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
                   </svg>
                   <span>Authorize with GitHub Account</span>
-                  <ExternalLink size={15} />
+                  <ExternalLink size={16} />
                 </button>
               )}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 12px 0' }}>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#E2E8F0' }} />
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>
-                  or quick enrolled profile
-                </span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#E2E8F0' }} />
-              </div>
-
-              {provider === 'google' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {/* Account 1: Mohd Sahil */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleOAuthLogin({
-                        email: 'sahil@protecto.ai',
-                        name: 'Mohd Sahil'
-                      })
-                    }
-                    className="oauth-account-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      border: '1px solid #E2E8F0',
-                      backgroundColor: '#FFFFFF',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        backgroundColor: '#2563EB',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        fontWeight: 700
-                      }}
-                    >
-                      S
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
-                        Mohd Sahil
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>
-                        sahil@protecto.ai · Primary Developer
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#2563EB', background: '#EFF6FF', padding: '3px 8px', borderRadius: '12px' }}>
-                      Admin
-                    </span>
-                  </button>
-
-                  {/* Account 2: Alok */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleOAuthLogin({
-                        email: 'alok@protecto.ai',
-                        name: 'Alok'
-                      })
-                    }
-                    className="oauth-account-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      border: '1px solid #E2E8F0',
-                      backgroundColor: '#FFFFFF',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        backgroundColor: '#10B981',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        fontWeight: 700
-                      }}
-                    >
-                      A
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
-                        Alok
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>
-                        alok@protecto.ai · Biometric Enrolled
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#059669', background: '#ECFDF5', padding: '3px 8px', borderRadius: '12px' }}>
-                      Enrolled
-                    </span>
-                  </button>
-
-                  {/* Account 3: Faisal */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleOAuthLogin({
-                        email: 'faisal@protecto.ai',
-                        name: 'Faisal'
-                      })
-                    }
-                    className="oauth-account-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      border: '1px solid #E2E8F0',
-                      backgroundColor: '#FFFFFF',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        backgroundColor: '#F59E0B',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        fontWeight: 700
-                      }}
-                    >
-                      F
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
-                        Faisal
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>
-                        faisal@protecto.ai · Biometric Enrolled
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#D97706', background: '#FEF3C7', padding: '3px 8px', borderRadius: '12px' }}>
-                      Enrolled
-                    </span>
-                  </button>
-                </div>
-              ) : (
-                /* GitHub Account Selection */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {/* GitHub Profile 1: @sahilmohd-10 */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleOAuthLogin({
-                        email: 'sahilmohd.ai@gmail.com',
-                        name: 'Mohd Sahil',
-                        username: 'sahilmohd-10'
-                      })
-                    }
-                    className="oauth-account-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      border: '1px solid #E2E8F0',
-                      backgroundColor: '#FFFFFF',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        backgroundColor: '#0F172A',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        fontWeight: 700
-                      }}
-                    >
-                      S
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
-                        @sahilmohd-10
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>
-                        Mohd Sahil · sahilmohd.ai@gmail.com
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#0F172A', background: '#F1F5F9', padding: '3px 8px', borderRadius: '12px' }}>
-                      Owner
-                    </span>
-                  </button>
-
-                  {/* GitHub Profile 2: @protecto-operator */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleOAuthLogin({
-                        email: 'operator@protecto.ai',
-                        name: 'Site Operator',
-                        username: 'protecto-operator'
-                      })
-                    }
-                    className="oauth-account-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      border: '1px solid #E2E8F0',
-                      backgroundColor: '#FFFFFF',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        backgroundColor: '#334155',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '15px',
-                        fontWeight: 700
-                      }}
-                    >
-                      O
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
-                        @protecto-operator
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>
-                        Industrial Floor Lead · operator@protecto.ai
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155', background: '#F1F5F9', padding: '3px 8px', borderRadius: '12px' }}>
-                      Operator
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {/* Toggle to custom input */}
-              <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomInput(true)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: provider === 'google' ? '#2563EB' : '#0F172A',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  <span>Use another {provider === 'google' ? 'Google' : 'GitHub'} account</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
             </div>
-          ) : (
-            /* Custom Account Input Form */
-            <form onSubmit={handleCustomSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  {provider === 'google' ? 'Google Email' : 'GitHub Account Email'} *
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={customEmail}
-                  onChange={(e) => setCustomEmail(e.target.value)}
-                  placeholder={provider === 'google' ? 'user@gmail.com' : 'dev@github.com'}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                  Display Name
-                </label>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Full Name"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              {provider === 'github' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
-                    GitHub Username
-                  </label>
-                  <input
-                    type="text"
-                    value={customUsername}
-                    onChange={(e) => setCustomUsername(e.target.value)}
-                    placeholder="octocat"
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid #CBD5E1',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomInput(false)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    borderRadius: '10px',
-                    border: '1px solid #E2E8F0',
-                    backgroundColor: '#FFFFFF',
-                    color: '#64748B',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    flex: 2,
-                    padding: '10px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: provider === 'google' ? '#2563EB' : '#0F172A',
-                    color: '#FFFFFF',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Continue
-                </button>
-              </div>
-            </form>
           )}
 
           {/* Privacy Footnote */}
           <div
             style={{
-              marginTop: '20px',
+              marginTop: '24px',
               paddingTop: '16px',
               borderTop: '1px solid #F1F5F9',
               fontSize: '11px',
