@@ -52,9 +52,9 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
 
   // Real-time authoritative values
   const activeWorkers = stats?.active_workers_monitored ?? 51;
-  const complianceRate = stats?.compliance_rate ?? 95.6;
-  const activeViolations = stats?.active_violations ?? 4;
-  const totalViolations = (stats as any)?.total_violations_today ?? 15491;
+  const complianceRate = stats?.compliance_rate ?? (analytics?.average_compliance ?? 95.6);
+  const activeViolations = stats?.active_violations ?? (analytics?.active_violations ?? 4);
+  const totalViolations = stats?.total_violations_today ?? (analytics?.total_violations ?? 177);
 
   // Dataset configurations based on selected graph type
   const getModalConfig = () => {
@@ -129,32 +129,32 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
         return {
           title: 'Active Industrial Hazards & Risk Monitoring',
           subtitle: 'Computer vision anomaly detection across restricted perimeters, machinery clearances, and heights.',
-          currentValue: '244,375 Checkpoints',
-          deltaText: '-4.6% hazard reduction',
-          isDeltaPositive: true,
+          currentValue: `${activeViolations} Active Alert${activeViolations === 1 ? '' : 's'}`,
+          deltaText: activeViolations === 0 ? 'Zero active hazards' : `${activeViolations} pending review`,
+          isDeltaPositive: activeViolations <= 2,
           themeColor: '#F59E0B',
           badgeText: 'Automated Risk Surveillance',
           icon: AlertTriangle,
           kpis: [
             { label: 'Active Critical Hazards', value: `${activeViolations}` },
-            { label: 'Proximity Clearances', value: '98.9% Clear' },
-            { label: 'Avg Hazard Clear Time', value: '3.4 min' },
-            { label: 'Perimeter Breaches', value: '1 Logged' },
+            { label: 'Monitored Zones', value: '4 Active Zones' },
+            { label: 'Safety Compliance', value: `${complianceRate}%` },
+            { label: 'Perimeter Status', value: activeViolations > 0 ? 'Attention Needed' : 'Secure' },
           ],
           points: [
-            { label: '02:00', value: 8, secondary: 'Night Shift Clear' },
-            { label: '06:00', value: 14, secondary: 'Morning Start' },
-            { label: '10:00', value: 26, secondary: 'Equipment Transit' },
-            { label: '14:00', value: 22, secondary: 'Assembly Active' },
-            { label: '18:00', value: 12, secondary: 'Handover Clean' },
-            { label: '22:00', value: 6, secondary: 'Secure State' },
-            { label: 'Now', value: 4, secondary: 'Low Risk' },
+            { label: '02:00', value: 1, secondary: 'Night Shift Clear' },
+            { label: '06:00', value: 2, secondary: 'Morning Start' },
+            { label: '10:00', value: 4, secondary: 'Equipment Transit' },
+            { label: '14:00', value: 3, secondary: 'Assembly Active' },
+            { label: '18:00', value: 2, secondary: 'Handover Clean' },
+            { label: '22:00', value: 1, secondary: 'Secure State' },
+            { label: 'Now', value: activeViolations, secondary: 'Live Feed' },
           ],
           breakdowns: [
-            { name: 'Machinery Clearance Buffer', count: '4 Active Warnings', pct: 36.4 },
-            { name: 'Elevated Fall Risk Zone', count: '3 Active Warnings', pct: 27.3 },
-            { name: 'Restricted Perimeter Breach', count: '2 Active Warnings', pct: 18.2 },
-            { name: 'Chemical Ventilation Area', count: '2 Active Warnings', pct: 18.2 },
+            { name: 'Missing Head Protection (Hardhat)', count: 'Hardhat Alert', pct: 40.0 },
+            { name: 'High-Vis Safety Vest Violation', count: 'Vest Alert', pct: 30.0 },
+            { name: 'Restricted Perimeter Incursion', count: 'Zone Alert', pct: 20.0 },
+            { name: 'Machinery Clearance Buffer', count: 'Proximity Warning', pct: 10.0 },
           ]
         };
 
@@ -162,39 +162,38 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
         return {
           title: 'Cumulative Safety Violations & Infraction Audit',
           subtitle: 'Complete historical registry of safety equipment deviations, logged timestamps, and resolutions.',
-          currentValue: `${totalViolations.toLocaleString()}`,
-          deltaText: '99.9% Resolved',
+          currentValue: `${totalViolations.toLocaleString()} Logged`,
+          deltaText: 'Comprehensive audit registry',
           isDeltaPositive: true,
           themeColor: '#DC2626',
           badgeText: 'Audit Compliance Archive',
           icon: Activity,
           kpis: [
-            { label: 'Resolved Infractions', value: '15,487' },
+            { label: 'Resolved Infractions', value: `${Math.max(0, totalViolations - activeViolations)}` },
             { label: 'Open / In Review', value: `${activeViolations}` },
-            { label: 'Repeat Infraction Rate', value: '0.8%' },
+            { label: 'Resolution Rate', value: `${(((totalViolations - activeViolations) / Math.max(1, totalViolations)) * 100).toFixed(1)}%` },
             { label: 'Supervisor Verification', value: '100%' },
           ],
           points: [
-            { label: 'Week 1', value: 18, secondary: 'Quarter Start' },
-            { label: 'Week 2', value: 14, secondary: 'Refresher Done' },
-            { label: 'Week 3', value: 12, secondary: 'Improved Compliance' },
-            { label: 'Week 4', value: 9, secondary: 'Zero High-Severity' },
-            { label: 'Week 5', value: 7, secondary: 'Safety Week' },
-            { label: 'Week 6', value: 5, secondary: 'Optimal State' },
-            { label: 'Week 7', value: 4, secondary: 'Current Open' },
+            { label: 'Day 1', value: 3, secondary: 'Resolved' },
+            { label: 'Day 2', value: 6, secondary: 'Resolved' },
+            { label: 'Day 3', value: 2, secondary: 'Resolved' },
+            { label: 'Day 4', value: 8, secondary: 'Resolved' },
+            { label: 'Day 5', value: 4, secondary: 'Resolved' },
+            { label: 'Day 6', value: 5, secondary: 'Resolved' },
+            { label: 'Day 7', value: activeViolations, secondary: 'Current Open' },
           ],
           breakdowns: [
-            { name: 'Missing Head Protection (Hardhat)', count: '6 Recorded', pct: 37.5 },
-            { name: 'Missing High-Vis Safety Vest', count: '5 Recorded', pct: 31.2 },
-            { name: 'Zone Perimeter Incursion', count: '3 Recorded', pct: 18.8 },
-            { name: 'Respiratory Mask Missing', count: '2 Recorded', pct: 12.5 },
+            { name: 'Missing Head Protection (Hardhat)', count: '60 Recorded', pct: 33.9 },
+            { name: 'High-Vis Safety Vest Missing', count: '62 Recorded', pct: 35.0 },
+            { name: 'Respiratory Mask Missing', count: '55 Recorded', pct: 31.1 },
           ]
         };
 
       case 'trajectory':
         return {
           title: 'Workforce Safety & Incident Trajectory (Detailed)',
-          subtitle: 'Dual-curve timeline correlating verified compliant workforce volume against safety incident events.',
+          subtitle: 'Timeline correlating verified compliant workforce volume against safety incident events.',
           currentValue: `${complianceRate}% Net Safety`,
           deltaText: 'Consistent upward trajectory',
           isDeltaPositive: true,
@@ -202,24 +201,31 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
           badgeText: 'Trajectory Intelligence',
           icon: TrendingUp,
           kpis: [
-            { label: 'Total Verified Safe', value: '124,000' },
-            { label: 'Infractions Intercepted', value: '80,174' },
-            { label: 'Incident Prevention Rate', value: '98.4%' },
+            { label: 'Active Workforce', value: `${activeWorkers} Monitored` },
+            { label: 'Verified Safe', value: `${Math.max(0, activeWorkers - activeViolations)} Active` },
+            { label: 'Active Infractions', value: `${activeViolations} Detected` },
             { label: 'Audit Ready Index', value: 'Score 9.8/10' },
           ],
-          points: [
-            { label: 'Jan', value: 92.4, secondary: 'Safe: 88k / Inf: 52k' },
-            { label: 'Feb', value: 94.1, secondary: 'Safe: 95k / Inf: 64k' },
-            { label: 'Mar', value: 95.8, secondary: 'Safe: 104k / Inf: 48k' },
-            { label: 'Apr', value: 97.2, secondary: 'Safe: 112k / Inf: 72k' },
-            { label: 'May', value: 98.4, secondary: 'Safe: 124k / Inf: 80k' },
-            { label: 'Jun', value: 98.9, secondary: 'Safe: 130k / Inf: 59k' },
-          ],
+          points: analytics?.historical_metrics && analytics.historical_metrics.length > 0
+            ? analytics.historical_metrics.map(m => ({
+                label: m.date.length > 5 ? m.date.slice(5) : m.date,
+                value: m.compliance_rate,
+                secondary: `Safe: ${m.total_workers - m.total_violations} / Inf: ${m.total_violations}`
+              }))
+            : [
+                { label: 'Day 1', value: 96.5, secondary: 'Safe: 42 / Inf: 3' },
+                { label: 'Day 2', value: 94.2, secondary: 'Safe: 42 / Inf: 6' },
+                { label: 'Day 3', value: 97.8, secondary: 'Safe: 48 / Inf: 2' },
+                { label: 'Day 4', value: 91.4, secondary: 'Safe: 44 / Inf: 8' },
+                { label: 'Day 5', value: 95.1, secondary: 'Safe: 42 / Inf: 4' },
+                { label: 'Day 6', value: 93.8, secondary: 'Safe: 44 / Inf: 5' },
+                { label: 'Day 7', value: complianceRate, secondary: `Safe: ${activeWorkers - activeViolations} / Inf: ${activeViolations}` },
+              ],
           breakdowns: [
             { name: 'Primary Assembly Line', count: '98.9% Safe Index', pct: 98.9 },
             { name: 'Heavy Machinery Fleet', count: '96.2% Safe Index', pct: 96.2 },
-            { name: 'Loading Dock & Logistics', count: '97.5% Safe Index', pct: 97.5 },
-            { name: 'Sub-assembly Floor', count: '98.1% Safe Index', pct: 98.1 },
+            { name: 'Loading Bay & Forklift Area', count: '94.8% Safe Index', pct: 94.8 },
+            { name: 'Material Processing Zone', count: '97.4% Safe Index', pct: 97.4 },
           ]
         };
 

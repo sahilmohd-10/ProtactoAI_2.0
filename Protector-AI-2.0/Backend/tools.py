@@ -3,6 +3,7 @@ import logging
 import psutil
 import time
 from datetime import datetime, timezone, timedelta
+from sqlalchemy import func
 from database import SessionLocal
 from models import Incident, Camera, Zone, User, DailyMetric, AuditLog
 from engine import engine_instance
@@ -228,11 +229,13 @@ class ToolRegistry:
         # Retrieve today's metrics
         today_metric = db.query(DailyMetric).order_by(DailyMetric.id.desc()).first()
         base_rate = today_metric.compliance_rate if today_metric else 95.6
-        total_workers = today_metric.total_workers if today_metric else 42
-        total_violations = today_metric.total_violations if today_metric else 4
+        total_workers = today_metric.total_workers if today_metric else 51
 
         # Real-time incident breakdown
         recent_incidents = db.query(Incident).filter(Incident.status.in_(["Open", "In Review"])).all()
+        total_violations_all = db.query(Incident).count()
+        total_violations = len(recent_incidents)
+
         breakdown = {
             "missing_hardhat": 0,
             "missing_vest": 0,
@@ -258,6 +261,7 @@ class ToolRegistry:
             "compliance_rate": base_rate,
             "active_workers_monitored": total_workers,
             "active_violations": total_violations,
+            "total_violations_today": total_violations_all,
             "open_incidents_breakdown": breakdown,
             "target_ppe": ["Hardhat", "Safety Vest", "Mask", "Gloves"]
         }
@@ -372,13 +376,16 @@ class ToolRegistry:
         days = args.get("days", 7)
         metrics = db.query(DailyMetric).order_by(DailyMetric.date.asc()).limit(days).all()
 
-        category_counts = {
+        # Query real incident category counts from database
+        cat_rows = db.query(Incident.category, func.count(Incident.id)).group_by(Incident.category).all()
+        category_counts = {cat: count for cat, count in cat_rows} if cat_rows else {
             "Missing Hardhat": 14,
             "Missing Safety Vest": 9,
-            "Missing Mask": 5,
-            "Missing Gloves": 7,
-            "Zone Breach": 3
+            "Missing Mask": 5
         }
+
+        total_violations_all = db.query(Incident).count()
+        active_violations_all = db.query(Incident).filter(Incident.status.in_(["Open", "In Review"])).count()
 
         hourly_distribution = [
             {"hour": "06:00", "count": 1},
@@ -395,6 +402,8 @@ class ToolRegistry:
             "historical_metrics": [m.to_dict() for m in metrics],
             "category_distribution": category_counts,
             "hourly_distribution": hourly_distribution,
+            "total_violations": total_violations_all,
+            "active_violations": active_violations_all,
             "average_compliance": round(sum(m.compliance_rate for m in metrics) / len(metrics), 1) if metrics else 95.0
         }
 

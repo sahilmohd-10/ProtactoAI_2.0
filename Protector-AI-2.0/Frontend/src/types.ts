@@ -197,6 +197,7 @@ export interface PPEStats {
   compliance_rate: number;
   active_workers_monitored: number;
   active_violations: number;
+  total_violations_today?: number;
   open_incidents_breakdown: {
     missing_hardhat: number;
     missing_vest: number;
@@ -223,6 +224,8 @@ export interface AnalyticsData {
   category_distribution: Record<string, number>;
   hourly_distribution: Array<{ hour: string; count: number }>;
   average_compliance: number;
+  total_violations?: number;
+  active_violations?: number;
 }
 
 export interface TerminalResult {
