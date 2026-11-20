@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
+import { SpinningDevice3D } from './SpinningDevice3D';
 
 interface RegisterPageProps {
   onRegisterSuccess: (user: AuthUser) => void;
@@ -71,42 +72,86 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
   };
 
   return (
-    <div className="smartnest-viewport">
-      <div className="smartnest-phone-frame">
-        <div className="smartnest-screen-light">
-          {/* Top header with back button and brand from Image 3 */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-            <button
-              type="button"
-              onClick={onSwitchToLogin}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                border: '1px solid #E2E8F0',
-                background: '#FFFFFF',
-                color: '#64748B',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div className="smartnest-brand-header" style={{ margin: 0 }}>
-              Protector AI
+    <div className="auth-fullscreen-viewport">
+      <div className="auth-split-viewport">
+        {/* Left Side 3D Showcase */}
+        <div className="auth-split-left">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(37, 99, 235, 0.2)',
+              color: '#60A5FA',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <ShieldCheck size={20} />
             </div>
-            <div style={{ width: '32px' }} />
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
+              Protector AI
+            </span>
           </div>
 
-          <div className="smartnest-card-container">
-            <h2 className="smartnest-card-title">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'auto 0' }}>
+            <SpinningDevice3D size={360} />
+            <div style={{ textAlign: 'center', marginTop: '20px', maxWidth: '380px' }}>
+              <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                Join the Safety Workspace
+              </h3>
+              <p style={{ fontSize: '13.5px', color: '#94A3B8', margin: '8px 0 0 0' }}>
+                Instant deployment for site personnel, computer vision monitoring, and automated attendance registers.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '12px' }}>
+            <span>SECURE ONBOARDING</span>
+            <span>ENTERPRISE READY</span>
+          </div>
+        </div>
+
+        {/* Right Side Form Card */}
+        <div className="auth-split-right">
+          <div className="auth-form-card-wide">
+            {/* Back button */}
+            <div style={{ marginBottom: '18px' }}>
+              <button
+                type="button"
+                onClick={onSwitchToLogin}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748B',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Login</span>
+              </button>
+            </div>
+
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#2563EB', marginBottom: '8px' }}>
+              Protector AI
+            </div>
+
+            <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0', lineHeight: 1.25 }}>
               Create an Account?
             </h2>
 
+            <p style={{ fontSize: '13.5px', color: '#64748B', margin: '0 0 20px 0' }}>
+              Register your profile to participate in automated safety surveillance.
+            </p>
+
             {/* Role Pill Selector */}
-            <div className="auth-role-pill-group" style={{ marginBottom: '16px' }}>
+            <div className="auth-role-pill-group" style={{ marginBottom: '18px' }}>
               <button
                 type="button"
                 onClick={() => setRole('Operator')}
@@ -125,14 +170,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
 
             {error && (
               <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
+                padding: '12px 14px',
+                borderRadius: '12px',
                 backgroundColor: '#FEF2F2',
                 border: '1px solid #FEE2E2',
                 color: '#DC2626',
-                fontSize: '12.5px',
+                fontSize: '13px',
                 fontWeight: 500,
-                marginBottom: '16px'
+                marginBottom: '18px'
               }}>
                 {error}
               </div>
@@ -141,7 +186,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
             <form onSubmit={handleSubmit}>
               {/* Name */}
               <div className="smartnest-input-group">
-                <label className="smartnest-label">Name</label>
+                <label className="smartnest-label">Full Name</label>
                 <input
                   type="text"
                   value={name}
@@ -154,7 +199,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
 
               {/* Email */}
               <div className="smartnest-input-group">
-                <label className="smartnest-label">Email</label>
+                <label className="smartnest-label">Email Address</label>
                 <input
                   type="email"
                   value={email}
@@ -198,14 +243,14 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 </div>
               </div>
 
-              {/* Agree to Terms Checkbox from Image 3 */}
-              <div style={{ margin: '8px 0 16px 0', fontSize: '12px' }}>
+              {/* Terms Checkbox */}
+              <div style={{ margin: '8px 0 20px 0', fontSize: '13px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={agreeTerms}
                     onChange={(e) => setAgreeTerms(e.target.checked)}
-                    style={{ accentColor: '#2563EB' }}
+                    style={{ accentColor: '#2563EB', width: '15px', height: '15px' }}
                   />
                   <span>
                     I agree to the <strong style={{ color: '#2563EB' }}>Terms of Service</strong>
@@ -223,9 +268,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
               </button>
             </form>
 
-            {/* Social Row */}
-            <div style={{ marginTop: '22px', textAlign: 'center' }}>
-              <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: 500 }}>
+            {/* Social Logins */}
+            <div style={{ marginTop: '24px', textAlign: 'center' }}>
+              <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>
                 Or Sign in with
               </span>
 
@@ -253,7 +298,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 </button>
               </div>
 
-              <div style={{ marginTop: '20px', fontSize: '13px', color: '#64748B' }}>
+              <div style={{ marginTop: '22px', fontSize: '13.5px', color: '#64748B' }}>
                 Already have an account?{' '}
                 <button
                   type="button"

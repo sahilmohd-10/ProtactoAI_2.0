@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowRight, ArrowLeft, Play, CheckCircle2, ShieldCheck, Mail, KeyRound, Lock } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, CheckCircle2, Video, Cpu, Activity } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
@@ -11,11 +11,9 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchToRegister }) => {
   // Navigation sub-views:
-  // 'start': Image 3 Screen 1 (Dark Beginner Page: "Control Everything in One Place")
-  // 'login': Image 3 Screen 2 (White Login Card: "Welcome to Protector AI login now!")
-  // 'forgot_email': Step 1 of Forgot Password
-  // 'forgot_otp': Step 2 of Forgot Password (Match Email OTP)
-  // 'forgot_reset': Step 3 of Forgot Password (Enter New Password & Confirm)
+  // 'start': Full-screen Beginner Page ("Control Everything in One Place")
+  // 'login': Full-screen Login Page ("Welcome to Protector AI login now!")
+  // 'forgot_email' -> 'forgot_otp' -> 'forgot_reset': 3-step password reset
   const [subView, setSubView] = useState<'start' | 'login' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('start');
 
   // Login form state
@@ -177,99 +175,144 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   };
 
   return (
-    <div className="smartnest-viewport">
-      <div className="smartnest-phone-frame">
-        {/* =====================================================================
-            SCREEN 1: IMAGE 3 LEFT — BEGINNER / START SCREEN
-           ===================================================================== */}
-        {subView === 'start' && (
-          <div className="smartnest-screen-dark">
-            <div>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.04em' }}>
-                Protector AI
-              </span>
-              <h1 className="smartnest-hero-title">
-                Control<br />Everything in<br />One Place
-              </h1>
+    <div className="auth-fullscreen-viewport">
+      {/* =====================================================================
+          1. FULL-PAGE BEGINNER SCREEN ("Control Everything in One Place")
+         ===================================================================== */}
+      {subView === 'start' && (
+        <div className="auth-hero-full-container">
+          {/* Left Hero Details */}
+          <div className="auth-hero-full-left">
+            <div className="auth-hero-full-badge">
+              <ShieldCheck size={16} />
+              <span>PROTECTOR AI • SAFETY INTELLIGENCE</span>
             </div>
 
-            {/* Interactive 3D Spinning Smart Surveillance Hardware Device */}
-            <div style={{
-              width: '100%',
-              height: '310px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative'
-            }}>
-              <SpinningDevice3D size={290} />
-            </div>
+            <h1 className="auth-hero-full-title">
+              Control<br />Everything in<br />One Place.
+            </h1>
 
-            {/* Single "Start" Button */}
+            <p className="auth-hero-full-desc">
+              Unified real-time industrial AI surveillance, automated PPE compliance verification, and deep-learning biometric workforce intelligence in one seamless console.
+            </p>
+
+            {/* Prominent Start Button */}
             <button
               type="button"
               onClick={() => setSubView('login')}
-              style={{
-                width: '100%',
-                padding: '16px 0',
-                backgroundColor: '#2563EB',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '100px',
-                fontSize: '16px',
-                fontWeight: 700,
-                letterSpacing: '0.02em',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                boxShadow: '0 8px 24px rgba(37, 99, 235, 0.35)',
-                transition: 'all 0.2s ease',
-                marginTop: '16px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#1D4ED8';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#2563EB';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
+              className="auth-hero-full-btn"
             >
               <span>Start</span>
-              <ArrowRight size={18} strokeWidth={2.4} />
+              <ArrowRight size={20} strokeWidth={2.4} />
             </button>
-          </div>
-        )}
 
-        {/* =====================================================================
-            SCREEN 2: IMAGE 3 CENTER — LOGIN SCREEN
-           ===================================================================== */}
-        {subView === 'login' && (
-          <div className="smartnest-screen-light">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-              <button
-                type="button"
-                onClick={() => setSubView('start')}
-                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}
-              >
-                <ArrowLeft size={16} />
-                <span>Intro</span>
-              </button>
-              <div className="smartnest-brand-header" style={{ margin: 0 }}>
-                Protector AI
+            {/* Feature Highlights */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', fontSize: '13.5px' }}>
+                <CheckCircle2 size={16} color="#34D399" />
+                <span>YOLOv8 25 Hazard Classes</span>
               </div>
-              <div style={{ width: '40px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', fontSize: '13.5px' }}>
+                <CheckCircle2 size={16} color="#34D399" />
+                <span>Deep Biometric Attendance</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#CBD5E1', fontSize: '13.5px' }}>
+                <CheckCircle2 size={16} color="#34D399" />
+                <span>Zero Latency Live Video</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right 3D Spinning Surveillance Hardware Unit */}
+          <div className="auth-hero-full-right">
+            <SpinningDevice3D size={460} />
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          2. FULL-PAGE LOGIN SCREEN ("Welcome to Protector AI login now!")
+         ===================================================================== */}
+      {subView === 'login' && (
+        <div className="auth-split-viewport">
+          {/* Left Desktop Brand & 3D Hardware Display */}
+          <div className="auth-split-left">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                color: '#60A5FA',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <ShieldCheck size={20} />
+              </div>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
+                Protector AI
+              </span>
             </div>
 
-            <div className="smartnest-card-container">
-              <h2 className="smartnest-card-title">
-                Welcome to<br />Protector AI login now!
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'auto 0' }}>
+              <SpinningDevice3D size={360} />
+              <div style={{ textAlign: 'center', marginTop: '20px', maxWidth: '380px' }}>
+                <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                  Industrial Intelligence 2.0
+                </h3>
+                <p style={{ fontSize: '13.5px', color: '#94A3B8', margin: '8px 0 0 0' }}>
+                  Real-time neural inference protecting human workforce across high-hazard environments.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '12px' }}>
+              <span>PROPRIETARY BIOMETRIC ENCRYPTION</span>
+              <span>v2.0 PRODUCTION</span>
+            </div>
+          </div>
+
+          {/* Right Full Form View */}
+          <div className="auth-split-right">
+            <div className="auth-form-card-wide">
+              {/* Back to intro button */}
+              <div style={{ marginBottom: '18px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSubView('start')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to Intro</span>
+                </button>
+              </div>
+
+              <div style={{ fontSize: '20px', fontWeight: 800, color: '#2563EB', marginBottom: '8px' }}>
+                Protector AI
+              </div>
+
+              <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0', lineHeight: 1.25 }}>
+                Welcome to Protector AI<br />login now!
               </h2>
 
+              <p style={{ fontSize: '13.5px', color: '#64748B', margin: '0 0 20px 0' }}>
+                Enter your credentials to access your industrial operations console.
+              </p>
+
               {/* Role Pill Selector */}
-              <div className="auth-role-pill-group" style={{ marginBottom: '16px' }}>
+              <div className="auth-role-pill-group" style={{ marginBottom: '18px' }}>
                 <button
                   type="button"
                   onClick={() => setRole('Administrator')}
@@ -288,14 +331,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
 
               {error && (
                 <div style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
                   backgroundColor: '#FEF2F2',
                   border: '1px solid #FEE2E2',
                   color: '#DC2626',
-                  fontSize: '12.5px',
+                  fontSize: '13px',
                   fontWeight: 500,
-                  marginBottom: '16px'
+                  marginBottom: '18px'
                 }}>
                   {error}
                 </div>
@@ -303,14 +346,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
 
               {forgotSuccessMsg && (
                 <div style={{
-                  padding: '10px 14px',
-                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
                   backgroundColor: '#F0FDF4',
                   border: '1px solid #DCFCE7',
                   color: '#16A34A',
-                  fontSize: '12.5px',
+                  fontSize: '13px',
                   fontWeight: 500,
-                  marginBottom: '16px'
+                  marginBottom: '18px'
                 }}>
                   {forgotSuccessMsg}
                 </div>
@@ -324,7 +367,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="joedoe75@gmail.com"
+                    placeholder="admin or admin@protector.ai"
                     className="smartnest-input"
                     disabled={loading}
                   />
@@ -363,20 +406,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                   </div>
                 </div>
 
-                {/* Remember Me & Forgot Password Row from Image 3 */}
+                {/* Remember Me & Forgot Password Row */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  margin: '4px 0 16px 0',
-                  fontSize: '12px'
+                  margin: '6px 0 20px 0',
+                  fontSize: '13px'
                 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748B', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      style={{ accentColor: '#2563EB' }}
+                      style={{ accentColor: '#2563EB', width: '15px', height: '15px' }}
                     />
                     <span>Remember me</span>
                   </label>
@@ -395,7 +438,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                       color: '#2563EB',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      fontSize: '12px',
+                      fontSize: '13px',
                       padding: 0
                     }}
                   >
@@ -413,9 +456,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 </button>
               </form>
 
-              {/* Or Sign in with */}
-              <div style={{ marginTop: '22px', textAlign: 'center' }}>
-                <span style={{ fontSize: '11.5px', color: '#94A3B8', fontWeight: 500 }}>
+              {/* Social Logins */}
+              <div style={{ marginTop: '26px', textAlign: 'center' }}>
+                <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>
                   Or Sign in with
                 </span>
 
@@ -457,7 +500,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                   </button>
                 </div>
 
-                <div style={{ marginTop: '20px', fontSize: '13px', color: '#64748B' }}>
+                <div style={{ marginTop: '22px', fontSize: '13.5px', color: '#64748B' }}>
                   Don't have an account?{' '}
                   <button
                     type="button"
@@ -470,56 +513,102 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* =====================================================================
-            SCREEN 4: FORGOT PASSWORD WIZARD (EMAIL OTP -> VERIFY -> RESET)
-           ===================================================================== */}
-        {(subView === 'forgot_email' || subView === 'forgot_otp' || subView === 'forgot_reset') && (
-          <div className="smartnest-screen-light">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-              <button
-                type="button"
-                onClick={() => setSubView('login')}
-                style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}
-              >
-                <ArrowLeft size={16} />
-                <span>Back to Login</span>
-              </button>
-              <div className="smartnest-brand-header" style={{ margin: 0 }}>
-                Protector AI
+      {/* =====================================================================
+          3. FULL-PAGE FORGOT PASSWORD FLOW
+         ===================================================================== */}
+      {(subView === 'forgot_email' || subView === 'forgot_otp' || subView === 'forgot_reset') && (
+        <div className="auth-split-viewport">
+          <div className="auth-split-left">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                color: '#60A5FA',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <ShieldCheck size={20} />
               </div>
-              <div style={{ width: '40px' }} />
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
+                Protector AI
+              </span>
             </div>
 
-            <div className="smartnest-card-container">
-              {/* STEP 1: Enter Email */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'auto 0' }}>
+              <SpinningDevice3D size={360} />
+              <div style={{ textAlign: 'center', marginTop: '20px', maxWidth: '380px' }}>
+                <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', margin: 0 }}>
+                  Account Security Center
+                </h3>
+                <p style={{ fontSize: '13.5px', color: '#94A3B8', margin: '8px 0 0 0' }}>
+                  Secure cryptographic OTP authentication for rapid account recovery.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '12px' }}>
+              <span>ZERO-TRUST CREDENTIAL RESET</span>
+              <span>10-MIN OTP TIMEOUT</span>
+            </div>
+          </div>
+
+          <div className="auth-split-right">
+            <div className="auth-form-card-wide">
+              <div style={{ marginBottom: '18px' }}>
+                <button
+                  type="button"
+                  onClick={() => setSubView('login')}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to Login</span>
+                </button>
+              </div>
+
+              {/* Step 1: Send OTP */}
               {subView === 'forgot_email' && (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                     <div style={{
-                      width: '48px',
-                      height: '48px',
+                      width: '56px',
+                      height: '56px',
                       borderRadius: '50%',
                       backgroundColor: '#EFF6FF',
                       color: '#2563EB',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '10px'
+                      marginBottom: '12px'
                     }}>
-                      <Mail size={22} />
+                      <Mail size={26} />
                     </div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
                       Reset Password
                     </h2>
-                    <p style={{ fontSize: '13px', color: '#64748B', margin: '6px 0 0 0' }}>
-                      Enter your email to receive a 6-digit OTP code.
+                    <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0' }}>
+                      Enter your registered email address to receive a 6-digit verification code.
                     </p>
                   </div>
 
                   {forgotErrorMsg && (
-                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '12px', marginBottom: '14px' }}>
+                    <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '13px', marginBottom: '16px' }}>
                       {forgotErrorMsg}
                     </div>
                   )}
@@ -548,49 +637,49 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 </>
               )}
 
-              {/* STEP 2: Enter & Match OTP */}
+              {/* Step 2: Verify OTP */}
               {subView === 'forgot_otp' && (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                     <div style={{
-                      width: '48px',
-                      height: '48px',
+                      width: '56px',
+                      height: '56px',
                       borderRadius: '50%',
                       backgroundColor: '#EFF6FF',
                       color: '#2563EB',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '10px'
+                      marginBottom: '12px'
                     }}>
-                      <KeyRound size={22} />
+                      <KeyRound size={26} />
                     </div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
                       Enter Verification Code
                     </h2>
-                    <p style={{ fontSize: '12.5px', color: '#64748B', margin: '6px 0 0 0' }}>
+                    <p style={{ fontSize: '13.5px', color: '#64748B', margin: '8px 0 0 0' }}>
                       Sent to <strong>{forgotEmail}</strong>
                     </p>
                   </div>
 
                   {otpPreview && (
                     <div style={{
-                      padding: '10px 14px',
-                      borderRadius: '12px',
+                      padding: '12px 16px',
+                      borderRadius: '14px',
                       backgroundColor: '#F0FDF4',
                       border: '1.5px dashed #22C55E',
                       color: '#15803D',
-                      fontSize: '12.5px',
-                      marginBottom: '16px',
+                      fontSize: '13.5px',
+                      marginBottom: '18px',
                       textAlign: 'center'
                     }}>
                       <span>Demo Email OTP Code: </span>
-                      <strong style={{ fontSize: '16px', letterSpacing: '2px' }}>{otpPreview}</strong>
+                      <strong style={{ fontSize: '18px', letterSpacing: '3px' }}>{otpPreview}</strong>
                     </div>
                   )}
 
                   {forgotErrorMsg && (
-                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '12px', marginBottom: '14px' }}>
+                    <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '13px', marginBottom: '16px' }}>
                       {forgotErrorMsg}
                     </div>
                   )}
@@ -605,7 +694,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                         onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                         placeholder="123456"
                         className="smartnest-input"
-                        style={{ textAlign: 'center', fontSize: '20px', letterSpacing: '4px', fontWeight: 700 }}
+                        style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '6px', fontWeight: 800 }}
                         disabled={loading}
                       />
                     </div>
@@ -618,11 +707,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                       {loading ? 'Verifying code...' : 'Verify OTP'}
                     </button>
 
-                    <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                    <div style={{ textAlign: 'center', marginTop: '18px' }}>
                       <button
                         type="button"
                         onClick={handleSendOtp}
-                        style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}
+                        style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
                       >
                         Resend Code
                       </button>
@@ -631,39 +720,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 </>
               )}
 
-              {/* STEP 3: Set New Password & Confirm */}
+              {/* Step 3: Reset Password */}
               {subView === 'forgot_reset' && (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                     <div style={{
-                      width: '48px',
-                      height: '48px',
+                      width: '56px',
+                      height: '56px',
                       borderRadius: '50%',
                       backgroundColor: '#EFF6FF',
                       color: '#2563EB',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '10px'
+                      marginBottom: '12px'
                     }}>
-                      <Lock size={22} />
+                      <Lock size={26} />
                     </div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
                       Set New Password
                     </h2>
-                    <p style={{ fontSize: '12.5px', color: '#64748B', margin: '6px 0 0 0' }}>
-                      Enter your new password below.
+                    <p style={{ fontSize: '13.5px', color: '#64748B', margin: '8px 0 0 0' }}>
+                      Enter and confirm your new secure password.
                     </p>
                   </div>
 
                   {forgotErrorMsg && (
-                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '12px', marginBottom: '14px' }}>
+                    <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '13px', marginBottom: '16px' }}>
                       {forgotErrorMsg}
                     </div>
                   )}
 
                   {forgotSuccessMsg && (
-                    <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: '#F0FDF4', color: '#16A34A', fontSize: '12px', marginBottom: '14px' }}>
+                    <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#F0FDF4', color: '#16A34A', fontSize: '13px', marginBottom: '16px' }}>
                       {forgotSuccessMsg}
                     </div>
                   )}
@@ -705,8 +794,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
