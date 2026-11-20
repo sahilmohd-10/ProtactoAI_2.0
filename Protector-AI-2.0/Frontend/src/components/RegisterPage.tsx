@@ -15,7 +15,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
-  const [role, setRole] = useState<'Administrator' | 'Operator'>('Operator');
+  const [role] = useState<'Operator'>('Operator');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,24 +151,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
             <p style={{ fontSize: '13.5px', color: '#64748B', margin: '0 0 20px 0' }}>
               Register your profile to participate in automated safety surveillance.
             </p>
-
-            {/* Role Pill Selector */}
-            <div className="auth-role-pill-group" style={{ marginBottom: '18px' }}>
-              <button
-                type="button"
-                onClick={() => setRole('Operator')}
-                className={`auth-role-pill ${role === 'Operator' ? 'active' : ''}`}
-              >
-                Operator
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('Administrator')}
-                className={`auth-role-pill ${role === 'Administrator' ? 'active' : ''}`}
-              >
-                Administrator
-              </button>
-            </div>
 
             {error && (
               <div style={{
