@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, ArrowLeft, Play, CheckCircle2, ShieldCheck, Mail, KeyRound, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
+import { SpinningDevice3D } from './SpinningDevice3D';
 
 interface LoginPageProps {
   onLoginSuccess: (user: AuthUser) => void;
@@ -192,7 +193,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               </h1>
             </div>
 
-            {/* Industrial IoT Hardware Visual (Smart Device from Image 3) */}
+            {/* Interactive 3D Spinning Smart Surveillance Hardware Device */}
             <div style={{
               width: '100%',
               height: '310px',
@@ -201,24 +202,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               justifyContent: 'center',
               position: 'relative'
             }}>
-              <svg viewBox="0 0 320 320" fill="none" style={{ width: '100%', height: '100%' }}>
-                {/* Outer shadow */}
-                <ellipse cx="160" cy="270" rx="140" ry="24" fill="black" opacity="0.4" />
-                {/* Robot Main Circular Chassis */}
-                <circle cx="160" cy="160" r="130" fill="#1E293B" stroke="#334155" strokeWidth="4" />
-                {/* Inner Bezel ring */}
-                <circle cx="160" cy="160" r="105" fill="#0F172A" />
-                {/* Upper LIDAR Sensor Tower */}
-                <circle cx="160" cy="140" r="48" fill="#1E293B" stroke="#475569" strokeWidth="3" />
-                <circle cx="160" cy="140" r="32" fill="#0F172A" />
-                <circle cx="160" cy="140" r="14" fill="#2563EB" opacity="0.8" />
-                <circle cx="160" cy="140" r="6" fill="#60A5FA" />
-                {/* Sensor Light Accent */}
-                <path d="M120 180 Q 160 210, 200 180" stroke="#3B82F6" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
-                {/* Bumpers & Seams */}
-                <path d="M70 120 C60 160 60 180 70 220" stroke="#334155" strokeWidth="3" fill="none" />
-                <path d="M250 120 C260 160 260 180 250 220" stroke="#334155" strokeWidth="3" fill="none" />
-              </svg>
+              <SpinningDevice3D size={290} />
             </div>
 
             {/* Bottom Slider Control Pill from Image 3 */}
