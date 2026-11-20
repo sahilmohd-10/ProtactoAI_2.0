@@ -284,6 +284,120 @@ def logout():
             db.close()
     return jsonify({"success": True, "message": "Successfully logged out."})
 
+# ==========================================
+# GOOGLE & GITHUB OAUTH SYSTEM
+# ==========================================
+
+@app.route("/api/auth/oauth/config", methods=["GET"])
+def oauth_config():
+    return jsonify({
+        "google_client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
+        "github_client_id": os.getenv("GITHUB_CLIENT_ID", ""),
+        "supported_providers": ["google", "github"]
+    })
+
+@app.route("/api/auth/oauth/login", methods=["POST"])
+def oauth_login():
+    data = request.get_json(silent=True) or {}
+    provider = (data.get("provider") or "").lower().strip()
+    email = (data.get("email") or "").strip().lower()
+    name = (data.get("name") or "").strip()
+    avatar = (data.get("avatar") or "").strip()
+    username = (data.get("username") or "").strip()
+    role = (data.get("role") or "Administrator").strip()
+
+    if provider not in ("google", "github"):
+        return jsonify({"success": False, "error": "Unsupported OAuth provider. Use Google or GitHub."}), 400
+
+    if not email:
+        return jsonify({"success": False, "error": "Email address is required for OAuth login."}), 400
+
+    if not name:
+        name = email.split("@")[0].replace(".", " ").title()
+
+    db = SessionLocal()
+    try:
+        # Check if user already exists
+        user = db.query(User).filter(
+            (User.email.ilike(email)) | (User.username.ilike(username if username else email.split("@")[0]))
+        ).first()
+
+        if user:
+            if user.status != "Active":
+                return jsonify({"success": False, "error": "This account is currently inactive or suspended."}), 403
+            user.last_active = datetime.now(timezone.utc)
+            if avatar and not user.avatar:
+                user.avatar = avatar
+            db.commit()
+            user_dict = user.to_dict()
+            user_id = user.id
+            user_email = user.email
+            action = f"{provider.upper()}_OAUTH_LOGIN"
+        else:
+            # Auto-provision new user
+            base_username = (username or email.split("@")[0]).replace(" ", "_").lower()
+            candidate_username = base_username
+            idx = 1
+            while db.query(User).filter(User.username == candidate_username).first():
+                candidate_username = f"{base_username}_{idx}"
+                idx += 1
+
+            from auth import hash_password
+            random_pw = secrets.token_urlsafe(24)
+            names = name.split(" ", 1)
+            first_name = names[0]
+            last_name = names[1] if len(names) > 1 else ""
+
+            user = User(
+                username=candidate_username,
+                first_name=first_name,
+                last_name=last_name,
+                name=name,
+                email=email,
+                password_hash=hash_password(random_pw),
+                role=role if role in ("Administrator", "Operator") else "Administrator",
+                avatar=avatar,
+                status="Active",
+                created_at=datetime.now(timezone.utc),
+                last_active=datetime.now(timezone.utc)
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            user_dict = user.to_dict()
+            user_id = user.id
+            user_email = user.email
+            action = f"{provider.upper()}_OAUTH_SIGNUP"
+
+        token = create_user_session(
+            user_id,
+            ip_address=request.remote_addr or "127.0.0.1",
+            user_agent=request.headers.get("User-Agent", ""),
+            db=db
+        )
+
+        audit = AuditLog(
+            user_email=user_email,
+            action=action,
+            details=f"Authenticated successfully using {provider.title()} OAuth ({user_dict['role']})",
+            ip_address=request.remote_addr or "127.0.0.1"
+        )
+        db.add(audit)
+        db.commit()
+
+        return jsonify({
+            "success": True,
+            "token": token,
+            "user": user_dict,
+            "provider": provider
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"OAuth login failure: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        db.close()
+
 # In-memory OTP storage for password resets
 # Format: { email: { "otp": "123456", "expires_at": float(timestamp), "verified": bool } }
 PASSWORD_RESET_OTPS = {}

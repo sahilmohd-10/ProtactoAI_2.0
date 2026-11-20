@@ -3,6 +3,7 @@ import { Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, 
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
+import { OAuthModal } from './OAuthModal';
 
 interface LoginPageProps {
   onLoginSuccess: (user: AuthUser) => void;
@@ -24,6 +25,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthProvider, setOauthProvider] = useState<'google' | 'github' | null>(null);
 
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState('');
@@ -440,10 +442,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                   <button
                     type="button"
                     title="Sign in with Google"
-                    onClick={() => {
-                      setIdentifier('admin');
-                      setPassword('Admin@123');
-                    }}
+                    onClick={() => setOauthProvider('google')}
                     className="smartnest-social-btn"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -457,10 +456,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                   <button
                     type="button"
                     title="Sign in with GitHub"
-                    onClick={() => {
-                      setIdentifier('operator');
-                      setPassword('operator123');
-                    }}
+                    onClick={() => setOauthProvider('github')}
                     className="smartnest-social-btn"
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="#0F172A">
@@ -765,6 +761,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
           </div>
         </div>
       )}
+      {/* Google and GitHub Interactive OAuth Modal */}
+      <OAuthModal
+        isOpen={oauthProvider !== null}
+        provider={oauthProvider}
+        onClose={() => setOauthProvider(null)}
+        onSuccess={onLoginSuccess}
+        defaultRole={role}
+      />
     </div>
   );
 };

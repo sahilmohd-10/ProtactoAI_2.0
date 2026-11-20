@@ -497,6 +497,28 @@ export const api = {
     return res;
   },
 
+  async oauthLogin(payload: {
+    provider: 'google' | 'github';
+    email: string;
+    name: string;
+    avatar?: string;
+    role?: string;
+    username?: string;
+  }): Promise<{ success: boolean; token: string; user: AuthUser; provider?: string }> {
+    const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; provider?: string }>('/api/auth/oauth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if (res.token) {
+      authStorage.setToken(res.token);
+    }
+    return res;
+  },
+
+  async getOAuthConfig(): Promise<{ google_client_id: string; github_client_id: string; supported_providers: string[] }> {
+    return fetchJson('/api/auth/oauth/config');
+  },
+
   async register(data: {
     first_name: string;
     last_name: string;

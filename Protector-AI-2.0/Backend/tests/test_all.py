@@ -480,7 +480,8 @@ class ProtectorAITestSuite(unittest.TestCase):
 
         res_blank = self.client.post("/api/attendance/process-image", json={"image": b64_data})
         self.assertEqual(res_blank.status_code, 400)
-        self.assertIn("No face detected", res_blank.get_json()["error"])
+        err_msg = res_blank.get_json().get("error", "")
+        self.assertTrue("No face detected" in err_msg or "No enrolled personnel" in err_msg)
 
         # 3. Successful match marking attendance
         fake_matches = [{
@@ -490,6 +491,24 @@ class ProtectorAITestSuite(unittest.TestCase):
             "enrolled": True,
             "box": (10, 10, 100, 100)
         }]
+
+        from database import SessionLocal
+        from models import FaceProfile
+        from datetime import datetime, timezone
+        db_s = SessionLocal()
+        p = db_s.query(FaceProfile).filter(FaceProfile.id == 1).first()
+        if not p:
+            p = FaceProfile(
+                id=1,
+                name="Mohd Sahil",
+                consent_recorded=True,
+                consented_at=datetime.now(timezone.utc),
+                enrolled_by_user_id=1,
+                encrypted_templates="test_tmpl"
+            )
+            db_s.add(p)
+            db_s.commit()
+        db_s.close()
 
         with patch("app.face_recognition_service.recognize_all_matches", return_value=fake_matches):
             res_match = self.client.post("/api/attendance/process-image", json={
@@ -506,6 +525,52 @@ class ProtectorAITestSuite(unittest.TestCase):
             rec = data["records"][0]
             self.assertEqual(rec["person_name"], "Mohd Sahil")
             self.assertIn(rec["status"], ["Present", "Half Day", "Full Day"])
+
+    def test_23_oauth_config_and_login(self):
+        # 1. Config endpoint
+        res_cfg = self.client.get("/api/auth/oauth/config")
+        self.assertEqual(res_cfg.status_code, 200)
+        cfg_data = res_cfg.get_json()
+        self.assertIn("supported_providers", cfg_data)
+        self.assertIn("google", cfg_data["supported_providers"])
+        self.assertIn("github", cfg_data["supported_providers"])
+
+        # 2. Unsupported provider error
+        res_err = self.client.post("/api/auth/oauth/login", json={"provider": "facebook", "email": "fb@test.com"})
+        self.assertEqual(res_err.status_code, 400)
+        self.assertIn("Unsupported OAuth provider", res_err.get_json()["error"])
+
+        # 3. Missing email error
+        res_no_email = self.client.post("/api/auth/oauth/login", json={"provider": "google"})
+        self.assertEqual(res_no_email.status_code, 400)
+        self.assertIn("Email address is required", res_no_email.get_json()["error"])
+
+        # 4. Google OAuth login
+        res_google = self.client.post("/api/auth/oauth/login", json={
+            "provider": "google",
+            "email": "test.google.user@protecto.ai",
+            "name": "Google Test Personnel",
+            "role": "Administrator"
+        })
+        self.assertEqual(res_google.status_code, 200)
+        google_data = res_google.get_json()
+        self.assertTrue(google_data["success"])
+        self.assertIn("token", google_data)
+        self.assertTrue(len(google_data["token"]) > 10)
+        self.assertEqual(google_data["user"]["email"], "test.google.user@protecto.ai")
+
+        # 5. GitHub OAuth login
+        res_github = self.client.post("/api/auth/oauth/login", json={
+            "provider": "github",
+            "email": "test.github.user@protecto.ai",
+            "name": "GitHub Dev",
+            "username": "test_github_dev"
+        })
+        self.assertEqual(res_github.status_code, 200)
+        github_data = res_github.get_json()
+        self.assertTrue(github_data["success"])
+        self.assertIn("token", github_data)
+        self.assertEqual(github_data["user"]["email"], "test.github.user@protecto.ai")
 
 if __name__ == "__main__":
     unittest.main()

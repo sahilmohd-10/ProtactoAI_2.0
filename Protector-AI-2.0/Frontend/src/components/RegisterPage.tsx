@@ -3,6 +3,7 @@ import { Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
+import { OAuthModal } from './OAuthModal';
 
 interface RegisterPageProps {
   onRegisterSuccess: (user: AuthUser) => void;
@@ -18,6 +19,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthProvider, setOauthProvider] = useState<'google' | 'github' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,7 +280,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 <button
                   type="button"
                   title="Sign up with Google"
-                  onClick={onSwitchToLogin}
+                  onClick={() => setOauthProvider('google')}
                   className="smartnest-social-btn"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -291,7 +293,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 <button
                   type="button"
                   title="Sign up with GitHub"
-                  onClick={onSwitchToLogin}
+                  onClick={() => setOauthProvider('github')}
                   className="smartnest-social-btn"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#0F172A">
@@ -314,6 +316,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
           </div>
         </div>
       </div>
+
+      {/* Google and GitHub Interactive OAuth Modal */}
+      <OAuthModal
+        isOpen={oauthProvider !== null}
+        provider={oauthProvider}
+        onClose={() => setOauthProvider(null)}
+        onSuccess={onRegisterSuccess}
+        defaultRole={role}
+      />
     </div>
   );
 };
