@@ -58,13 +58,16 @@ export const PeopleManagement: React.FC = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 5 Guided Scanning Directions (1 sec each across 5 sec total)
+  // 5 Guided Scanning Directions (5 seconds per option with real-time countdown timer)
+  const SECONDS_PER_OPTION = 5.0;
+  const abortScanRef = useRef(false);
+
   const SCAN_DIRECTIONS = [
-    { id: 'centre', order: '1. LOOK CENTRE', title: 'Look Directly at Center', voice: 'Look center', icon: Crosshair, color: '#3B82F6' },
-    { id: 'right', order: '2. TURN RIGHT', title: 'Turn Face to Right ➔', voice: 'Turn face right', icon: ArrowRight, color: '#10B981' },
-    { id: 'left', order: '3. TURN LEFT', title: 'Turn Face to Left ⬅', voice: 'Turn face left', icon: ArrowLeft, color: '#8B5CF6' },
-    { id: 'top', order: '4. TILT UP', title: 'Tilt Face Upwards ⬆', voice: 'Tilt face up', icon: ArrowUp, color: '#F59E0B' },
-    { id: 'down', order: '5. TILT DOWN', title: 'Tilt Face Downwards ⬇', voice: 'Tilt face down', icon: ArrowDown, color: '#EC4899' },
+    { id: 'centre', order: '1. LOOK CENTRE', title: 'Look Directly at Center', voice: 'Look center for five seconds', icon: Crosshair, color: '#3B82F6' },
+    { id: 'right', order: '2. TURN RIGHT', title: 'Turn Face to Right ➔', voice: 'Turn face right for five seconds', icon: ArrowRight, color: '#10B981' },
+    { id: 'left', order: '3. TURN LEFT', title: 'Turn Face to Left ⬅', voice: 'Turn face left for five seconds', icon: ArrowLeft, color: '#8B5CF6' },
+    { id: 'top', order: '4. TILT UP', title: 'Tilt Face Upwards ⬆', voice: 'Tilt face up for five seconds', icon: ArrowUp, color: '#F59E0B' },
+    { id: 'down', order: '5. TILT DOWN', title: 'Tilt Face Downwards ⬇', voice: 'Tilt face down for five seconds', icon: ArrowDown, color: '#EC4899' },
   ];
 
   const speakInstruction = (text: string) => {
@@ -144,6 +147,7 @@ export const PeopleManagement: React.FC = () => {
   };
 
   const stopCamera = () => {
+    abortScanRef.current = true;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     setStream(null);
@@ -151,7 +155,7 @@ export const PeopleManagement: React.FC = () => {
     setStatusMessage('Camera paused.');
   };
 
-  // 5-Second Multi-Angle Scanning & Training Routine
+  // 5-Direction Biometric Scanning & Training Routine (5 Seconds Per Option with Live Timer)
   const executeFiveSecondScan = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!name.trim()) {
@@ -165,6 +169,7 @@ export const PeopleManagement: React.FC = () => {
 
     setError(null);
     setStatusMessage(null);
+    abortScanRef.current = false;
 
     // Auto-start camera if standby
     if (!stream) {
@@ -180,37 +185,66 @@ export const PeopleManagement: React.FC = () => {
     setIsScanning(true);
     setCapturedCount(0);
     setCollectedSampleThumbs([]);
-    setScanTimeRemaining(5.0);
+    setScanTimeRemaining(SECONDS_PER_OPTION);
 
     const capturedFrames: string[] = [];
-    const startTime = Date.now();
-    const totalDuration = 5000; // 5000ms
+    const phaseDurationMs = SECONDS_PER_OPTION * 1000;
 
     try {
       for (let phase = 0; phase < SCAN_DIRECTIONS.length; phase++) {
+        if (abortScanRef.current) break;
+
         setCurrentPhaseIndex(phase);
+        setScanTimeRemaining(SECONDS_PER_OPTION);
         speakInstruction(SCAN_DIRECTIONS[phase].voice);
 
-        // 3 samples per 1-second direction phase
-        for (let sub = 0; sub < 3; sub++) {
-          const elapsed = Date.now() - startTime;
-          const remaining = Math.max(0, (totalDuration - elapsed) / 1000);
+        const phaseStartTime = Date.now();
+        let nextSampleTarget = phaseStartTime + 750; // first capture after 750ms
+        const sampleIntervalMs = 1100; // capture ~4-5 clear samples per 5-second phase
+
+        while (true) {
+          if (abortScanRef.current) break;
+
+          const now = Date.now();
+          const elapsed = now - phaseStartTime;
+          const remaining = Math.max(0, (phaseDurationMs - elapsed) / 1000);
           setScanTimeRemaining(Number(remaining.toFixed(1)));
 
-          const frame = captureFrame(videoRef.current, canvasRef.current);
-          if (frame) {
-            capturedFrames.push(frame);
-            setCollectedSampleThumbs((prev) => [...prev.slice(-8), frame]);
-            setCapturedCount(capturedFrames.length);
+          // Periodic sample capture during this direction
+          if (now >= nextSampleTarget && remaining > 0.2) {
+            if (videoRef.current && canvasRef.current) {
+              const frame = captureFrame(videoRef.current, canvasRef.current);
+              if (frame) {
+                capturedFrames.push(frame);
+                setCollectedSampleThumbs((prev) => [...prev.slice(-8), frame]);
+                setCapturedCount(capturedFrames.length);
+              }
+            }
+            nextSampleTarget = now + sampleIntervalMs;
           }
-          await new Promise((res) => setTimeout(res, 310));
+
+          if (elapsed >= phaseDurationMs) {
+            setScanTimeRemaining(0.0);
+            break;
+          }
+
+          await new Promise((res) => setTimeout(res, 75));
         }
+
+        // Brief 250ms pause between direction transitions
+        await new Promise((res) => setTimeout(res, 250));
+      }
+
+      if (abortScanRef.current) {
+        setStatusMessage('Scan cancelled.');
+        setIsScanning(false);
+        return;
       }
 
       setScanTimeRemaining(0.0);
       setIsScanning(false);
-      speakInstruction('Scan complete. Training biometric model.');
-      setStatusMessage(`Captured ${capturedFrames.length} multi-angle biometric samples. Training encrypted model...`);
+      speakInstruction('Face scan complete across all five directions. Training biometric model.');
+      setStatusMessage(`Captured ${capturedFrames.length} multi-angle biometric samples (5 seconds per direction). Training encrypted model...`);
       setIsEnrolling(true);
 
       await api.enrollPerson({
@@ -222,7 +256,7 @@ export const PeopleManagement: React.FC = () => {
       setName('');
       setConsentRecorded(false);
       setCollectedSampleThumbs([]);
-      setStatusMessage(`Successfully trained and enrolled "${name.trim()}" across all face directions!`);
+      setStatusMessage(`Successfully trained and enrolled "${name.trim()}" across all 5 face directions (5s each)!`);
       await refreshPeople();
     } catch (enrollError: any) {
       setError(enrollError instanceof Error ? enrollError.message : 'Unable to complete biometric enrollment.');
@@ -448,7 +482,7 @@ export const PeopleManagement: React.FC = () => {
           {/* Visual Input / Viewport Area */}
           {enrollMethod === 'camera' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* 5-Direction Progress Pills */}
+              {/* 5-Direction Progress Pills with 5s Timer per Option */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
                 {SCAN_DIRECTIONS.map((dir, idx) => {
                   const isActive = isScanning && currentPhaseIndex === idx;
@@ -457,19 +491,34 @@ export const PeopleManagement: React.FC = () => {
                     <div
                       key={dir.id}
                       style={{
-                        padding: '6px 4px',
-                        borderRadius: '8px',
+                        padding: '8px 4px',
+                        borderRadius: '10px',
                         textAlign: 'center',
                         fontSize: '10.5px',
                         fontWeight: 700,
-                        backgroundColor: isActive ? dir.color : (isDone ? '#DCFCE7' : '#F1F5F9'),
+                        backgroundColor: isActive ? dir.color : (isDone ? '#DCFCE7' : '#F8FAFC'),
                         color: isActive ? '#FFFFFF' : (isDone ? '#15803D' : '#64748B'),
-                        transition: 'all 0.2s ease',
-                        boxShadow: isActive ? `0 4px 12px ${dir.color}40` : 'none',
-                        border: isActive ? '1px solid rgba(255,255,255,0.4)' : '1px solid transparent'
+                        transition: 'all 0.25s ease',
+                        boxShadow: isActive ? `0 4px 14px ${dir.color}50` : 'none',
+                        border: isActive ? '1.5px solid rgba(255,255,255,0.7)' : (isDone ? '1px solid #BBF7D0' : '1px solid #E2E8F0'),
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '2px'
                       }}
                     >
-                      {dir.order}
+                      <span style={{ fontSize: '10px', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{dir.order}</span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        fontVariantNumeric: 'tabular-nums',
+                        color: isActive ? '#FFFFFF' : (isDone ? '#15803D' : '#94A3B8')
+                      }}>
+                        {isActive
+                          ? `⏱ ${scanTimeRemaining.toFixed(1)}s`
+                          : (isDone ? '✓ 5.0s' : '5.0s')}
+                      </span>
                     </div>
                   );
                 })}
@@ -527,41 +576,58 @@ export const PeopleManagement: React.FC = () => {
                       pointerEvents: 'none'
                     }} />
 
-                    {/* Active Scanning Live Order Banner */}
+                    {/* Active Scanning Live Order Banner with Countdown Timer */}
                     {isScanning && (
                       <div style={{
                         position: 'absolute',
                         top: '16px',
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        backdropFilter: 'blur(8px)',
-                        padding: '10px 20px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                        backdropFilter: 'blur(10px)',
+                        padding: '10px 22px',
                         borderRadius: '100px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
+                        gap: '12px',
                         color: '#FFFFFF',
-                        border: `1.5px solid ${activeDirection.color}`,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                        zIndex: 10,
-                        animation: 'bounce 0.8s infinite alternate'
+                        border: `2px solid ${activeDirection.color}`,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                        zIndex: 10
                       }}>
                         <div style={{
-                          width: '28px',
-                          height: '28px',
+                          width: '32px',
+                          height: '32px',
                           borderRadius: '50%',
                           backgroundColor: activeDirection.color,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#FFFFFF'
+                          color: '#FFFFFF',
+                          boxShadow: `0 0 12px ${activeDirection.color}`
                         }}>
-                          <ActiveIcon size={18} strokeWidth={2.6} />
+                          <ActiveIcon size={18} strokeWidth={2.8} />
                         </div>
-                        <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.02em' }}>
-                          {activeDirection.title}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.02em' }}>
+                            {activeDirection.order}: {activeDirection.title}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#CBD5E1', fontWeight: 600 }}>
+                            Hold position for 5 seconds ({currentPhaseIndex + 1}/5)
+                          </span>
+                        </div>
+                        <div style={{
+                          marginLeft: '8px',
+                          padding: '4px 12px',
+                          borderRadius: '100px',
+                          backgroundColor: activeDirection.color,
+                          color: '#FFFFFF',
+                          fontSize: '13px',
+                          fontWeight: 900,
+                          fontVariantNumeric: 'tabular-nums'
+                        }}>
+                          ⏱ {scanTimeRemaining.toFixed(1)}s
+                        </div>
                       </div>
                     )}
 
@@ -577,28 +643,31 @@ export const PeopleManagement: React.FC = () => {
                       pointerEvents: 'none'
                     }}>
                       <span style={{
-                        padding: '4px 10px',
+                        padding: '5px 12px',
                         borderRadius: '100px',
-                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)',
                         color: '#FFFFFF',
-                        fontSize: '11px',
+                        fontSize: '11.5px',
                         fontWeight: 700,
-                        backdropFilter: 'blur(4px)'
+                        backdropFilter: 'blur(6px)',
+                        border: '1px solid rgba(255,255,255,0.15)'
                       }}>
-                        {isScanning ? `⏱ ${scanTimeRemaining}s Remaining` : 'Camera Active'}
+                        {isScanning
+                          ? `⏱ Option ${currentPhaseIndex + 1}/5: ${scanTimeRemaining.toFixed(1)}s Remaining`
+                          : 'Camera Active'}
                       </span>
 
                       {isScanning && (
                         <span style={{
-                          padding: '4px 10px',
+                          padding: '5px 12px',
                           borderRadius: '100px',
                           backgroundColor: '#10B981',
                           color: '#FFFFFF',
-                          fontSize: '11px',
+                          fontSize: '11.5px',
                           fontWeight: 700,
-                          backdropFilter: 'blur(4px)'
+                          backdropFilter: 'blur(6px)'
                         }}>
-                          {capturedCount} Samples Captured
+                          {capturedCount} Samples Collected
                         </span>
                       )}
                     </div>
@@ -844,8 +913,8 @@ export const PeopleManagement: React.FC = () => {
                 <Scan size={16} />
                 <span>
                   {isScanning
-                    ? `SCANNING FACE: ${activeDirection.title.toUpperCase()} (${scanTimeRemaining}s)...`
-                    : (isEnrolling ? 'TRAINING BIOMETRIC MODEL...' : 'START 5-SECOND MULTI-ANGLE SCAN & ENROLL')}
+                    ? `SCANNING ${activeDirection.order}: ⏱ ${scanTimeRemaining.toFixed(1)}s REMAINING...`
+                    : (isEnrolling ? 'TRAINING BIOMETRIC MODEL...' : 'START 5-DIRECTION (5s EACH) TRAINING')}
                 </span>
               </button>
             ) : (

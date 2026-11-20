@@ -293,8 +293,8 @@ class FaceRecognitionService:
         augmented across lighting, micro-rotations, and zooms for maximum operational accuracy.
         """
         self.ensure_available()
-        if not isinstance(images, list) or len(images) < 1 or len(images) > 25:
-            raise ValueError("Provide between 1 and 25 face images for enrollment.")
+        if not isinstance(images, list) or len(images) < 1 or len(images) > 50:
+            raise ValueError("Provide between 1 and 50 face images for enrollment.")
         if any(not isinstance(image, str) for image in images):
             raise ValueError("Enrollment images must be encoded image data.")
         if sum(len(image) for image in images) > 35_000_000:
