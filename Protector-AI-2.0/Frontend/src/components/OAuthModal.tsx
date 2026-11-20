@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Check, Loader2, ArrowRight, UserCheck, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Check, Loader2, ArrowRight, UserCheck, Shield, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -24,8 +24,93 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   const [customEmail, setCustomEmail] = useState('');
   const [customName, setCustomName] = useState('');
   const [customUsername, setCustomUsername] = useState('');
+  const [googleClientId, setGoogleClientId] = useState<string>(
+    import.meta.env.VITE_GOOGLE_CLIENT_ID || '512272700093-5ebjj1071qjq04j9mdbci2idvtftpkau.apps.googleusercontent.com'
+  );
+  const [githubClientId, setGithubClientId] = useState<string>(
+    import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23li1kJzE3M295HoCn'
+  );
+
+  useEffect(() => {
+    api.getOAuthConfig().then(cfg => {
+      if (cfg?.google_client_id) setGoogleClientId(cfg.google_client_id);
+      if (cfg?.github_client_id) setGithubClientId(cfg.github_client_id);
+    }).catch(() => {});
+  }, []);
+
+  // Initialize Google Identity Services when modal opens with Google provider
+  useEffect(() => {
+    if (!isOpen || provider !== 'google') return;
+
+    const initGoogleGsi = () => {
+      const g = (window as any).google;
+      if (!g || !g.accounts || !g.accounts.id) return;
+
+      try {
+        g.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response: { credential: string }) => {
+            if (!response.credential) return;
+            setLoading(true);
+            setError(null);
+            try {
+              const res = await api.verifyGoogleOAuth(response.credential, defaultRole);
+              if (res.success && res.user) {
+                onSuccess(res.user);
+                onClose();
+              } else {
+                setError('Google verification failed.');
+              }
+            } catch (err: any) {
+              setError(err.message || 'Google verification failed.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        });
+
+        const btnContainer = document.getElementById('google-live-btn-slot');
+        if (btnContainer) {
+          btnContainer.innerHTML = '';
+          g.accounts.id.renderButton(btnContainer, {
+            theme: 'filled_blue',
+            size: 'large',
+            width: 380,
+            text: 'continue_with',
+            shape: 'pill'
+          });
+        }
+      } catch (e) {
+        console.warn('Google Identity Services render error:', e);
+      }
+    };
+
+    if (document.getElementById('google-gsi-sdk')) {
+      initGoogleGsi();
+    } else {
+      const script = document.createElement('script');
+      script.id = 'google-gsi-sdk';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => initGoogleGsi();
+      document.body.appendChild(script);
+    }
+  }, [isOpen, provider, googleClientId, defaultRole]);
 
   if (!isOpen || !provider) return null;
+
+  const handleLaunchGitHubOAuth = () => {
+    if (!githubClientId) {
+      setError('GitHub Client ID is not configured.');
+      return;
+    }
+    const redirectUri = window.location.origin + window.location.pathname;
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+      githubClientId
+    )}&scope=read:user,user:email&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    window.location.href = authUrl;
+  };
 
   const handleOAuthLogin = async (payload: {
     email: string;
@@ -231,8 +316,47 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             </div>
           ) : !showCustomInput ? (
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>
-                {provider === 'google' ? 'Choose an enrolled account:' : 'Select authorized GitHub profile:'}
+              {/* Real OAuth Live Trigger Buttons */}
+              {provider === 'google' ? (
+                <div style={{ marginBottom: '14px' }}>
+                  <div id="google-live-btn-slot" style={{ display: 'flex', justifyContent: 'center' }} />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLaunchGitHubOAuth}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    backgroundColor: '#0F172A',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '13.5px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    marginBottom: '14px',
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.15)'
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFFFFF">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                  </svg>
+                  <span>Authorize with GitHub Account</span>
+                  <ExternalLink size={15} />
+                </button>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 0 12px 0' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#E2E8F0' }} />
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>
+                  or quick enrolled profile
+                </span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#E2E8F0' }} />
               </div>
 
               {provider === 'google' ? (

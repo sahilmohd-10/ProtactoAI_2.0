@@ -49,9 +49,31 @@ export function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Check stored session token on startup
+  // Check stored session token or incoming OAuth callback on startup
   useEffect(() => {
     const checkAuthSession = async () => {
+      // 1. Check if returning from GitHub OAuth redirect (?code=...)
+      const params = new URLSearchParams(window.location.search);
+      const ghCode = params.get('code');
+      if (ghCode) {
+        try {
+          const res = await api.exchangeGitHubOAuth(ghCode);
+          if (res.success && res.user) {
+            setCurrentUser(res.user);
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+            setIsAuthChecking(false);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to exchange GitHub authorization code:', err);
+        } finally {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      }
+
+      // 2. Check stored session token
       const token = authStorage.getToken();
       if (!token) {
         setIsAuthChecking(false);

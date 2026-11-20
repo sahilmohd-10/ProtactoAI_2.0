@@ -519,6 +519,28 @@ export const api = {
     return fetchJson('/api/auth/oauth/config');
   },
 
+  async exchangeGitHubOAuth(code: string, role?: string): Promise<{ success: boolean; token: string; user: AuthUser; provider: string }> {
+    const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; provider: string }>('/api/auth/oauth/github-exchange', {
+      method: 'POST',
+      body: JSON.stringify({ code, role: role || 'Operator' })
+    });
+    if (res.token) {
+      authStorage.setToken(res.token);
+    }
+    return res;
+  },
+
+  async verifyGoogleOAuth(credential: string, role?: string): Promise<{ success: boolean; token: string; user: AuthUser; provider: string }> {
+    const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; provider: string }>('/api/auth/oauth/google-verify', {
+      method: 'POST',
+      body: JSON.stringify({ credential, role: role || 'Operator' })
+    });
+    if (res.token) {
+      authStorage.setToken(res.token);
+    }
+    return res;
+  },
+
   async register(data: {
     first_name: string;
     last_name: string;

@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 import cv2
 import numpy as np
 from sqlalchemy import func
+import requests
 
 import config
 from database import init_db, SessionLocal
@@ -296,18 +297,13 @@ def oauth_config():
         "supported_providers": ["google", "github"]
     })
 
-@app.route("/api/auth/oauth/login", methods=["POST"])
-def oauth_login():
-    data = request.get_json(silent=True) or {}
-    provider = (data.get("provider") or "").lower().strip()
-    email = (data.get("email") or "").strip().lower()
-    name = (data.get("name") or "").strip()
-    avatar = (data.get("avatar") or "").strip()
-    username = (data.get("username") or "").strip()
-    role = (data.get("role") or "Administrator").strip()
-
-    if provider not in ("google", "github"):
-        return jsonify({"success": False, "error": "Unsupported OAuth provider. Use Google or GitHub."}), 400
+def _perform_oauth_login(email: str, name: str, provider: str, avatar: str = "", username: str = "", role: str = "Operator"):
+    provider = provider.lower().strip()
+    email = email.strip().lower()
+    name = (name or "").strip()
+    avatar = (avatar or "").strip()
+    username = (username or "").strip()
+    role = role if role in ("Administrator", "Operator") else "Operator"
 
     if not email:
         return jsonify({"success": False, "error": "Email address is required for OAuth login."}), 400
@@ -342,7 +338,6 @@ def oauth_login():
                 candidate_username = f"{base_username}_{idx}"
                 idx += 1
 
-            from auth import hash_password
             random_pw = secrets.token_urlsafe(24)
             names = name.split(" ", 1)
             first_name = names[0]
@@ -355,7 +350,7 @@ def oauth_login():
                 name=name,
                 email=email,
                 password_hash=hash_password(random_pw),
-                role=role if role in ("Administrator", "Operator") else "Administrator",
+                role=role,
                 avatar=avatar,
                 status="Active",
                 created_at=datetime.now(timezone.utc),
@@ -393,10 +388,136 @@ def oauth_login():
         })
     except Exception as e:
         db.rollback()
-        logger.error(f"OAuth login failure: {e}", exc_info=True)
+        logger.error(f"OAuth execution failure: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
         db.close()
+
+@app.route("/api/auth/oauth/login", methods=["POST"])
+def oauth_login():
+    data = request.get_json(silent=True) or {}
+    provider = (data.get("provider") or "").lower().strip()
+    if provider not in ("google", "github"):
+        return jsonify({"success": False, "error": "Unsupported OAuth provider. Use Google or GitHub."}), 400
+
+    return _perform_oauth_login(
+        email=data.get("email") or "",
+        name=data.get("name") or "",
+        provider=provider,
+        avatar=data.get("avatar") or "",
+        username=data.get("username") or "",
+        role=data.get("role") or "Operator"
+    )
+
+@app.route("/api/auth/oauth/github-exchange", methods=["POST"])
+def github_oauth_exchange():
+    data = request.get_json(silent=True) or {}
+    code = (data.get("code") or "").strip()
+    role = (data.get("role") or "Operator").strip()
+    if not code:
+        return jsonify({"success": False, "error": "Missing GitHub authorization code."}), 400
+
+    client_id = os.getenv("GITHUB_CLIENT_ID", "")
+    client_secret = os.getenv("GITHUB_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        return jsonify({"success": False, "error": "GitHub OAuth client credentials are not configured on server."}), 500
+
+    try:
+        # Request access token from GitHub
+        token_resp = requests.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "code": code
+            },
+            timeout=10
+        )
+        token_data = token_resp.json()
+        access_token = token_data.get("access_token")
+        if not access_token:
+            err_desc = token_data.get("error_description") or token_data.get("error") or "Failed to obtain access token from GitHub."
+            return jsonify({"success": False, "error": err_desc}), 400
+
+        # Query user profile
+        gh_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "User-Agent": "Protector-AI-2.0",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        user_resp = requests.get("https://api.github.com/user", headers=gh_headers, timeout=10)
+        if user_resp.status_code != 200:
+            return jsonify({"success": False, "error": "Failed to retrieve user profile from GitHub."}), 400
+
+        gh_user = user_resp.json()
+        email = (gh_user.get("email") or "").strip().lower()
+        if not email:
+            emails_resp = requests.get("https://api.github.com/user/emails", headers=gh_headers, timeout=10)
+            if emails_resp.status_code == 200:
+                emails_list = emails_resp.json()
+                for em in emails_list:
+                    if em.get("primary") and em.get("verified"):
+                        email = em.get("email", "").strip().lower()
+                        break
+                if not email and emails_list:
+                    email = emails_list[0].get("email", "").strip().lower()
+
+        username = gh_user.get("login") or f"gh_{gh_user.get('id')}"
+        if not email:
+            email = f"{username}@users.noreply.github.com"
+
+        name = gh_user.get("name") or username
+        avatar = gh_user.get("avatar_url") or ""
+
+        return _perform_oauth_login(
+            email=email,
+            name=name,
+            provider="github",
+            avatar=avatar,
+            username=username,
+            role=role
+        )
+    except Exception as e:
+        logger.error(f"GitHub OAuth exchange error: {e}", exc_info=True)
+        return jsonify({"success": False, "error": f"GitHub exchange failed: {str(e)}"}), 500
+
+@app.route("/api/auth/oauth/google-verify", methods=["POST"])
+def google_oauth_verify():
+    data = request.get_json(silent=True) or {}
+    credential = (data.get("credential") or "").strip()
+    role = (data.get("role") or "Operator").strip()
+    if not credential:
+        return jsonify({"success": False, "error": "Missing Google ID token credential."}), 400
+
+    try:
+        resp = requests.get(
+            f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}",
+            timeout=10
+        )
+        if resp.status_code != 200:
+            return jsonify({"success": False, "error": "Invalid or expired Google credential."}), 401
+
+        payload = resp.json()
+        email = (payload.get("email") or "").strip().lower()
+        if not email:
+            return jsonify({"success": False, "error": "Google token does not contain a verified email."}), 400
+
+        name = payload.get("name") or payload.get("given_name") or email.split("@")[0]
+        avatar = payload.get("picture") or ""
+        username = email.split("@")[0]
+
+        return _perform_oauth_login(
+            email=email,
+            name=name,
+            provider="google",
+            avatar=avatar,
+            username=username,
+            role=role
+        )
+    except Exception as e:
+        logger.error(f"Google OAuth verification error: {e}", exc_info=True)
+        return jsonify({"success": False, "error": f"Google verification failed: {str(e)}"}), 500
 
 # In-memory OTP storage for password resets
 # Format: { email: { "otp": "123456", "expires_at": float(timestamp), "verified": bool } }
