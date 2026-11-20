@@ -2,9 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera,
   CameraOff,
-  Upload,
   Trash2,
-  UserPlus,
   ShieldCheck,
   User,
   CheckCircle2,
@@ -37,9 +35,7 @@ export const PeopleManagement: React.FC = () => {
   const [people, setPeople] = useState<FaceProfile[]>([]);
   const [name, setName] = useState('');
   const [consentRecorded, setConsentRecorded] = useState(false);
-  const [enrollMethod, setEnrollMethod] = useState<'camera' | 'upload'>('camera');
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -56,7 +52,6 @@ export const PeopleManagement: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 5 Guided Scanning Directions (5 seconds per option with real-time countdown timer)
   const SECONDS_PER_OPTION = 5.0;
@@ -139,8 +134,8 @@ export const PeopleManagement: React.FC = () => {
     } catch (cameraError) {
       setError(
         cameraError instanceof Error
-          ? `${cameraError.message}. Alternatively, select 'Upload Photo' to enroll from picture files.`
-          : 'Could not access local camera. Try using the Upload Photo option.'
+          ? cameraError.message
+          : 'Could not access local camera. Please check camera hardware connection and permissions.'
       );
       setStatusMessage(null);
     }
@@ -266,75 +261,6 @@ export const PeopleManagement: React.FC = () => {
     }
   };
 
-  // Handle image file selection fallback
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const loadedDataUrls: string[] = [];
-    const maxFiles = Math.min(files.length, 10);
-    let readCount = 0;
-
-    for (let i = 0; i < maxFiles; i++) {
-      const file = files[i];
-      if (!file.type.startsWith('image/')) {
-        setError('Please select valid image files (.jpg, .jpeg, .png, .webp).');
-        continue;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) loadedDataUrls.push(result);
-        readCount++;
-        if (readCount === maxFiles) {
-          setUploadedImages(loadedDataUrls);
-          setStatusMessage(`${loadedDataUrls.length} photo(s) loaded. Confirm consent and enter name to complete enrollment.`);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleEnrollUploaded = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!name.trim()) {
-      setError("Please provide the person's full name.");
-      return;
-    }
-    if (!consentRecorded) {
-      setError('Explicit biometric consent confirmation is required to proceed.');
-      return;
-    }
-    if (uploadedImages.length === 0) {
-      setError('Please select or upload at least one face photo.');
-      return;
-    }
-
-    setIsEnrolling(true);
-    setError(null);
-    setStatusMessage('Extracting facial biometric landmarks and training encrypted model...');
-
-    try {
-      await api.enrollPerson({
-        name: name.trim(),
-        consent_recorded: true,
-        images: uploadedImages
-      });
-
-      setName('');
-      setConsentRecorded(false);
-      setUploadedImages([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      setStatusMessage(`Successfully enrolled "${name.trim()}". Their face model is active.`);
-      await refreshPeople();
-    } catch (enrollError: any) {
-      setError(enrollError instanceof Error ? enrollError.message : 'Unable to enroll this person.');
-    } finally {
-      setIsEnrolling(false);
-    }
-  };
-
   const handleDelete = async (profile: FaceProfile) => {
     if (!window.confirm(`Permanently delete biometric model and all historical records for ${profile.name}?`)) return;
     setError(null);
@@ -425,63 +351,17 @@ export const PeopleManagement: React.FC = () => {
               </div>
               <div>
                 <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                  5-Second 360° Face Training Studio
+                  5-Direction Biometric Face Training Studio
                 </h2>
                 <span style={{ fontSize: '11px', color: '#64748B' }}>
-                  Multi-angle deep learning template generation
+                  Live multi-angle deep learning template generation (5 seconds each)
                 </span>
               </div>
-            </div>
-
-            {/* Method Toggle: Camera vs File Upload */}
-            <div style={{ display: 'flex', background: '#F1F5F9', padding: '3px', borderRadius: '8px', gap: '2px' }}>
-              <button
-                type="button"
-                onClick={() => { setEnrollMethod('camera'); setError(null); }}
-                style={{
-                  background: enrollMethod === 'camera' ? '#FFFFFF' : 'transparent',
-                  color: enrollMethod === 'camera' ? '#0F5132' : '#64748B',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '5px 12px',
-                  fontSize: '11.5px',
-                  fontWeight: enrollMethod === 'camera' ? 700 : 500,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  boxShadow: enrollMethod === 'camera' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
-                }}
-              >
-                <Camera size={13} /> Live Camera (5s Scan)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setEnrollMethod('upload'); stopCamera(); setError(null); }}
-                style={{
-                  background: enrollMethod === 'upload' ? '#FFFFFF' : 'transparent',
-                  color: enrollMethod === 'upload' ? '#0F5132' : '#64748B',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '5px 12px',
-                  fontSize: '11.5px',
-                  fontWeight: enrollMethod === 'upload' ? 700 : 500,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  boxShadow: enrollMethod === 'upload' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
-                }}
-              >
-                <Upload size={13} /> Upload Photos
-              </button>
             </div>
           </div>
 
           {/* Visual Input / Viewport Area */}
-          {enrollMethod === 'camera' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {/* 5-Direction Progress Pills with 5s Timer per Option */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
                 {SCAN_DIRECTIONS.map((dir, idx) => {
@@ -759,62 +639,10 @@ export const PeopleManagement: React.FC = () => {
                 </div>
               )}
             </div>
-          ) : (
-            <div>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  background: '#F8FAFC',
-                  border: '1.5px dashed #CBD5E1',
-                  borderRadius: '16px',
-                  padding: '28px 16px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  minHeight: '140px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/jpg"
-                  multiple
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-                <Upload size={32} color="#0F5132" />
-                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A' }}>
-                  Click to select face photos
-                </div>
-                <div style={{ fontSize: '11px', color: '#64748B' }}>
-                  Upload between 1 and 15 images covering front, left, and right angles
-                </div>
-              </div>
-
-              {uploadedImages.length > 0 && (
-                <div style={{ marginTop: '12px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', marginBottom: '6px' }}>
-                    SELECTED PHOTOS ({uploadedImages.length}):
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                    {uploadedImages.map((src, idx) => (
-                      <div key={idx} style={{ width: '60px', height: '60px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #10B981', flexShrink: 0 }}>
-                        <img src={src} alt="Face sample" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Form Controls */}
           <form
-            onSubmit={enrollMethod === 'camera' ? executeFiveSecondScan : handleEnrollUploaded}
+            onSubmit={executeFiveSecondScan}
             style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}
           >
             <div>
@@ -887,61 +715,35 @@ export const PeopleManagement: React.FC = () => {
               </div>
             )}
 
-            {/* Action Buttons */}
-            {enrollMethod === 'camera' ? (
-              <button
-                type="submit"
-                disabled={isScanning || isEnrolling || !name.trim() || !consentRecorded}
-                style={{
-                  marginTop: '4px',
-                  padding: '12px 20px',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  borderRadius: '12px',
-                  backgroundColor: '#0F5132',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  cursor: (isScanning || isEnrolling || !name.trim() || !consentRecorded) ? 'not-allowed' : 'pointer',
-                  opacity: (isScanning || isEnrolling || !name.trim() || !consentRecorded) ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 14px rgba(15, 81, 50, 0.25)'
-                }}
-              >
-                <Scan size={16} />
-                <span>
-                  {isScanning
-                    ? `SCANNING ${activeDirection.order}: ⏱ ${scanTimeRemaining.toFixed(1)}s REMAINING...`
-                    : (isEnrolling ? 'TRAINING BIOMETRIC MODEL...' : 'START 5-DIRECTION (5s EACH) TRAINING')}
-                </span>
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={isEnrolling || !name.trim() || !consentRecorded || uploadedImages.length === 0}
-                style={{
-                  marginTop: '4px',
-                  padding: '12px 20px',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  borderRadius: '12px',
-                  backgroundColor: '#0F5132',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  cursor: (isEnrolling || !name.trim() || !consentRecorded || uploadedImages.length === 0) ? 'not-allowed' : 'pointer',
-                  opacity: (isEnrolling || !name.trim() || !consentRecorded || uploadedImages.length === 0) ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                <UserPlus size={16} />
-                <span>{isEnrolling ? 'TRAINING MODEL...' : 'ENROLL FROM UPLOADED PHOTOS'}</span>
-              </button>
-            )}
+            {/* Action Button */}
+            <button
+              type="submit"
+              disabled={isScanning || isEnrolling || !name.trim() || !consentRecorded}
+              style={{
+                marginTop: '4px',
+                padding: '12px 20px',
+                fontSize: '13px',
+                fontWeight: 800,
+                borderRadius: '12px',
+                backgroundColor: '#0F5132',
+                color: '#FFFFFF',
+                border: 'none',
+                cursor: (isScanning || isEnrolling || !name.trim() || !consentRecorded) ? 'not-allowed' : 'pointer',
+                opacity: (isScanning || isEnrolling || !name.trim() || !consentRecorded) ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(15, 81, 50, 0.25)'
+              }}
+            >
+              <Scan size={16} />
+              <span>
+                {isScanning
+                  ? `SCANNING ${activeDirection.order}: ⏱ ${scanTimeRemaining.toFixed(1)}s REMAINING...`
+                  : (isEnrolling ? 'TRAINING BIOMETRIC MODEL...' : 'START 5-DIRECTION (5s EACH) TRAINING')}
+              </span>
+            </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94A3B8', fontSize: '11px' }}>
               <ShieldCheck size={14} color="#0F5132" />
