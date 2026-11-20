@@ -245,11 +245,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 </p>
               </div>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748B', fontSize: '12px' }}>
-              <span>PROPRIETARY BIOMETRIC ENCRYPTION</span>
-              <span>v2.0 PRODUCTION</span>
-            </div>
           </div>
 
           {/* Right Full Form View */}
