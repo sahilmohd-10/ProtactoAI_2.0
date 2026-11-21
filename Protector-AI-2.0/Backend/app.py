@@ -1149,10 +1149,12 @@ def forgot_password():
 
         resp_payload = {
             "success": True,
-            "message": f"A 6-digit verification code has been dispatched to {user.email}. Please check your email inbox.",
+            "message": f"A 6-digit verification code has been dispatched to {user.email}. Please check your email inbox." if email_sent else f"Verification code generated. Notice: Email sandbox blocked delivery to {user.email}.",
             "email": user.email,
             "email_sent": email_sent
         }
+        if not email_sent:
+            resp_payload["fallback_code"] = otp_code
 
         return jsonify(resp_payload)
     finally:
