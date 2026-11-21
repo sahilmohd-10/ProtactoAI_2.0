@@ -49,13 +49,19 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const errorText = await res.text();
     let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+    let errObj: any = null;
     try {
-      const errObj = JSON.parse(errorText);
+      errObj = JSON.parse(errorText);
       errorMessage = errObj.error || errObj.message || errorMessage;
     } catch {
       // ignore json parse error
     }
-    throw new Error(errorMessage);
+    const err: any = new Error(errorMessage);
+    if (errObj && typeof errObj === 'object') {
+      Object.assign(err, errObj);
+    }
+    err.status = res.status;
+    throw err;
   }
 
   return res.json();
@@ -531,8 +537,8 @@ export const api = {
     return fetchJson('/api/auth/oauth/config');
   },
 
-  async exchangeGitHubOAuth(code: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }> {
-    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }>('/api/auth/oauth/github-exchange', {
+  async exchangeGitHubOAuth(code: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean; email?: string; username?: string }> {
+    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean; email?: string; username?: string }>('/api/auth/oauth/github-exchange', {
       method: 'POST',
       body: JSON.stringify({ code, role: role || 'Operator', auth_token })
     });
@@ -542,8 +548,8 @@ export const api = {
     return res;
   },
 
-  async verifyGoogleOAuth(credential: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }> {
-    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }>('/api/auth/oauth/google-verify', {
+  async verifyGoogleOAuth(credential: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean; email?: string; username?: string }> {
+    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean; email?: string; username?: string }>('/api/auth/oauth/google-verify', {
       method: 'POST',
       body: JSON.stringify({ credential, role: role || 'Operator', auth_token })
     });

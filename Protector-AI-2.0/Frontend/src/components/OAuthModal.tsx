@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Loader2, ExternalLink, KeyRound, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Loader2, ExternalLink, KeyRound, Clock, ShieldCheck, ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -9,6 +9,10 @@ interface OAuthModalProps {
   onClose: () => void;
   onSuccess: (user: AuthUser) => void;
   defaultRole?: 'Administrator' | 'Operator';
+  initialStep?: 'select' | 'token_prompt';
+  initialCredential?: string;
+  initialEmail?: string;
+  initialUsername?: string;
 }
 
 export const OAuthModal: React.FC<OAuthModalProps> = ({
@@ -16,17 +20,31 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   provider,
   onClose,
   onSuccess,
-  defaultRole = 'Operator'
+  defaultRole = 'Operator',
+  initialStep = 'select',
+  initialCredential = '',
+  initialEmail = '',
+  initialUsername = ''
 }) => {
+  const [step, setStep] = useState<'select' | 'token_prompt'>(initialStep);
   const [loading, setLoading] = useState(false);
+  const [tokenVerifying, setTokenVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [authToken, setAuthToken] = useState('');
+
+  // Operator token state
+  const [tokenInput, setTokenInput] = useState('');
+  const [pendingCredential, setPendingCredential] = useState(initialCredential);
+  const [pendingEmail, setPendingEmail] = useState(initialEmail);
+  const [pendingUsername, setPendingUsername] = useState(initialUsername);
+
   const [googleClientId, setGoogleClientId] = useState<string>(
     import.meta.env.VITE_GOOGLE_CLIENT_ID || '512272700093-5ebjj1071qjq04j9mdbci2idvtftpkau.apps.googleusercontent.com'
   );
   const [githubClientId, setGithubClientId] = useState<string>(
     import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23li1kJzE3M295HoCn'
   );
+
+  const tokenInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.getOAuthConfig().then(cfg => {
@@ -35,9 +53,37 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     }).catch(() => { });
   }, []);
 
-  // Initialize Google Identity Services when modal opens with Google provider
+  // Sync initial props when opened
   useEffect(() => {
-    if (!isOpen || provider !== 'google') return;
+    if (isOpen) {
+      if (initialStep === 'token_prompt') {
+        setStep('token_prompt');
+        if (initialCredential) setPendingCredential(initialCredential);
+        if (initialEmail) setPendingEmail(initialEmail);
+        if (initialUsername) setPendingUsername(initialUsername);
+      } else {
+        setStep('select');
+        setPendingCredential('');
+        setPendingEmail('');
+        setPendingUsername('');
+        setTokenInput('');
+      }
+      setError(null);
+    }
+  }, [isOpen, initialStep, initialCredential, initialEmail, initialUsername]);
+
+  // Focus token input when switching to token_prompt
+  useEffect(() => {
+    if (step === 'token_prompt') {
+      setTimeout(() => {
+        tokenInputRef.current?.focus();
+      }, 100);
+    }
+  }, [step]);
+
+  // Initialize Google Identity Services when modal opens with Google provider on select step
+  useEffect(() => {
+    if (!isOpen || provider !== 'google' || step !== 'select') return;
 
     const initGoogleGsi = () => {
       const g = (window as any).google;
@@ -51,19 +97,35 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             setLoading(true);
             setError(null);
             try {
-              const res = await api.verifyGoogleOAuth(response.credential, defaultRole, authToken.trim());
+              const res = await api.verifyGoogleOAuth(response.credential, defaultRole, tokenInput.trim());
               if (res.success && res.user) {
                 onSuccess(res.user);
                 onClose();
               } else if (res.pending_approval) {
                 setError('⏳ Account Pending Authorization: Your Operator account is awaiting approval from Administrator Mohd Sahil. Once authorized, you will receive your unique Operator Security Token.');
               } else if (res.requires_auth_token) {
-                setError('🔑 Administrator Authorization Token is required for Operator login. Enter your unique security token issued by Administrator Mohd Sahil.');
+                // Authorized before: directly prompt for token!
+                setPendingCredential(response.credential);
+                setPendingEmail(res.email || '');
+                setPendingUsername(res.username || '');
+                setStep('token_prompt');
+                setError(null);
               } else {
-                setError('Google verification failed.');
+                setError('Google verification failed. Please try again.');
               }
             } catch (err: any) {
-              setError(err.message || 'Google verification failed.');
+              if (err.requires_auth_token || (err.message && err.message.toLowerCase().includes('token is required'))) {
+                // Authorized before: directly prompt for token!
+                setPendingCredential(response.credential);
+                setPendingEmail(err.email || '');
+                setPendingUsername(err.username || '');
+                setStep('token_prompt');
+                setError(null);
+              } else if (err.pending_approval || (err.message && err.message.toLowerCase().includes('pending authorization'))) {
+                setError('⏳ Account Pending Authorization: Your Operator account is awaiting approval from Administrator Mohd Sahil. Once authorized, you will receive your unique Operator Security Token.');
+              } else {
+                setError(err.message || 'Google verification failed.');
+              }
             } finally {
               setLoading(false);
             }
@@ -97,7 +159,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       script.onload = () => initGoogleGsi();
       document.body.appendChild(script);
     }
-  }, [isOpen, provider, googleClientId, defaultRole]);
+  }, [isOpen, provider, googleClientId, defaultRole, step, tokenInput]);
 
   if (!isOpen || !provider) return null;
 
@@ -106,11 +168,47 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       setError('GitHub Client ID is not configured.');
       return;
     }
-    // GitHub redirects to the registered Authorization callback URL in your GitHub OAuth App settings
     const authUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
       githubClientId
     )}&scope=read:user,user:email`;
     window.location.href = authUrl;
+  };
+
+  // Submit token verification for previously authorized operator
+  const handleVerifyTokenSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = tokenInput.trim();
+    if (!token) {
+      setError('Please enter your unique Operator Security Token issued by Administrator Mohd Sahil.');
+      return;
+    }
+    if (!pendingCredential) {
+      setError('OAuth session expired. Please sign in again.');
+      setStep('select');
+      return;
+    }
+
+    setTokenVerifying(true);
+    setError(null);
+    try {
+      let res;
+      if (provider === 'google') {
+        res = await api.verifyGoogleOAuth(pendingCredential, defaultRole, token);
+      } else {
+        res = await api.exchangeGitHubOAuth(pendingCredential, defaultRole, token);
+      }
+
+      if (res.success && res.user) {
+        onSuccess(res.user);
+        onClose();
+      } else {
+        setError('Token verification failed. Please check your token and try again.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Access Denied: Invalid Operator Security Token.');
+    } finally {
+      setTokenVerifying(false);
+    }
   };
 
   return (
@@ -127,7 +225,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         padding: '16px'
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
+        if (e.target === e.currentTarget && !loading && !tokenVerifying) onClose();
       }}
     >
       <div
@@ -147,17 +245,32 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         {/* Top Header */}
         <div
           style={{
-            padding: '24px 28px 18px 28px',
+            padding: '22px 28px 18px 28px',
             borderBottom: '1px solid #F1F5F9',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: provider === 'google' ? '#FAFBFC' : '#0F172A',
-            color: provider === 'google' ? '#0F172A' : '#FFFFFF'
+            background: step === 'token_prompt' ? '#0F172A' : (provider === 'google' ? '#FAFBFC' : '#0F172A'),
+            color: step === 'token_prompt' ? '#FFFFFF' : (provider === 'google' ? '#0F172A' : '#FFFFFF')
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {provider === 'google' ? (
+            {step === 'token_prompt' ? (
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <KeyRound size={20} color="#60A5FA" />
+              </div>
+            ) : provider === 'google' ? (
               <div
                 style={{
                   width: '40px',
@@ -196,16 +309,24 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             )}
             <div>
               <div style={{ fontSize: '16px', fontWeight: 700 }}>
-                {provider === 'google' ? 'Sign in with Google' : 'Authorize Protector AI'}
+                {step === 'token_prompt'
+                  ? 'Operator Token Required'
+                  : provider === 'google'
+                    ? 'Sign in with Google'
+                    : 'Authorize Protector AI'}
               </div>
               <div
                 style={{
                   fontSize: '12px',
-                  color: provider === 'google' ? '#64748B' : '#94A3B8',
+                  color: step === 'token_prompt' ? '#94A3B8' : (provider === 'google' ? '#64748B' : '#94A3B8'),
                   marginTop: '2px'
                 }}
               >
-                {provider === 'google' ? 'to continue to ProtectoAI' : 'by @sahilmohd-10'}
+                {step === 'token_prompt'
+                  ? 'Authorized Operator Verification'
+                  : provider === 'google'
+                    ? 'to continue to ProtectoAI'
+                    : 'by @sahilmohd-10'}
               </div>
             </div>
           </div>
@@ -213,11 +334,11 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            disabled={loading}
+            disabled={loading || tokenVerifying}
             style={{
               background: 'none',
               border: 'none',
-              color: provider === 'google' ? '#94A3B8' : '#94A3B8',
+              color: '#94A3B8',
               cursor: 'pointer',
               padding: '6px',
               borderRadius: '8px',
@@ -231,7 +352,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '28px 24px' }}>
+        <div style={{ padding: '26px 24px' }}>
           {error && (
             <div
               style={{
@@ -241,19 +362,176 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                 border: error.toLowerCase().includes('pending') ? '1px solid #FDE68A' : '1px solid #FEE2E2',
                 color: error.toLowerCase().includes('pending') ? '#B45309' : '#DC2626',
                 fontSize: '12.5px',
-                marginBottom: '16px',
+                marginBottom: '18px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 lineHeight: 1.5
               }}
             >
-              {error.toLowerCase().includes('pending') && <Clock size={16} style={{ flexShrink: 0 }} />}
+              {error.toLowerCase().includes('pending') ? (
+                <Clock size={16} style={{ flexShrink: 0 }} />
+              ) : (
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              )}
               <span>{error}</span>
             </div>
           )}
 
-          {loading ? (
+          {/* STEP 2: OPERATOR SECURITY TOKEN PROMPT (When account is authorized) */}
+          {step === 'token_prompt' ? (
+            <form onSubmit={handleVerifyTokenSubmit}>
+              {/* Account identity badge */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  marginBottom: '16px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                  <ShieldCheck size={16} color="#16A34A" />
+                  <span
+                    style={{
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      color: '#1E293B',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {pendingEmail || pendingUsername || 'Authorized Account'}
+                  </span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    padding: '2px 8px',
+                    borderRadius: '20px',
+                    backgroundColor: '#DCFCE7',
+                    color: '#15803D'
+                  }}
+                >
+                  Authorized
+                </span>
+              </div>
+
+              <div style={{ fontSize: '13px', color: '#475569', marginBottom: '16px', lineHeight: 1.5 }}>
+                Your Operator account is authorized by <strong>Administrator Mohd Sahil</strong>. Please enter your unique <strong>Operator Security Token</strong> to complete login.
+              </div>
+
+              <div style={{ marginBottom: '18px' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#1E293B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginBottom: '8px'
+                  }}
+                >
+                  <KeyRound size={14} color="#2563EB" />
+                  <span>Unique Security Token (Passkey)</span>
+                </label>
+                <input
+                  ref={tokenInputRef}
+                  type="text"
+                  value={tokenInput}
+                  onChange={(e) => setTokenInput(e.target.value)}
+                  placeholder="e.g. OP-ALOK-2026 or OP-01-A7E91B"
+                  disabled={tokenVerifying}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #2563EB',
+                    backgroundColor: '#F8FAFC',
+                    fontFamily: 'monospace',
+                    fontSize: '14px',
+                    letterSpacing: '1px',
+                    fontWeight: 600,
+                    color: '#0F172A',
+                    outline: 'none',
+                    boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.1)'
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: '#64748B', margin: '6px 0 0 2px' }}>
+                  Enter the token issued to your name in the Team & Auth console.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={tokenVerifying || !tokenInput.trim()}
+                style={{
+                  width: '100%',
+                  padding: '13px 20px',
+                  borderRadius: '12px',
+                  backgroundColor: tokenVerifying || !tokenInput.trim() ? '#94A3B8' : '#2563EB',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  border: 'none',
+                  cursor: tokenVerifying || !tokenInput.trim() ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {tokenVerifying ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Verifying Security Token...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>Verify Token & Log In</span>
+                  </>
+                )}
+              </button>
+
+              <div style={{ marginTop: '14px', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('select');
+                    setError(null);
+                  }}
+                  disabled={tokenVerifying}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#64748B',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ArrowLeft size={13} />
+                  <span>Use a different account</span>
+                </button>
+              </div>
+            </form>
+          ) : loading ? (
+            /* LOADING STATE */
             <div
               style={{
                 padding: '36px 0',
@@ -273,33 +551,13 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
               </div>
             </div>
           ) : (
+            /* STEP 1: INITIAL PROVIDER SELECTION SCREEN */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
               <div style={{ fontSize: '13px', color: '#64748B', textAlign: 'center', lineHeight: 1.5 }}>
                 {provider === 'google'
                   ? 'Authenticate securely using your Google Workspace or Personal account:'
                   : 'Authorize Protector AI 2.0 with your official GitHub account:'}
               </div>
-
-              {defaultRole === 'Operator' && (
-                <div style={{ width: '100%', marginBottom: '4px', textAlign: 'left' }}>
-                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                    <KeyRound size={13} color="#0284C7" />
-                    <span>Unique Operator Security Token (if authorized)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={authToken}
-                    onChange={(e) => setAuthToken(e.target.value)}
-                    placeholder="e.g. OP-01-A7E91B (leave blank if first time)"
-                    className="smartnest-input"
-                    style={{ fontFamily: 'monospace', fontSize: '13px', letterSpacing: '0.5px' }}
-                    disabled={loading}
-                  />
-                  <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 0 2px' }}>
-                    First-time OAuth login creates an account pending Administrator authorization. Second-time logins require your unique token.
-                  </p>
-                </div>
-              )}
 
               {provider === 'google' ? (
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'center', minHeight: '44px' }}>
@@ -342,8 +600,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           {/* Privacy Footnote */}
           <div
             style={{
-              marginTop: '24px',
-              paddingTop: '16px',
+              marginTop: '22px',
+              paddingTop: '14px',
               borderTop: '1px solid #F1F5F9',
               fontSize: '11px',
               color: '#94A3B8',
@@ -353,11 +611,11 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           >
             {provider === 'google' ? (
               <span>
-                To continue, Google shares your verified name and email address with <strong>ProtectoAI</strong>.
+                To continue, Google shares your verified identity with <strong>ProtectoAI</strong>.
               </span>
             ) : (
               <span>
-                Protector AI by <strong>@sahilmohd-10</strong> receives verified read access to your public GitHub profile and primary email.
+                Protector AI by <strong>@sahilmohd-10</strong> receives verified read access to your public GitHub profile and email.
               </span>
             )}
           </div>

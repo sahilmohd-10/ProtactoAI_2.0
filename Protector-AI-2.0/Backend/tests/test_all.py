@@ -15,6 +15,93 @@ from command_engine import CommandEngine
 from copilot import copilot_instance
 
 class ProtectorAITestSuite(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from database import SessionLocal
+        from models import User
+        from app import hash_password
+        db = SessionLocal()
+        try:
+            # Ensure operator user exists for test_11 and test_12
+            op = db.query(User).filter(User.username == "operator").first()
+            if not op:
+                op = User(
+                    username="operator",
+                    first_name="Test",
+                    last_name="Operator",
+                    name="Test Operator",
+                    email="operator@protecto.ai",
+                    role="Operator",
+                    status="Active",
+                    operator_auth_token="OP-AUTH-2026",
+                    password_hash=hash_password("operator 123")
+                )
+                db.add(op)
+            else:
+                op.role = "Operator"
+                op.status = "Active"
+                op.operator_auth_token = "OP-AUTH-2026"
+                op.password_hash = hash_password("operator 123")
+
+            # Ensure google test user is Administrator for test_23
+            tg = db.query(User).filter(User.email == "test.google.user@protecto.ai").first()
+            if not tg:
+                tg = User(
+                    username="test_google_user",
+                    first_name="Google",
+                    last_name="Personnel",
+                    name="Google Test Personnel",
+                    email="test.google.user@protecto.ai",
+                    role="Administrator",
+                    status="Active",
+                    password_hash=hash_password("testpass123")
+                )
+                db.add(tg)
+            else:
+                tg.role = "Administrator"
+                tg.status = "Active"
+
+            # Ensure github test user is Administrator for test_23
+            tgh = db.query(User).filter(User.email == "test.github.user@protecto.ai").first()
+            if not tgh:
+                tgh = User(
+                    username="test_github_dev",
+                    first_name="GitHub",
+                    last_name="Dev",
+                    name="GitHub Dev",
+                    email="test.github.user@protecto.ai",
+                    role="Administrator",
+                    status="Active",
+                    password_hash=hash_password("testpass123")
+                )
+                db.add(tgh)
+            else:
+                tgh.role = "Administrator"
+                tgh.status = "Active"
+
+            db.commit()
+        finally:
+            db.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        from database import SessionLocal
+        from models import User, UserSession
+        db = SessionLocal()
+        try:
+            # Clean up test harness accounts so DB stays pure
+            test_users = db.query(User).filter(
+                (User.username == "operator") |
+                (User.email == "test.google.user@protecto.ai") |
+                (User.email == "test.github.user@protecto.ai")
+            ).all()
+            for u in test_users:
+                db.query(UserSession).filter(UserSession.user_id == u.id).delete()
+                db.delete(u)
+            db.commit()
+        finally:
+            db.close()
+
     def setUp(self):
         app.testing = True
         app.config["TESTING"] = True

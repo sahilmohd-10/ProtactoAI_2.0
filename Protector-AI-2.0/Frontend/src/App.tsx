@@ -11,6 +11,7 @@ import { CommandTerminal } from './components/CommandTerminal';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { DonezoDashboard } from './components/DonezoDashboard';
+import { OAuthModal } from './components/OAuthModal';
 
 import {
   SystemStatus,
@@ -28,6 +29,12 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const [pendingOAuth, setPendingOAuth] = useState<{
+    provider: 'google' | 'github';
+    credential: string;
+    email?: string;
+    username?: string;
+  } | null>(null);
 
   // Application Layout States
   const [activeModule, setActiveModule] = useState<string>('dashboard');
@@ -56,20 +63,27 @@ export function App() {
       const params = new URLSearchParams(window.location.search);
       const ghCode = params.get('code');
       if (ghCode) {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
         try {
           const res = await api.exchangeGitHubOAuth(ghCode);
           if (res.success && res.user) {
             setCurrentUser(res.user);
-            const cleanUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
             setIsAuthChecking(false);
             return;
           }
-        } catch (err) {
+        } catch (err: any) {
+          if (err.requires_auth_token || (err.message && err.message.toLowerCase().includes('token is required'))) {
+            setPendingOAuth({
+              provider: 'github',
+              credential: ghCode,
+              email: err.email || '',
+              username: err.username || ''
+            });
+            setIsAuthChecking(false);
+            return;
+          }
           console.error('Failed to exchange GitHub authorization code:', err);
-        } finally {
-          const cleanUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
         }
       }
 
@@ -245,21 +259,37 @@ export function App() {
 
   // 2. Unauthenticated View (Login / Register)
   if (!currentUser) {
-    if (authView === 'login') {
-      return (
-        <LoginPage
-          onLoginSuccess={(user) => setCurrentUser(user)}
-          onSwitchToRegister={() => setAuthView('register')}
-        />
-      );
-    } else {
-      return (
-        <RegisterPage
-          onRegisterSuccess={(user) => setCurrentUser(user)}
-          onSwitchToLogin={() => setAuthView('login')}
-        />
-      );
-    }
+    return (
+      <>
+        {authView === 'login' ? (
+          <LoginPage
+            onLoginSuccess={(user) => setCurrentUser(user)}
+            onSwitchToRegister={() => setAuthView('register')}
+          />
+        ) : (
+          <RegisterPage
+            onRegisterSuccess={(user) => setCurrentUser(user)}
+            onSwitchToLogin={() => setAuthView('login')}
+          />
+        )}
+        {pendingOAuth && (
+          <OAuthModal
+            isOpen={true}
+            provider={pendingOAuth.provider}
+            initialStep="token_prompt"
+            initialCredential={pendingOAuth.credential}
+            initialEmail={pendingOAuth.email}
+            initialUsername={pendingOAuth.username}
+            onClose={() => setPendingOAuth(null)}
+            onSuccess={(user) => {
+              setCurrentUser(user);
+              setPendingOAuth(null);
+            }}
+            defaultRole="Operator"
+          />
+        )}
+      </>
+    );
   }
 
   // 3. Authenticated Donezo Enterprise Operations Platform (Image 2 Match)

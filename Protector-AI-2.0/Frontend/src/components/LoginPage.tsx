@@ -19,8 +19,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   const [subView, setSubView] = useState<'start' | 'login' | 'forgot_email' | 'forgot_otp' | 'forgot_reset'>('start');
 
   // Login form state
-  const [identifier, setIdentifier] = useState('admin');
-  const [password, setPassword] = useState('Admin@123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState<'Administrator' | 'Operator'>('Administrator');
   const [authToken, setAuthToken] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -370,7 +370,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="admin or admin@protector.ai"
+                    placeholder="Enter your email or username"
                     className="smartnest-input"
                     disabled={loading}
                   />
@@ -384,7 +384,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Enter your password"
                       className="smartnest-input"
                       style={{ paddingRight: '44px' }}
                       disabled={loading}
