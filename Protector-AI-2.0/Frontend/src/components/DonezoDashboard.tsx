@@ -145,31 +145,11 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
         </div>
       </div>
 
-      {/* Dashboard Title & Action Buttons */}
+      {/* Dashboard Title */}
       <div className="donezo-header">
         <div>
           <h1>Industrial Safety Surveillance Dashboard</h1>
           <p>Real-time optical monitoring, automated PPE verification, and active hazard response.</p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button
-            type="button"
-            onClick={() => onNavigate('console')}
-            className="donezo-btn-green"
-          >
-            <Video size={16} />
-            <span>Open Live Stream</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigate('analytics')}
-            className="donezo-btn-outline"
-          >
-            <Download size={14} />
-            <span>Export Safety Audit</span>
-          </button>
         </div>
       </div>
 
