@@ -50,7 +50,6 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isPruning, setIsPruning] = useState(false);
   const [authorizingUserId, setAuthorizingUserId] = useState<number | null>(null);
   const [isTokenLoading, setIsTokenLoading] = useState(false);
   const [operatorToken, setOperatorToken] = useState('OP-AUTH-2026');
@@ -214,22 +213,6 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     }
   };
 
-  const handleCleanupTestUsers = async () => {
-    if (!window.confirm('Are you sure you want to remove all generated test operator accounts?')) {
-      return;
-    }
-    setIsPruning(true);
-    try {
-      const res = await api.cleanupTestUsers();
-      showSuccess(res.message || 'Test accounts pruned successfully.');
-      if (onRefreshTeam) onRefreshTeam();
-    } catch (err: any) {
-      alert(`Failed to prune test accounts: ${err.message}`);
-    } finally {
-      setIsPruning(false);
-    }
-  };
-
   // Filter Logic (Identical to Incidents)
   const filtered = users.filter((u) => {
     const q = searchQuery.trim().toLowerCase();
@@ -260,9 +243,6 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   const pendingCount = users.filter((u) => String(u.status) === 'Pending').length;
   const activeOpsCount = users.filter((u) => u.role === 'Operator' && String(u.status) === 'Active').length;
   const adminCount = users.filter((u) => u.role === 'Administrator' || (u as any).role === 'Admin').length;
-  const hasTestUsers = users.some(
-    (u) => u.email.startsWith('worker_') || u.name.includes('Test Operator')
-  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -324,30 +304,6 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {hasTestUsers && (
-            <button
-              type="button"
-              onClick={handleCleanupTestUsers}
-              disabled={isPruning}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '9px 16px',
-                backgroundColor: '#FEE2E2',
-                border: '1px solid #FCA5A5',
-                borderRadius: '12px',
-                color: '#B91C1C',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: isPruning ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <Trash2 size={14} />
-              <span>{isPruning ? 'Pruning...' : 'Prune Test Operators'}</span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => {
