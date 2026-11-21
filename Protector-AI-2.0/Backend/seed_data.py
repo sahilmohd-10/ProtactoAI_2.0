@@ -17,10 +17,10 @@ def seed_all():
         now = datetime.now(timezone.utc)
         admin = User(
             username="admin",
-            first_name="Admin",
-            last_name="User",
-            name="Administrator",
-            email="admin@protector.ai",
+            first_name="Mohd",
+            last_name="Sahil",
+            name="Mohd Sahil",
+            email="sahilmohammad512@gmail.com",
             phone_number="+1 555-010-0001",
             password_hash=admin_pw,
             role="Administrator",
@@ -101,7 +101,7 @@ def seed_all():
     # 4. Initial audit log if empty
     if db.query(AuditLog).count() == 0:
         audit = AuditLog(
-            user_email="admin@protector.ai",
+            user_email="sahilmohammad512@gmail.com",
             action="SYSTEM_INITIALIZED",
             details="Original system baseline initialized with real camera and admin account.",
             ip_address="127.0.0.1"

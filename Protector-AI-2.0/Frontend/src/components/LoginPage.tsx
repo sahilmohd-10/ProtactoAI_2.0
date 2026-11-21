@@ -36,7 +36,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
   const [forgotErrorMsg, setForgotErrorMsg] = useState<string | null>(null);
-  const [otpPreview, setOtpPreview] = useState<string | null>(null);
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -89,9 +88,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
     try {
       const res = await api.forgotPassword(email);
       if (res.success) {
-        if (res.otp_preview) {
-          setOtpPreview(res.otp_preview);
-        }
         setForgotSuccessMsg(`Verification code sent to ${res.email}`);
         setSubView('forgot_otp');
       } else {
@@ -574,7 +570,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                         type="email"
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="admin@protector.ai"
+                        placeholder="sahilmohammad512@gmail.com"
                         className="smartnest-input"
                         disabled={loading}
                       />
@@ -615,22 +611,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                       Sent to <strong>{forgotEmail}</strong>
                     </p>
                   </div>
-
-                  {otpPreview && (
-                    <div style={{
-                      padding: '12px 16px',
-                      borderRadius: '14px',
-                      backgroundColor: '#F0FDF4',
-                      border: '1.5px dashed #22C55E',
-                      color: '#15803D',
-                      fontSize: '13.5px',
-                      marginBottom: '18px',
-                      textAlign: 'center'
-                    }}>
-                      <span>Demo Email OTP Code: </span>
-                      <strong style={{ fontSize: '18px', letterSpacing: '3px' }}>{otpPreview}</strong>
-                    </div>
-                  )}
 
                   {forgotErrorMsg && (
                     <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '13px', marginBottom: '16px' }}>

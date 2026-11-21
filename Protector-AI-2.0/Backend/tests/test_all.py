@@ -1,6 +1,7 @@
 import unittest
 import json
 import sys
+import time
 from unittest.mock import patch
 from pathlib import Path
 
@@ -322,12 +323,13 @@ class ProtectorAITestSuite(unittest.TestCase):
         self.assertEqual(data["user"]["role"], "Operator")
 
     def test_15_auth_duplicate_username_email_phone_rejections(self):
+        rnd = int(time.time())
         # 1. Duplicate username
         res = self.client.post("/api/auth/register", json={
             "first_name": "Dupe",
             "last_name": "User",
             "username": "admin",
-            "email": "brand_new_email@protector.ai",
+            "email": f"unique_email_{rnd}@protector.ai",
             "password": "ValidPassword2026!",
             "confirm_password": "ValidPassword2026!"
         })
@@ -338,8 +340,8 @@ class ProtectorAITestSuite(unittest.TestCase):
         res_email = self.client.post("/api/auth/register", json={
             "first_name": "Dupe",
             "last_name": "Email",
-            "username": "brand_new_user_123",
-            "email": "admin@protector.ai",
+            "username": f"unique_user_{rnd}",
+            "email": "sahilmohammad512@gmail.com",
             "password": "ValidPassword2026!",
             "confirm_password": "ValidPassword2026!"
         })
@@ -350,8 +352,8 @@ class ProtectorAITestSuite(unittest.TestCase):
         res_phone = self.client.post("/api/auth/register", json={
             "first_name": "Dupe",
             "last_name": "Phone",
-            "username": "brand_new_user_456",
-            "email": "unique_email_789@protector.ai",
+            "username": f"unique_phone_user_{rnd}",
+            "email": f"unique_phone_email_{rnd}@protector.ai",
             "phone_number": "+1 555-010-0001",
             "password": "ValidPassword2026!",
             "confirm_password": "ValidPassword2026!"

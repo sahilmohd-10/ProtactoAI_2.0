@@ -585,8 +585,8 @@ export const api = {
     }
   },
 
-  async forgotPassword(email: string): Promise<{ success: boolean; message: string; email: string; otp_preview?: string }> {
-    return fetchJson<{ success: boolean; message: string; email: string; otp_preview?: string }>('/api/auth/forgot-password', {
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string; email: string; email_sent?: boolean }> {
+    return fetchJson<{ success: boolean; message: string; email: string; email_sent?: boolean }>('/api/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email })
     });

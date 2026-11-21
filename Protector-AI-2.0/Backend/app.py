@@ -535,25 +535,85 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
     logger.info("=" * 64)
     logger.info(f"🔒 [PROTECTOR AI] PASSWORD RESET OTP FOR {to_email}: [{otp_code}]")
     logger.info("=" * 64)
-    smtp_host = os.getenv("SMTP_HOST")
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASS")
+    smtp_user = os.getenv("SMTP_USER", "sahilmohammad512@gmail.com")
+    smtp_pass = os.getenv("SMTP_PASS", "")
+
     if smtp_host and smtp_user and smtp_pass:
         try:
             import smtplib
+            from email.mime.multipart import MIMEMultipart
             from email.mime.text import MIMEText
-            msg = MIMEText(f"Your Protector AI verification code is: {otp_code}\n\nThis OTP is valid for 10 minutes.\nDo not share this code with anyone.")
-            msg["Subject"] = "Protector AI — Password Reset Verification Code"
-            msg["From"] = smtp_user
+
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"Protector AI — Password Reset Verification Code: {otp_code}"
+            msg["From"] = f"Protector AI Security <{smtp_user}>"
             msg["To"] = to_email
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=5) as server:
+
+            text_content = (
+                f"Protector AI Security Verification\n\n"
+                f"Your 6-digit verification code is: {otp_code}\n\n"
+                f"This code will expire in 10 minutes.\n"
+                f"If you did not request a password reset, please ignore this email or contact your system administrator.\n\n"
+                f"— Protector AI Industrial Safety Intelligence Team"
+            )
+
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 32px 16px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 520px; background-color: #FFFFFF; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; overflow: hidden;">
+                      <tr>
+                        <td style="padding: 32px 32px 20px 32px; text-align: center; background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);">
+                          <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">🛡️ Protector AI</h1>
+                          <p style="color: #94A3B8; font-size: 13px; margin: 6px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">Industrial Safety Intelligence</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 32px 32px 24px 32px;">
+                          <h2 style="color: #0F172A; font-size: 20px; font-weight: 700; margin: 0 0 12px 0;">Password Reset Request</h2>
+                          <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
+                            A request was received to reset the password for your Protector AI administrator account (<strong>{to_email}</strong>). Use the verification code below to complete the reset:
+                          </p>
+                          <div style="background-color: #F1F5F9; border-radius: 14px; padding: 20px; text-align: center; border: 1.5px dashed #0284C7; margin-bottom: 24px;">
+                            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0284C7; font-family: 'Courier New', Courier, monospace;">{otp_code}</span>
+                          </div>
+                          <p style="color: #64748B; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0;">
+                            ⏱️ <strong>This verification code will expire in 10 minutes.</strong><br/>
+                            🔒 For security reasons, never share this one-time code with anyone.
+                          </p>
+                          <div style="border-top: 1px solid #E2E8F0; padding-top: 18px; margin-top: 24px;">
+                            <p style="color: #94A3B8; font-size: 12px; line-height: 1.5; margin: 0;">
+                              If you did not request this verification code, you can safely disregard this email. Your password will remain unchanged.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """
+
+            msg.attach(MIMEText(text_content, "plain"))
+            msg.attach(MIMEText(html_content, "html"))
+
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                 server.starttls()
                 server.login(smtp_user, smtp_pass)
                 server.send_message(msg)
+            logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via {smtp_host}")
             return True
         except Exception as err:
-            logger.warning(f"Could not dispatch email via SMTP: {err}")
+            logger.warning(f"⚠️ Could not dispatch email via SMTP ({smtp_host}): {err}")
+    else:
+        logger.info("ℹ️ SMTP credentials (SMTP_PASS) not set in .env; OTP logged to console only.")
     return False
 
 @app.route("/api/auth/forgot-password", methods=["POST"])
@@ -589,7 +649,7 @@ def forgot_password():
             "success": True,
             "message": f"A 6-digit verification code has been sent to {user.email}.",
             "email": user.email,
-            "otp_preview": otp_code  # Provided so user can verify immediately in dev/demo environment
+            "email_sent": email_sent
         })
     finally:
         db.close()
