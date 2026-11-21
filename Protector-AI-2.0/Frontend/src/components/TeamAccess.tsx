@@ -219,7 +219,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     const matchesQ =
       !q ||
       (u.name || '').toLowerCase().includes(q) ||
-      (u.username || '').toLowerCase().includes(q) ||
+      ((u as any).username || '').toLowerCase().includes(q) ||
       (u.email || '').toLowerCase().includes(q) ||
       ((u as any).operator_auth_token || '').toLowerCase().includes(q) ||
       (u.role || '').toLowerCase().includes(q);
@@ -845,9 +845,9 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                             </div>
                             <div style={{ fontSize: '12px', color: '#64748B' }}>
                               {user.email}
-                              {user.username && user.username !== user.email && (
+                              {(user as any).username && (user as any).username !== user.email && (
                                 <span style={{ marginLeft: '6px', color: '#94A3B8', fontFamily: 'monospace' }}>
-                                  (@{user.username})
+                                  (@{(user as any).username})
                                 </span>
                               )}
                             </div>

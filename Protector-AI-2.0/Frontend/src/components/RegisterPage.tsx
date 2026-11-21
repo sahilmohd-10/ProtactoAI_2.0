@@ -74,7 +74,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
       });
 
       if (res.success && res.user) {
-        if (res.user.status === 'Pending' || res.pending_approval) {
+        if ((res.user.status as string) === 'Pending' || res.pending_approval) {
           setRegisteredPending(true);
         } else {
           onRegisterSuccess(res.user);

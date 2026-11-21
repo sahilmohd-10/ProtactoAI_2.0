@@ -42,6 +42,15 @@ from command_engine import CommandEngine
 from copilot import copilot_instance
 from openrouter_service import openrouter_service
 
+try:
+    from firebase_service import verify_firebase_id_token
+except ImportError:
+    try:
+        from Backend.firebase_service import verify_firebase_id_token
+    except ImportError:
+        def verify_firebase_id_token(id_token: str):
+            return None
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("ProtectorAI.App")
@@ -672,7 +681,6 @@ def firebase_login():
     if not id_token:
         return jsonify({"success": False, "error": "Firebase ID token is required."}), 400
 
-    from firebase_service import verify_firebase_id_token
     claims = verify_firebase_id_token(id_token)
     if not claims:
         return jsonify({"success": False, "error": "Invalid or expired Firebase authentication token."}), 401
@@ -700,10 +708,28 @@ def firebase_login():
 PASSWORD_RESET_OTPS = {}
 
 def send_email_otp(to_email: str, otp_code: str) -> bool:
-    """Attempt sending OTP via HTTPS API (Resend/Brevo) or SMTP if configured, and always log to console."""
+    """Attempt sending OTP via HTTPS API (Resend/Brevo/Mailercloud) or SMTP if configured, and always log to console."""
     logger.info("=" * 64)
     logger.info(f"🔒 [PROTECTOR AI] PASSWORD RESET OTP FOR {to_email}: [{otp_code}]")
     logger.info("=" * 64)
+
+    html_body = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 28px; background-color: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 800;">🛡️ Protector AI Security</h2>
+            <p style="color: #64748B; font-size: 13px; margin: 4px 0 0 0;">Password Reset Verification Code</p>
+        </div>
+        <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+            A password reset was requested for Protector AI Administrator (<strong>{to_email}</strong>). Use the one-time verification code below:
+        </p>
+        <div style="background-color: #F8FAFC; border: 1.5px dashed #2563EB; border-radius: 12px; padding: 18px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #2563EB; font-family: 'Courier New', monospace;">{otp_code}</span>
+        </div>
+        <p style="color: #64748B; font-size: 12px; line-height: 1.5; margin: 0;">
+            ⏱️ <strong>Expires in 10 minutes.</strong> Never share this code with anyone.
+        </p>
+    </div>
+    """
 
     # 1. Try Resend HTTPS API (Port 443 - immune to ISP port blocks)
     resend_api_key = os.getenv("RESEND_API_KEY", "")
@@ -713,23 +739,6 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
             import json
 
             def _dispatch_resend(recipient_email: str) -> bool:
-                html_body = f"""
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 28px; background-color: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0;">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <h2 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 800;">🛡️ Protector AI Security</h2>
-                        <p style="color: #64748B; font-size: 13px; margin: 4px 0 0 0;">Password Reset Verification Code</p>
-                    </div>
-                    <p style="color: #334155; font-size: 14px; line-height: 1.5;">
-                        A password reset was requested for Protector AI Administrator (<strong>{to_email}</strong>). Use the one-time verification code below:
-                    </p>
-                    <div style="background-color: #F8FAFC; border: 1.5px dashed #2563EB; border-radius: 12px; padding: 18px; text-align: center; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #2563EB; font-family: 'Courier New', monospace;">{otp_code}</span>
-                    </div>
-                    <p style="color: #64748B; font-size: 12px; line-height: 1.5; margin: 0;">
-                        ⏱️ <strong>Expires in 10 minutes.</strong> Never share this code with anyone.
-                    </p>
-                </div>
-                """
                 req = urllib.request.Request(
                     "https://api.resend.com/emails",
                     data=json.dumps({
