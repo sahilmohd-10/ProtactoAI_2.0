@@ -322,18 +322,19 @@ export function App() {
             <AttendanceManagement />
           )}
 
-          {/* Module: People Management */}
+          {/* Module: Biometric Face Training Studio */}
           {activeModule === 'people' && !isOperator && (
-            <PeopleManagement />
+            <PeopleManagement onSwitchToAuth={() => setActiveModule('team')} />
           )}
 
-          {/* Module: Team & Access RBAC */}
-          {activeModule === 'team' && (
+          {/* Module: Team & Operator Authorizations Gatekeeper */}
+          {(activeModule === 'team' || activeModule === 'auth') && (
             <TeamAccess
               users={users}
               permissionMatrix={permissionMatrix}
               currentUser={currentUser}
               onRefreshTeam={loadTeam}
+              onSwitchToFaceTraining={() => setActiveModule('people')}
             />
           )}
 

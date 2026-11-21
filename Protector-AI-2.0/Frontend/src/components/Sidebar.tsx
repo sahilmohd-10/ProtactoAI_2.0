@@ -9,7 +9,8 @@ import {
   HelpCircle,
   LogOut,
   ShieldCheck,
-  Lock
+  Lock,
+  UserCheck
 } from 'lucide-react';
 import type { AuthUser } from '../types';
 
@@ -40,12 +41,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     {
-      id: 'people',
+      id: 'team',
       label: 'Team & Auth',
       icon: Users,
       adminOnly: true,
       badge: pendingOperatorsCount > 0 ? `${pendingOperatorsCount} Pending` : undefined,
       isPendingBadge: true
+    },
+    {
+      id: 'people',
+      label: 'Face Training',
+      icon: UserCheck,
+      adminOnly: true
     }
   ];
 

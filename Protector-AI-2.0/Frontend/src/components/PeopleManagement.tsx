@@ -31,7 +31,11 @@ const captureFrame = (video: HTMLVideoElement, canvas: HTMLCanvasElement): strin
   return canvas.toDataURL('image/jpeg', 0.82);
 };
 
-export const PeopleManagement: React.FC = () => {
+interface PeopleManagementProps {
+  onSwitchToAuth?: () => void;
+}
+
+export const PeopleManagement: React.FC<PeopleManagementProps> = ({ onSwitchToAuth }) => {
   const [people, setPeople] = useState<FaceProfile[]>([]);
   const [name, setName] = useState('');
   const [consentRecorded, setConsentRecorded] = useState(false);
@@ -309,25 +313,51 @@ export const PeopleManagement: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={refreshPeople}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 16px',
-            backgroundColor: '#FFFFFF',
-            border: '1.5px solid #CBD5E1',
-            borderRadius: '10px',
-            color: '#0F172A',
-            fontSize: '12.5px',
-            fontWeight: 700,
-            cursor: 'pointer'
-          }}
-        >
-          <RefreshCw size={14} />
-          <span>Refresh Directory</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {onSwitchToAuth && (
+            <button
+              type="button"
+              onClick={onSwitchToAuth}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: '#EFF6FF',
+                border: '1.5px solid #BFDBFE',
+                borderRadius: '10px',
+                color: '#1D4ED8',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.1)'
+              }}
+            >
+              <ShieldCheck size={16} />
+              <span>Operator Authorizations & Tokens</span>
+            </button>
+          )}
+
+          <button
+            onClick={refreshPeople}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              backgroundColor: '#FFFFFF',
+              border: '1.5px solid #CBD5E1',
+              borderRadius: '10px',
+              color: '#0F172A',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            <RefreshCw size={14} />
+            <span>Refresh Directory</span>
+          </button>
+        </div>
       </div>
 
       {/* Main 2-Column Responsive Layout */}

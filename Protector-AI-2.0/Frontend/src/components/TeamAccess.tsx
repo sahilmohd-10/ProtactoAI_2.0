@@ -7,12 +7,14 @@ interface TeamAccessProps {
   permissionMatrix: Record<string, string[]>;
   currentUser?: AuthUser | null;
   onRefreshTeam?: () => void;
+  onSwitchToFaceTraining?: () => void;
 }
 
 export const TeamAccess: React.FC<TeamAccessProps> = ({
   users,
   currentUser,
-  onRefreshTeam
+  onRefreshTeam,
+  onSwitchToFaceTraining
 }) => {
   // Always grant full administrative management capability to user
   const canManage = true;
@@ -267,6 +269,27 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
               {isPruning ? 'Pruning...' : 'Prune Test Operators'}
+            </button>
+          )}
+
+          {onSwitchToFaceTraining && (
+            <button
+              onClick={onSwitchToFaceTraining}
+              className="btn-secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: '#0F5132',
+                backgroundColor: 'rgba(15, 81, 50, 0.08)',
+                borderColor: 'rgba(15, 81, 50, 0.3)'
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              Face Training Studio
             </button>
           )}
 
