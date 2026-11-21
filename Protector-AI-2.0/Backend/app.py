@@ -662,6 +662,39 @@ def google_oauth_verify():
         logger.error(f"Google OAuth verification error: {e}", exc_info=True)
         return jsonify({"success": False, "error": f"Google verification failed: {str(e)}"}), 500
 
+@app.route("/api/auth/firebase-login", methods=["POST"])
+def firebase_login():
+    data = request.get_json(silent=True) or {}
+    id_token = (data.get("id_token") or "").strip()
+    role = (data.get("role") or "Operator").strip()
+    auth_token = (data.get("auth_token") or data.get("admin_token") or "").strip()
+
+    if not id_token:
+        return jsonify({"success": False, "error": "Firebase ID token is required."}), 400
+
+    from firebase_service import verify_firebase_id_token
+    claims = verify_firebase_id_token(id_token)
+    if not claims:
+        return jsonify({"success": False, "error": "Invalid or expired Firebase authentication token."}), 401
+
+    email = (claims.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"success": False, "error": "Firebase token does not contain a verified email address."}), 400
+
+    name = claims.get("name") or claims.get("display_name") or email.split("@")[0]
+    avatar = claims.get("picture") or ""
+    username = email.split("@")[0]
+
+    return _perform_oauth_login(
+        email=email,
+        name=name,
+        provider="firebase",
+        avatar=avatar,
+        username=username,
+        role=role,
+        auth_token=auth_token
+    )
+
 # In-memory OTP storage for password resets
 # Format: { email: { "otp": "123456", "expires_at": float(timestamp), "verified": bool } }
 PASSWORD_RESET_OTPS = {}

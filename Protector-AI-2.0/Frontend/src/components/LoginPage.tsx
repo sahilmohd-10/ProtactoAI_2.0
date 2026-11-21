@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, CheckCircle2, Video, Cpu, Activity } from 'lucide-react';
 import { api } from '../services/api';
-import { sendFirebasePasswordReset } from '../services/firebase';
+import { sendFirebasePasswordReset, loginWithGooglePopup, loginWithFirebase } from '../services/firebase';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
 import { OAuthModal } from './OAuthModal';
@@ -491,7 +491,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     <button
                       type="button"
                       title="Sign in with Google"
-                      onClick={() => setOauthProvider('google')}
+                      onClick={async () => {
+                        try {
+                          setLoading(true);
+                          setError(null);
+                          const { idToken } = await loginWithGooglePopup();
+                          const res = await api.firebaseLogin(idToken, 'Operator', authToken.trim());
+                          if (res.success && res.user) {
+                            onLoginSuccess(res.user);
+                          } else if (res.requires_auth_token) {
+                            setOauthProvider('google');
+                          } else if (res.pending_approval) {
+                            setError('⏳ Account Pending Authorization: Your Operator account is awaiting approval from Administrator Mohd Sahil.');
+                          }
+                        } catch (gErr: any) {
+                          if (gErr?.code === 'auth/popup-closed-by-user') {
+                            return;
+                          }
+                          console.warn('Google popup notice, falling back to modal:', gErr);
+                          setOauthProvider('google');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
                       className="smartnest-social-btn"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">

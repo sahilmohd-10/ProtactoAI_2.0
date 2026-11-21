@@ -76,26 +76,39 @@ def get_current_user_from_token(token: str) -> tuple[User | None, str | None]:
     db = SessionLocal()
     try:
         session = db.query(UserSession).filter(UserSession.token == token).first()
-        if not session:
-            return None, "Invalid or expired session"
-        
-        # Check expiry
-        now = datetime.now(timezone.utc)
-        session_expires = session.expires_at
-        if session_expires.tzinfo is None:
-            session_expires = session_expires.replace(tzinfo=timezone.utc)
+        if session:
+            # Check expiry
+            now = datetime.now(timezone.utc)
+            session_expires = session.expires_at
+            if session_expires.tzinfo is None:
+                session_expires = session_expires.replace(tzinfo=timezone.utc)
 
-        if session_expires < now:
-            db.delete(session)
-            db.commit()
-            return None, "Session has expired. Please log in again."
+            if session_expires < now:
+                db.delete(session)
+                db.commit()
+                return None, "Session has expired. Please log in again."
 
-        user = db.query(User).filter(User.id == session.user_id).first()
-        if not user or user.status != "Active":
-            return None, "User account is suspended or inactive"
+            user = db.query(User).filter(User.id == session.user_id).first()
+            if not user or user.status != "Active":
+                return None, "User account is suspended or inactive"
 
-        user_dict = user.to_dict()
-        return user_dict, None
+            user_dict = user.to_dict()
+            return user_dict, None
+
+        # Check if token is a Firebase ID Token (JWT format)
+        if "." in token and len(token) > 64:
+            try:
+                from firebase_service import verify_firebase_id_token
+                claims = verify_firebase_id_token(token)
+                if claims and claims.get("email"):
+                    fb_email = claims["email"].strip().lower()
+                    user = db.query(User).filter(User.email.ilike(fb_email)).first()
+                    if user and user.status == "Active":
+                        return user.to_dict(), None
+            except Exception:
+                pass
+
+        return None, "Invalid or expired session"
     finally:
         db.close()
 
