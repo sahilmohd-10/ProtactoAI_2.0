@@ -341,72 +341,7 @@ export const AttendanceManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Live Biometric Telemetry Live Banner */}
-      <div style={{
-        padding: '14px 18px',
-        borderRadius: '8px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        backgroundColor: 'var(--bg-surface)',
-        border: '1px solid var(--border-subtle)',
-        borderLeft: '4px solid #22C55E'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(34, 197, 94, 0.12)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#4ADE80'
-          }}>
-            <ShieldCheck size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>Deep Learning Biometric Engine (YuNet CNN + SFace 128D)</span>
-              <span style={{ fontSize: '11px', color: '#4ADE80', fontWeight: 600 }}>● Live Camera Stream Scanning</span>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Facial landmarks aligned via 5-point geometry. Enrolled personnel matching with ≥80.0% feature accuracy are logged Present automatically and exported to Excel.
-            </div>
-          </div>
-        </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{
-            fontSize: '11px',
-            fontFamily: 'var(--font-mono)',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            backgroundColor: 'var(--bg-app)',
-            border: '1px solid var(--border-subtle)',
-            color: '#4ADE80',
-            fontWeight: 700
-          }}>
-            Target: D:\Downloads\Attendance.xlsx
-          </span>
-          <button
-            onClick={handleSyncExcel}
-            style={{
-              padding: '5px 10px',
-              borderRadius: '4px',
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-medium)',
-              color: 'var(--text-secondary)',
-              fontSize: '11.5px',
-              cursor: 'pointer'
-            }}
-          >
-            Re-verify File
-          </button>
-        </div>
-      </div>
 
       {/* 6 Executive KPI Metric Cards */}
       <div style={{
