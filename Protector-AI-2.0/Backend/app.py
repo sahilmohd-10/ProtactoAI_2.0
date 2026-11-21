@@ -757,6 +757,45 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         except Exception as b_err:
             logger.warning(f"⚠️ Brevo HTTPS API notice: {b_err}")
 
+    # 3. Try Mailercloud HTTPS API (Port 443 - bypasses ISP SMTP port 587 block)
+    mc_api_key = os.getenv("MAILERCLOUD_API_KEY", "")
+    if mc_api_key:
+        try:
+            import urllib.request
+            import json
+            import uuid
+            mc_from = os.getenv("MAILERCLOUD_FROM", "protectoaismvdu@gmail.com")
+            mc_req = urllib.request.Request(
+                "https://email-api.mailercloud.com/email",
+                data=json.dumps({
+                    "version": "1.0",
+                    "email": {
+                        "from": mc_from,
+                        "fromName": "Protector AI Security",
+                        "subject": f"Protector AI — Password Reset Verification Code: {otp_code}",
+                        "html": html_body,
+                        "text": f"Your Protector AI verification code is: {otp_code} (expires in 10 minutes).",
+                        "recipients": {
+                            "to": [{"email": to_email, "name": to_email.split('@')[0]}]
+                        },
+                        "metadata": {
+                            "messageId": str(uuid.uuid4())
+                        }
+                    }
+                }).encode("utf-8"),
+                headers={
+                    "Authorization": mc_api_key,
+                    "Content-Type": "application/json",
+                    "User-Agent": "Protector-AI-Client/2.0"
+                }
+            )
+            with urllib.request.urlopen(mc_req, timeout=8) as mc_resp:
+                if mc_resp.status in (200, 201):
+                    logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via Mailercloud HTTPS API")
+                    return True
+        except Exception as mc_err:
+            logger.warning(f"⚠️ Mailercloud HTTPS API notice: {mc_err}")
+
     # 2. Dispatch official Google Firebase reset to recipient via HTTPS Port 443
     try:
         import urllib.request
