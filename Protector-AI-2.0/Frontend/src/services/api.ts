@@ -15,7 +15,21 @@ import {
   AttendanceSummary
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:5000';
+const getApiBase = (): string => {
+  if (import.meta.env.VITE_API_BASE) {
+    return import.meta.env.VITE_API_BASE;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // When accessed via a tunnel or external IP (phone, pinggy, etc.), use relative URLs so Vite proxy forwards requests
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return '';
+    }
+  }
+  return 'http://127.0.0.1:5000';
+};
+
+const API_BASE = getApiBase();
 const TOKEN_KEY = 'protector_ai_token';
 
 export const authStorage = {
