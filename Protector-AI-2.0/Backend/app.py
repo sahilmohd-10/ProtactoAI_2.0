@@ -2355,6 +2355,8 @@ def send_terminal_conversation_message(conversation_id):
         result = CommandEngine.execute(
             command,
             user_email=user["email"],
+            user_name=user.get("name") or "Mohd Sahil",
+            user_role=user.get("role") or "Administrator",
             history=model_history
         )
         output = result.get("output") or result.get("title") or "Command completed."
@@ -2902,8 +2904,18 @@ def execute_terminal_command():
     command = body.get("command", "")
     confirmed = body.get("confirmed", False)
     user_email = body.get("user_email", "admin@protector.ai")
+    user_name = body.get("user_name") or "Mohd Sahil"
+    user_role = body.get("user_role") or "Administrator"
+    history = body.get("history")
 
-    result = CommandEngine.execute(command, user_email=user_email, confirmed=confirmed)
+    result = CommandEngine.execute(
+        command,
+        user_email=user_email,
+        user_name=user_name,
+        user_role=user_role,
+        confirmed=confirmed,
+        history=history
+    )
     return jsonify(result)
 
 @app.route("/api/copilot/chat", methods=["POST"])

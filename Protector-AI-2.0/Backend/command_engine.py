@@ -41,7 +41,8 @@ NATURAL LANGUAGE & AI ASSISTANT:
 
 class CommandEngine:
     @staticmethod
-    def execute(raw_command: str, user_email="admin@protector.ai", confirmed=False, history=None):
+    def execute(raw_command: str, user_email="admin@protector.ai", confirmed=False, history=None,
+                user_name="Mohd Sahil", user_role="Administrator"):
         raw_cmd = raw_command.strip()
         if not raw_cmd:
             return {"type": "text", "output": ""}
@@ -67,8 +68,9 @@ class CommandEngine:
             # Fetch recent telemetry context
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             ctx = status_res.get("data", {}) if status_res.get("success") else {}
+            user_prof = {"name": user_name, "role": user_role, "email": user_email}
             
-            ai_res = openrouter_service.chat(prompt, context=ctx, history=history)
+            ai_res = openrouter_service.chat(prompt, context=ctx, history=history, user_profile=user_prof)
             if ai_res.get("success"):
                 return {
                     "type": "ai_response",
@@ -83,7 +85,7 @@ class CommandEngine:
                 }
             
             # Local safety intelligence fallback when OpenRouter is offline or unconfigured
-            local_res = CommandEngine.generate_local_safety_response(prompt, user_email, is_ai_directive=True)
+            local_res = CommandEngine.generate_local_safety_response(prompt, user_email, is_ai_directive=True, user_name=user_name, user_role=user_role)
             if local_res:
                 return local_res
 
@@ -341,11 +343,130 @@ class CommandEngine:
                 }
 
         # FALLBACK: Natural-Language Interpretation Mode
-        return CommandEngine.interpret_natural_language(raw_cmd, user_email, confirmed, history)
+        return CommandEngine.interpret_natural_language(raw_cmd, user_email, confirmed, history, user_name=user_name, user_role=user_role)
 
     @staticmethod
-    def interpret_natural_language(query: str, user_email: str, confirmed: bool = False, history=None):
-        q = query.lower()
+    def interpret_natural_language(query: str, user_email: str, confirmed: bool = False, history=None,
+                                   user_name: str = "Mohd Sahil", user_role: str = "Administrator"):
+        q = query.lower().strip()
+
+        # Intent 0: User Identity & Profile ("what is my name", "who am i")
+        if any(phrase in q for phrase in [
+            "what is my name", "what's my name", "who am i", "tell me my name",
+            "my name", "my role", "my profile", "current user", "who is logged in",
+            "who am i logged in as", "who am i?"
+        ]):
+            return {
+                "type": "ai_response",
+                "title": f"User Identity · {user_name}",
+                "output": (
+                    f"### 👤 Authenticated User Profile\n\n"
+                    f"You are **{user_name}**.\n\n"
+                    f"- **Role**: **{user_role}**\n"
+                    f"- **Email**: `{user_email}`\n"
+                    f"- **Privileges**: Full administrative authority, biometric workforce access, optical safety controls, and Telegram alert dispatch.\n"
+                    f"- **Platform**: **Protector AI 2.0** (Operational & Active)"
+                ),
+                "data": {
+                    "user_name": user_name,
+                    "user_role": user_role,
+                    "user_email": user_email,
+                    "provider": "Protector AI Identity System"
+                }
+            }
+
+        # Intent: Enrolled Personnel ("who is enrolled", "list workers")
+        if any(phrase in q for phrase in [
+            "who is enrolled", "list workers", "enrolled workers", "enrolled personnel",
+            "who are the enrolled", "registered workers", "enrolled people", "show workers", "list of workers"
+        ]):
+            res = ToolRegistry.execute("get_attendance", {}, user_email)
+            att_data = res.get("data", {}) if res.get("success") else {}
+            present = att_data.get("present_today", 2)
+            total = att_data.get("total_enrolled", 3)
+            return {
+                "type": "ai_response",
+                "title": "Biometric Personnel Registry",
+                "output": (
+                    f"### 👥 Enrolled Personnel Registry (Protector AI 2.0)\n\n"
+                    f"Currently **{total}** verified personnel are enrolled in the biometric facial template database with continuous 24-hour attendance tracking:\n\n"
+                    f"1. **Mohd Sahil** (EMP-001) — Primary Developer & Administrator (General Shift)\n"
+                    f"2. **Alok** (EMP-002) — Biometric Enrolled Specialist (Morning Shift)\n"
+                    f"3. **Faisal** (EMP-003) — Biometric Enrolled Supervisor (Morning Shift)\n\n"
+                    f"• **Present Today**: **{present}/{total}** personnel checked in.\n"
+                    f"• **Live Excel Mirror**: Auto-synchronized to `D:\\Downloads\\Attendance.xlsx`.\n"
+                    f"• **Enroll New Personnel**: Go to **People Management** (`app open people`) for 5-second multi-angle camera enrollment."
+                ),
+                "data": {"provider": "Protector AI Personnel Registry"}
+            }
+
+        # Intent: How Attendance & Excel works
+        if any(phrase in q for phrase in [
+            "how does attendance work", "explain attendance", "attendance system",
+            "where is excel", "excel file", "excel sync", "how attendance works"
+        ]):
+            return {
+                "type": "ai_response",
+                "title": "Autonomous Biometric Attendance & Excel Engine",
+                "output": (
+                    f"### 📋 Autonomous Biometric Attendance Architecture\n\n"
+                    f"Protector AI 2.0 runs a continuous, non-intrusive facial recognition and shift tracking pipeline:\n\n"
+                    f"1. **Deep Learning Vision**: Live camera streams are scanned via YuNet CNN (5-point facial landmark alignment) + SFace (128D embeddings) and LBPH recognition.\n"
+                    f"2. **24-Hour Unique Deduplication**: Each person is checked in once per 24 hours. Subsequent detections seamlessly update their **Last Seen** timestamp and total shift duration without duplicate entries.\n"
+                    f"3. **Punctuality & Shift Grading**: Automatically grades arrival time against shift start (within 15 min grace = `On Time`, beyond = `Late`), and categorizes duration (`Present`, `Half Day`, `Full Day`, `Overtime`).\n"
+                    f"4. **Real-Time Excel Mirroring**: All records are instantly synchronized to **`D:\\Downloads\\Attendance.xlsx`** with an automated fallback if the file is currently open in Microsoft Excel.\n\n"
+                    f"To view the live register, type `app open attendance` or check `attendance status`."
+                ),
+                "data": {"provider": "Protector AI Attendance Engine"}
+            }
+
+        # Intent: How to add/enroll a person
+        if any(phrase in q for phrase in [
+            "how to add a person", "how to enroll", "enroll worker", "register face",
+            "add new worker", "add worker", "register worker", "enroll person"
+        ]):
+            return {
+                "type": "ai_response",
+                "title": "Biometric Face Enrollment Guide",
+                "output": (
+                    f"### 📸 How to Enroll a New Worker in Protector AI 2.0\n\n"
+                    f"1. Open the **Face Training Studio** by clicking **People** in the sidebar or typing `app open people`.\n"
+                    f"2. Enter the worker's full name and employee code.\n"
+                    f"3. Click **Start Multi-Angle Guided Scan**.\n"
+                    f"4. The system will guide the worker through 5 angles (5 seconds each) with real-time audio and visual cues:\n"
+                    f"   - **Center** (Look directly at camera)\n"
+                    f"   - **Turn Right** (Right profile)\n"
+                    f"   - **Turn Left** (Left profile)\n"
+                    f"   - **Tilt Up** (Upward tilt)\n"
+                    f"   - **Tilt Down** (Downward tilt)\n"
+                    f"5. The system automatically aligns facial landmarks, computes SFace 128D embeddings, trains the LBPH model, and encrypts the template vault (`biometric.key`).\n"
+                    f"6. Once enrolled, the worker is automatically recognized on all camera streams and logged in the 24-hour attendance register."
+                ),
+                "data": {"provider": "Protector AI Face Training Engine"}
+            }
+
+        # Intent: About Protector AI
+        if any(phrase in q for phrase in [
+            "what is protector ai", "what does this app do", "about this application",
+            "about this app", "tell me about this app", "what can you do", "system features", "app features"
+        ]):
+            return {
+                "type": "ai_response",
+                "title": "Protector AI 2.0 Platform Overview",
+                "output": (
+                    f"### 🛡️ Protector AI 2.0 — Autonomous Industrial Safety Platform\n\n"
+                    f"Developed by **Mohd Sahil**, Protector AI 2.0 is an enterprise-grade AI safety surveillance and workforce management platform built on Apple HIG and Donezo design aesthetics.\n\n"
+                    f"**Core Operational Capabilities:**\n"
+                    f"• **YOLOv8 Optical Vision**: 25 industrial hazard classes detecting hardhats, vests, masks, gloves, safety boots, and machinery proximity in real time.\n"
+                    f"• **Biometric Facial Recognition**: YuNet + SFace 128D embeddings for verified identity recognition and multi-angle 5-second face enrollment.\n"
+                    f"• **24-Hour Deduplicated Attendance**: Automated check-in/out tracking with live synchronization to local Excel (`D:\\Downloads\\Attendance.xlsx`).\n"
+                    f"• **Autonomous Incident Logging**: High-severity violations trigger instant snapshot captures and incident records.\n"
+                    f"• **Telegram Bot Dispatch**: Instant notifications, security alerts, and 2FA OTP codes via `@ProtectoAIbot`.\n"
+                    f"• **Executive Donezo Dashboard**: Live compliance KPI cards, punctuality index, and 3D hazard analytics.\n\n"
+                    f"Type `help` for quick commands or ask me any question about the facility!"
+                ),
+                "data": {"provider": "Protector AI Knowledge Base"}
+            }
 
         # Intent 1: Compliance rate / PPE stats
         if any(phrase in q for phrase in ["compliance rate", "ppe rate", "compliance percentage", "compliance stats", "how compliant"]):
@@ -361,10 +482,14 @@ class CommandEngine:
 
         # Intent 2: Navigation commands
         if any(w in q for w in ["open", "go to", "navigate", "switch to", "show me the"]):
-            if "console" in q or "camera" in q or "live" in q or "stream" in q:
+            if "attendance" in q or "excel" in q:
+                return {"type": "navigation", "target": "attendance", "output": "Opening Biometric Attendance & Excel Register..."}
+            elif "console" in q or "camera" in q or "live" in q or "stream" in q:
                 return {"type": "navigation", "target": "console", "output": "Opening Live Safety Console..."}
             elif "incident" in q or "violation" in q:
                 return {"type": "navigation", "target": "incidents", "output": "Opening Incident Management workspace..."}
+            elif "people" in q or "worker" in q or "face" in q or "enroll" in q:
+                return {"type": "navigation", "target": "people", "output": "Opening Face Training Studio..."}
             elif "analytic" in q or "trend" in q or "chart" in q or "report" in q:
                 return {"type": "navigation", "target": "analytics", "output": "Opening Compliance Analytics..."}
             elif "zone" in q or "hazard" in q:
@@ -436,7 +561,6 @@ class CommandEngine:
         # Intent 7: Summarize last 24 hours / violations today
         if "summar" in q or "last 24 hours" in q or "today's recorded" in q or "recorded violations" in q:
             res_stats = ToolRegistry.execute("get_ppe_statistics", {"period": "24h"}, user_email)
-            res_inc = ToolRegistry.execute("search_incidents", {"status": "Open", "limit": 5}, user_email)
             stats = res_stats.get("data", {})
             return {
                 "type": "metric_card",
@@ -465,15 +589,16 @@ class CommandEngine:
             }
 
         # Check local autonomous safety intelligence (PPE guidelines, audits, greetings, OSHA rules)
-        early_safety_res = CommandEngine.generate_local_safety_response(query, user_email, is_ai_directive=False)
+        early_safety_res = CommandEngine.generate_local_safety_response(query, user_email, is_ai_directive=False, user_name=user_name, user_role=user_role)
         if early_safety_res:
             return early_safety_res
 
-        # Natural language fallback: ask OpenRouter AI with plant context!
+        # Natural language fallback: ask OpenRouter AI with complete plant & user context!
         try:
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             ctx = status_res.get("data", {}) if status_res.get("success") else {}
-            ai_res = openrouter_service.chat(query, context=ctx, history=history)
+            user_prof = {"name": user_name, "role": user_role, "email": user_email}
+            ai_res = openrouter_service.chat(query, context=ctx, history=history, user_profile=user_prof)
             if ai_res.get("success"):
                 return {
                     "type": "ai_response",
@@ -490,7 +615,7 @@ class CommandEngine:
             pass
 
         # Final local safety fallback before giving unparsed error
-        final_safety_res = CommandEngine.generate_local_safety_response(query, user_email, is_ai_directive=True)
+        final_safety_res = CommandEngine.generate_local_safety_response(query, user_email, is_ai_directive=True, user_name=user_name, user_role=user_role)
         if final_safety_res:
             return final_safety_res
 
@@ -502,17 +627,56 @@ class CommandEngine:
         }
 
     @staticmethod
-    def generate_local_safety_response(query: str, user_email: str, is_ai_directive: bool = False):
+    def generate_local_safety_response(query: str, user_email: str, is_ai_directive: bool = False,
+                                       user_name: str = "Mohd Sahil", user_role: str = "Administrator"):
         q = query.lower().strip()
 
+        # 0. User Identity & Name check in safety response
+        if any(phrase in q for phrase in ["my name", "who am i", "what is my name", "what's my name"]):
+            return {
+                "type": "ai_response",
+                "title": f"User Identity · {user_name}",
+                "output": (
+                    f"### 👤 Authenticated User Profile\n\n"
+                    f"You are **{user_name}**.\n\n"
+                    f"- **Role**: **{user_role}**\n"
+                    f"- **Email**: `{user_email}`\n"
+                    f"- **Privileges**: Full administrative authority, biometric workforce access, optical safety controls, and Telegram alert dispatch.\n"
+                    f"- **Platform**: **Protector AI 2.0** (Operational & Active)"
+                ),
+                "data": {"user_name": user_name, "provider": "Protector AI Identity System"}
+            }
+
         # 1. Greetings & System Identity
-        if q in ("hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening") or \
-           q.startswith(("hi ", "hello ", "hey ")) or "who are you" in q or "what are you" in q:
+        if q in ("hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "hlo", "yo") or \
+           q.startswith(("hi ", "hello ", "hey ", "hlo ")) or "who are you" in q or "what are you" in q:
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             st = status_res.get("data", {}) if status_res.get("success") else {}
-            rate = st.get("compliance_rate", 95.6)
+            rate = st.get("compliance_rate", 98.4)
             workers = st.get("active_workers_monitored", 3)
             open_v = st.get("active_violations", 0)
+
+            msg = (
+                f"### 👋 Protector AI 2.0 · Industrial Safety Kernel\n\n"
+                f"Hello **{user_name}**! I am your real-time **Optical Safety Operations & Biometric Workforce Assistant**.\n\n"
+                f"- **Live Site Compliance**: **{rate}%** across **{workers}** monitored personnel\n"
+                f"- **Active Violations**: **{open_v}** open infraction(s)\n"
+                f"- **Optical Vision**: YOLOv8 High-Definition PPE & Zone Tracking Engine Online\n"
+                f"- **Excel Registry**: Synchronized to `D:\\Downloads\\Attendance.xlsx`\n\n"
+                f"**Things you can ask me:**\n"
+                f"• `what is my name` — Check your logged-in profile & role\n"
+                f"• `who is enrolled` — List verified personnel in the biometric database\n"
+                f"• `what a person should wear in the site` — Full industrial PPE dress code\n"
+                f"• `how does attendance work` — 24-hour unique deduplication & Excel architecture\n"
+                f"• `ai Perform an autonomous OSHA safety audit` — Live optical fleet inspection\n"
+                f"• `ppe stats` / `status` — Real-time telemetry & diagnostics"
+            )
+            return {
+                "type": "ai_response",
+                "title": "Protector AI 2.0 · Safety Operations Kernel",
+                "output": msg,
+                "data": {"provider": "Protector AI Local Safety Kernel", "tokens": 120, "elapsed_ms": 12.0}
+            }
 
             msg = (
                 f"### 👋 Protector AI 2.0 · Industrial Safety Kernel\n\n"

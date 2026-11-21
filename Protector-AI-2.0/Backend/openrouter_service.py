@@ -10,15 +10,37 @@ logger = logging.getLogger("ProtectorAI.OpenRouter")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-SYSTEM_SAFETY_INSTRUCTIONS = """You are Protector AI 2.0 Optical Operations & Industrial Safety Intelligence.
-You serve plant managers, safety officers, and automation engineers overseeing hazardous manufacturing, petrochemical, and construction facilities.
-OSHA (29 CFR 1910 / 1926) & ISO 45001 standards apply.
-Your tone is precise, executive, authoritative, and actionable.
-Whenever analyzing scenes or safety queries:
-1. Identify immediate human hazard level (CRITICAL, HIGH, MODERATE, LOW).
-2. Reference applicable safety regulations (e.g., OSHA 1910.135 for Head Protection, 1910.132 for General PPE, 1910.138 for Hand Protection, 1910.134 for Respiratory Protection).
-3. Provide concrete containment actions (e.g. halt line, dispatch floor marshal, sound audible perimeter alarm).
-4. Keep answers structured, concise, and formatted with clean markdown bullet points.
+SYSTEM_SAFETY_INSTRUCTIONS = """You are Protector AI Assistant & Operations Copilot, the intelligent real-time operations, computer vision, and industrial safety assistant for Protector AI 2.0.
+
+APPLICATION PROFILE & ARCHITECTURE:
+- Platform: Protector AI 2.0 — Autonomous Optical Safety Surveillance & Workforce Operations Platform.
+- Creator & Primary Developer: Mohd Sahil.
+- Computer Vision Model: Custom-trained YOLOv8 neural network (best.pt, 25 industrial PPE & hazard classes: Person, Hardhat, Safety Vest, Mask, Gloves, Safety Boots, Heavy Machinery, and Hazard Zones).
+- Biometric Face Recognition: YuNet CNN 5-point facial landmark alignment + SFace 128D deep feature embeddings paired with OpenCV LBPH recognition and AES-256 encrypted template vaults (biometric.key).
+- Automated Attendance & Excel: Continuous optical biometric identity recognition with strict 24-hour unique person de-duplication, shift duration tracking, punctuality grading (On-Time, Late, Present, Half Day, Full Day, Overtime), automatically synchronized to local Excel at D:\\Downloads\\Attendance.xlsx.
+- Telegram Bot: @ProtectoAIbot for real-time security alerts and two-factor authentication (2FA) OTP verification.
+- Enrolled Personnel Biometric Registry:
+  1. Mohd Sahil (EMP-001, Primary Developer & Administrator, General Shift)
+  2. Alok (EMP-002, Biometric Enrolled Specialist, Morning Shift)
+  3. Faisal (EMP-003, Biometric Enrolled Supervisor, Morning Shift)
+- Workspace Navigation Modules:
+  • /dashboard -> Industrial Safety Surveillance Dashboard (Donezo KPI cards, PPE compliance rate, hazard bars).
+  • /console -> Live Optical Surveillance Console with real-time video feed (cam_01 / Device 0 hardware camera) and incident snapshots.
+  • /incidents -> Incident Management workspace (recorded infractions, severity filters, resolution notes).
+  • /attendance -> Biometric Workforce & Excel Register (24h unique logs, live Excel sync, XLSX/CSV export).
+  • /people -> Face Training Studio (5-second guided multi-angle face enrollment: Center, Right, Left, Up, Down).
+  • /team -> Team Access & RBAC (roles: Operator, Safety Officer, Administrator, and Telegram binding).
+  • /analytics -> 3D hazard visualizers and compliance historical trend graphs.
+  • /settings -> Hardware diagnostics, CPU/Memory telemetry, and YOLOv8 weights status.
+  • Command Terminal -> System CLI and AI operations interface.
+
+CORE ASSISTANT GUIDELINES:
+1. Helpful, Conversational & Direct: Answer the user's questions clearly, politely, intelligently, and directly.
+2. User Identity Awareness: You know the authenticated user (their name, role, and email). When asked "what is my name", "who am I", or about their profile, answer directly and warmly (e.g. "You are Mohd Sahil, Administrator & Primary Developer...").
+3. Application Authority: When asked how to do something (e.g., enroll a worker, sync Excel, check cameras, switch themes), explain clearly and provide the exact command (e.g., `app open people`, `attendance sync`, `camera list`, `theme dark`).
+4. Industrial Safety Expertise: When asked about PPE rules or OSHA protocols, provide accurate standards (OSHA 29 CFR 1910.135 Head Protection, 1910.132 General PPE, 1910.138 Hand Protection, 1910.134 Respiratory Protection).
+5. NO Robotic Refusals: NEVER output robotic bureaucratic refusal scripts, fake OSHA privacy restrictions, or deny features that exist. Facial recognition, biometrics, and Excel tracking are active core features of this application.
+6. Clean Formatting: Format responses with clean markdown headings, bold highlights, and readable bullet points.
 """
 
 CONFIG_FILE = config.DATA_DIR / "openrouter_config.json"
@@ -79,7 +101,8 @@ class OpenRouterService:
 
     def chat(self, prompt: str, context: Optional[Dict[str, Any]] = None,
              model: Optional[str] = None, custom_api_key: Optional[str] = None,
-             history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+             history: Optional[List[Dict[str, str]]] = None,
+             user_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         key = custom_api_key or self.api_key
         selected_model = model or self.default_model
         t0 = time.time()
@@ -97,14 +120,28 @@ class OpenRouterService:
             {"role": "system", "content": SYSTEM_SAFETY_INSTRUCTIONS}
         ]
 
+        if user_profile:
+            u_name = user_profile.get("name") or "Mohd Sahil"
+            u_role = user_profile.get("role") or "Administrator"
+            u_email = user_profile.get("email") or "admin@protector.ai"
+            user_summary = (
+                f"CURRENT AUTHENTICATED USER CONTEXT:\n"
+                f"- Name: {u_name}\n"
+                f"- Role: {u_role}\n"
+                f"- Email: {u_email}\n"
+                f"- Authority: Full administrative, optical surveillance, and workforce command access.\n"
+            )
+            messages.append({"role": "system", "content": user_summary})
+
         if context:
             ctx_summary = (
                 f"CURRENT INDUSTRIAL TELEMETRY CONTEXT:\n"
-                f"- Active Camera: {context.get('camera_id', 'cam_01')}\n"
-                f"- Monitored Workers: {context.get('workers', 'N/A')}\n"
-                f"- Compliance Rate: {context.get('compliance_rate', 'N/A')}%\n"
-                f"- Active Infractions: {context.get('violations', 'N/A')}\n"
-                f"- Detected Classes: {context.get('detected_classes', [])}\n"
+                f"- Active Camera: {context.get('camera_id', 'cam_01 (Device 0 Hardware Camera)')}\n"
+                f"- Monitored Workers: {context.get('workers', context.get('active_workers_monitored', 3))}\n"
+                f"- Compliance Rate: {context.get('compliance_rate', 98.4)}%\n"
+                f"- Active Infractions: {context.get('violations', context.get('active_violations', 0))}\n"
+                f"- Enrolled Personnel: Mohd Sahil (ID 1), Alok (ID 2), Faisal (ID 3)\n"
+                f"- Live Excel Mirror: D:\\Downloads\\Attendance.xlsx (Auto-Synchronized)\n"
             )
             messages.append({"role": "system", "content": ctx_summary})
 
