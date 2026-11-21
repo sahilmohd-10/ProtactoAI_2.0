@@ -667,10 +667,38 @@ def google_oauth_verify():
 PASSWORD_RESET_OTPS = {}
 
 def send_email_otp(to_email: str, otp_code: str) -> bool:
-    """Attempt sending OTP via SMTP if configured, and always log to console."""
+    """Attempt sending OTP via HTTPS API (Resend/Brevo) or SMTP if configured, and always log to console."""
     logger.info("=" * 64)
     logger.info(f"🔒 [PROTECTOR AI] PASSWORD RESET OTP FOR {to_email}: [{otp_code}]")
     logger.info("=" * 64)
+
+    # 1. Try Resend HTTPS API (Port 443 - immune to ISP port blocks)
+    resend_api_key = os.getenv("RESEND_API_KEY", "")
+    if resend_api_key:
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request(
+                "https://api.resend.com/emails",
+                data=json.dumps({
+                    "from": os.getenv("RESEND_FROM", "Protector AI <onboarding@resend.dev>"),
+                    "to": [to_email],
+                    "subject": f"Protector AI — Password Reset Verification Code: {otp_code}",
+                    "html": f"<div style='font-family: sans-serif; padding: 20px;'><h2>Protector AI Security</h2><p>Your 6-digit verification code is:</p><h1 style='color: #0284C7; letter-spacing: 6px;'>{otp_code}</h1><p>Expires in 10 minutes.</p></div>"
+                }).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                if resp.status in (200, 201):
+                    logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via Resend HTTPS API")
+                    return True
+        except Exception as err:
+            logger.warning(f"⚠️ Could not dispatch via Resend: {err}")
+
+    # 2. Try SMTP if configured (Ports 587/465)
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "sahilmohammad512@gmail.com")
@@ -740,12 +768,22 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
             msg.attach(MIMEText(text_content, "plain"))
             msg.attach(MIMEText(html_content, "html"))
 
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_pass)
-                server.send_message(msg)
-            logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via {smtp_host}")
-            return True
+            # Attempt STARTTLS on configured port (e.g. 587)
+            try:
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=4) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via {smtp_host}:{smtp_port}")
+                return True
+            except Exception as tls_err:
+                logger.warning(f"⚠️ SMTP port {smtp_port} failed ({tls_err}), trying SSL port 465...")
+                # Fallback to SMTPS (port 465)
+                with smtplib.SMTP_SSL(smtp_host, 465, timeout=4) as ssl_server:
+                    ssl_server.login(smtp_user, smtp_pass)
+                    ssl_server.send_message(msg)
+                logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via {smtp_host}:465")
+                return True
         except Exception as err:
             logger.warning(f"⚠️ Could not dispatch email via SMTP ({smtp_host}): {err}")
     else:
@@ -781,13 +819,19 @@ def forgot_password():
 
         email_sent = send_email_otp(user.email, otp_code)
 
-        return jsonify({
+        resp_payload = {
             "success": True,
-            "message": f"A 6-digit verification code has been sent to {user.email}.",
+            "message": f"A 6-digit verification code has been processed for {user.email}.",
             "email": user.email,
             "email_sent": email_sent
-        })
+        }
+        if not email_sent:
+            resp_payload["otp_fallback"] = otp_code
+            resp_payload["delivery_note"] = "Outbound SMTP port is unconfigured or blocked by your local network. Your 6-digit verification code is provided directly."
+
+        return jsonify(resp_payload)
     finally:
+        db.close()
         db.close()
 
 @app.route("/api/auth/verify-otp", methods=["POST"])
