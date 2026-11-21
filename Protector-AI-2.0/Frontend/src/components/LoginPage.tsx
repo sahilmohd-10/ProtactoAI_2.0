@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, CheckCircle2, Video, Cpu, Activity } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, ShieldCheck, Mail, KeyRound, Lock, CheckCircle2, Video, Cpu, Activity, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
-import { sendFirebasePasswordReset, loginWithGooglePopup, loginWithFirebase } from '../services/firebase';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
 import { OAuthModal } from './OAuthModal';
@@ -80,7 +79,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
     }
   };
 
-  // Step 1: Send OTP / Password Reset to Email via Firebase & Backend
+  // Step 1: Send OTP / Password Reset via Telegram & Backend
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotErrorMsg(null);
@@ -93,40 +92,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
     }
 
     setLoading(true);
-    let firebaseDispatched = false;
     try {
-      // 1. Send official Firebase password recovery link / instructions
-      try {
-        await sendFirebasePasswordReset(email);
-        firebaseDispatched = true;
-      } catch (fbErr: any) {
-        console.warn('Firebase password reset notification:', fbErr?.message || fbErr);
-      }
-
-      // 2. Dispatch secure cryptographic OTP via backend to registered recipient
+      // Dispatch secure cryptographic OTP via Telegram & backend to registered recipient
       const res = await api.forgotPassword(email);
-      if (res.success || firebaseDispatched) {
+      if (res.success) {
         const targetEmail = res.email || email;
         if (res.fallback_code) {
           setOtpFallback(res.fallback_code);
         } else {
           setOtpFallback(null);
         }
-        const msg = res.email_sent || firebaseDispatched
-          ? `Verification code dispatched to ${targetEmail}. Please check your inbox.`
-          : `Verification instructions sent to ${targetEmail}. Please check your email inbox.`;
-        setForgotSuccessMsg(msg);
+        setForgotSuccessMsg(res.message || `Verification code dispatched to ${targetEmail}. Please check Telegram or your inbox.`);
         setSubView('forgot_otp');
       } else {
         setForgotErrorMsg(res.message || 'Could not send verification code.');
       }
     } catch (err: any) {
-      if (firebaseDispatched) {
-        setForgotSuccessMsg(`Firebase verification dispatched to ${email}. Please check your inbox.`);
-        setSubView('forgot_otp');
-      } else {
-        setForgotErrorMsg(err.message || 'No registered account found with this email.');
-      }
+      setForgotErrorMsg(err.message || 'No registered account found with this email.');
     } finally {
       setLoading(false);
     }
@@ -497,29 +479,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     <button
                       type="button"
                       title="Sign in with Google"
-                      onClick={async () => {
-                        try {
-                          setLoading(true);
-                          setError(null);
-                          const { idToken } = await loginWithGooglePopup();
-                          const res = await api.firebaseLogin(idToken, 'Operator', authToken.trim());
-                          if (res.success && res.user) {
-                            onLoginSuccess(res.user);
-                          } else if (res.requires_auth_token) {
-                            setOauthProvider('google');
-                          } else if (res.pending_approval) {
-                            setError('⏳ Account Pending Authorization: Your Operator account is awaiting approval from Administrator Mohd Sahil.');
-                          }
-                        } catch (gErr: any) {
-                          if (gErr?.code === 'auth/popup-closed-by-user') {
-                            return;
-                          }
-                          console.warn('Google popup notice, falling back to modal:', gErr);
-                          setOauthProvider('google');
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
+                      onClick={() => setOauthProvider('google')}
                       className="smartnest-social-btn"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -672,7 +632,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
               {/* Step 2: Verify OTP */}
               {subView === 'forgot_otp' && (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                     <div style={{
                       width: '56px',
                       height: '56px',
@@ -692,6 +652,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     <p style={{ fontSize: '13.5px', color: '#64748B', margin: '8px 0 0 0' }}>
                       Sent to <strong>{forgotEmail}</strong>
                     </p>
+
+                    <a
+                      href="https://t.me/ProtectoAIbot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        marginTop: '12px',
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        backgroundColor: '#229ED915',
+                        border: '1px solid #229ED940',
+                        color: '#229ED9',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        textDecoration: 'none'
+                      }}
+                    >
+                      <span>📲 Check OTP on Telegram <strong>@ProtectoAIbot</strong></span>
+                      <ExternalLink size={12} />
+                    </a>
                   </div>
 
                   {forgotErrorMsg && (

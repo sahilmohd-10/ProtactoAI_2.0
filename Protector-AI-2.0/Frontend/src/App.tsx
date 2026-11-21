@@ -23,7 +23,6 @@ import {
   AnalyticsData
 } from './types';
 import { api, authStorage } from './services/api';
-import { logoutFirebase } from './services/firebase';
 
 export function App() {
   // Authentication & RBAC States
@@ -115,11 +114,6 @@ export function App() {
   const handleLogout = async () => {
     try {
       await api.logout();
-    } catch {
-      // ignore
-    }
-    try {
-      await logoutFirebase();
     } catch {
       // ignore
     } finally {

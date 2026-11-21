@@ -95,19 +95,6 @@ def get_current_user_from_token(token: str) -> tuple[User | None, str | None]:
             user_dict = user.to_dict()
             return user_dict, None
 
-        # Check if token is a Firebase ID Token (JWT format)
-        if "." in token and len(token) > 64:
-            try:
-                from firebase_service import verify_firebase_id_token
-                claims = verify_firebase_id_token(token)
-                if claims and claims.get("email"):
-                    fb_email = claims["email"].strip().lower()
-                    user = db.query(User).filter(User.email.ilike(fb_email)).first()
-                    if user and user.status == "Active":
-                        return user.to_dict(), None
-            except Exception:
-                pass
-
         return None, "Invalid or expired session"
     finally:
         db.close()

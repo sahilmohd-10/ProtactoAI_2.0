@@ -4,7 +4,6 @@ import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
 import { OAuthModal } from './OAuthModal';
-import { registerWithFirebase, loginWithGooglePopup } from '../services/firebase';
 
 interface RegisterPageProps {
   onRegisterSuccess: (user: AuthUser) => void;
@@ -56,14 +55,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
 
     setLoading(true);
     try {
-      // 1. Register with Firebase Authentication and dispatch email verification
-      try {
-        await registerWithFirebase(trimmedEmail, password, trimmedName);
-      } catch (fbErr: any) {
-        console.warn('Firebase registration notice:', fbErr?.message || fbErr);
-      }
-
-      // 2. Register with backend database
       const res = await api.register({
         first_name: firstName,
         last_name: lastName,
@@ -357,30 +348,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                     <button
                       type="button"
                       title="Sign up with Google"
-                      onClick={async () => {
-                        try {
-                          setLoading(true);
-                          setError(null);
-                          const { idToken } = await loginWithGooglePopup();
-                          const res = await api.firebaseLogin(idToken, 'Operator');
-                          if (res.success && res.user) {
-                            onRegisterSuccess(res.user);
-                          } else if (res.pending_approval) {
-                            setRegisteredPending(true);
-                          } else {
-                            setOauthProvider('google');
-                          }
-                        } catch (gErr: any) {
-                          if (gErr?.code === 'auth/popup-closed-by-user') {
-                            // User closed popup
-                            return;
-                          }
-                          console.warn('Google popup notice, falling back to modal:', gErr);
-                          setOauthProvider('google');
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
+                      onClick={() => setOauthProvider('google')}
                       className="smartnest-social-btn"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">

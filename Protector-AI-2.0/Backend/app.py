@@ -43,13 +43,9 @@ from copilot import copilot_instance
 from openrouter_service import openrouter_service
 
 try:
-    from firebase_service import verify_firebase_id_token
+    from telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers
 except ImportError:
-    try:
-        from Backend.firebase_service import verify_firebase_id_token
-    except ImportError:
-        def verify_firebase_id_token(id_token: str):
-            return None
+    from Backend.telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -671,37 +667,28 @@ def google_oauth_verify():
         logger.error(f"Google OAuth verification error: {e}", exc_info=True)
         return jsonify({"success": False, "error": f"Google verification failed: {str(e)}"}), 500
 
-@app.route("/api/auth/firebase-login", methods=["POST"])
-def firebase_login():
-    data = request.get_json(silent=True) or {}
-    id_token = (data.get("id_token") or "").strip()
-    role = (data.get("role") or "Operator").strip()
-    auth_token = (data.get("auth_token") or data.get("admin_token") or "").strip()
+@app.route("/api/telegram/status", methods=["GET"])
+def telegram_status():
+    sync_telegram_updates()
+    subs = load_subscribers()
+    return jsonify({
+        "success": True,
+        "bot_username": "ProtectoAIbot",
+        "bot_url": "https://t.me/ProtectoAIbot",
+        "active_subscribers": len(subs),
+        "subscribers": list(subs.values())
+    })
 
-    if not id_token:
-        return jsonify({"success": False, "error": "Firebase ID token is required."}), 400
-
-    claims = verify_firebase_id_token(id_token)
-    if not claims:
-        return jsonify({"success": False, "error": "Invalid or expired Firebase authentication token."}), 401
-
-    email = (claims.get("email") or "").strip().lower()
-    if not email:
-        return jsonify({"success": False, "error": "Firebase token does not contain a verified email address."}), 400
-
-    name = claims.get("name") or claims.get("display_name") or email.split("@")[0]
-    avatar = claims.get("picture") or ""
-    username = email.split("@")[0]
-
-    return _perform_oauth_login(
-        email=email,
-        name=name,
-        provider="firebase",
-        avatar=avatar,
-        username=username,
-        role=role,
-        auth_token=auth_token
-    )
+@app.route("/api/telegram/sync", methods=["POST"])
+def telegram_sync():
+    new_count = sync_telegram_updates()
+    subs = load_subscribers()
+    return jsonify({
+        "success": True,
+        "new_subscribers": new_count,
+        "total_subscribers": len(subs),
+        "bot_url": "https://t.me/ProtectoAIbot"
+    })
 
 # In-memory OTP storage for password resets
 # Format: { email: { "otp": "123456", "expires_at": float(timestamp), "verified": bool } }
@@ -731,7 +718,16 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
     </div>
     """
 
-    # 1. Try Resend HTTPS API (Port 443 - immune to ISP port blocks)
+    # 1. Try Telegram Bot (@ProtectoAIbot) — Instant, free, port-443 delivery to user's Telegram
+    try:
+        tg_ok, tg_info = send_telegram_otp(to_email, otp_code)
+        if tg_ok:
+            logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP code to Telegram for {to_email}: {tg_info}")
+            return True
+    except Exception as tg_err:
+        logger.warning(f"⚠️ Telegram dispatch notice: {tg_err}")
+
+    # 2. Try Resend HTTPS API (Port 443 - immune to ISP port blocks)
     resend_api_key = os.getenv("RESEND_API_KEY", "")
     if resend_api_key:
         try:
@@ -838,24 +834,7 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         except Exception as mc_err:
             logger.warning(f"⚠️ Mailercloud HTTPS API notice: {mc_err}")
 
-    # 2. Dispatch official Google Firebase reset to recipient via HTTPS Port 443
-    try:
-        import urllib.request
-        import json
-        fb_key = os.getenv("FIREBASE_API_KEY", "AIzaSyBDmkpidK1DlOJ6aC4RSorgc-PMJLX2TP4")
-        fb_url = f"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={fb_key}"
-        fb_req = urllib.request.Request(
-            fb_url,
-            data=json.dumps({"requestType": "PASSWORD_RESET", "email": to_email}).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
-        )
-        with urllib.request.urlopen(fb_req, timeout=6) as fb_resp:
-            if fb_resp.status == 200:
-                logger.info(f"✅ [PROTECTOR AI] Successfully delivered password reset email to {to_email} via Google Firebase HTTPS API")
-    except Exception as fb_err:
-        logger.warning(f"⚠️ Firebase reset dispatch notice: {fb_err}")
-
-    # 3. Try SMTP if configured (Ports 587/465)
+    # 4. Try SMTP if configured (Ports 587/465)
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "sahilmohammad512@gmail.com")
@@ -1149,7 +1128,7 @@ def forgot_password():
 
         resp_payload = {
             "success": True,
-            "message": f"A 6-digit verification code has been dispatched to {user.email}. Please check your email inbox." if email_sent else f"Verification code generated. Notice: Email sandbox blocked delivery to {user.email}.",
+            "message": f"A 6-digit verification code has been dispatched to {user.email}. Check your Telegram (@ProtectoAIbot) or email." if email_sent else f"Verification code generated: {otp_code}. Check Telegram (@ProtectoAIbot).",
             "email": user.email,
             "email_sent": email_sent
         }

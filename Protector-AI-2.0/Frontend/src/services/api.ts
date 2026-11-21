@@ -559,15 +559,12 @@ export const api = {
     return res;
   },
 
-  async firebaseLogin(id_token: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean; email?: string; username?: string; message?: string }> {
-    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean; email?: string; username?: string; message?: string }>('/api/auth/firebase-login', {
-      method: 'POST',
-      body: JSON.stringify({ id_token, role: role || 'Operator', auth_token })
-    });
-    if (res.token) {
-      authStorage.setToken(res.token);
-    }
-    return res;
+  async getTelegramStatus(): Promise<{ success: boolean; bot_username: string; bot_url: string; active_subscribers: number }> {
+    return fetchJson('/api/telegram/status');
+  },
+
+  async syncTelegramUpdates(): Promise<{ success: boolean; new_subscribers: number; total_subscribers: number; bot_url: string }> {
+    return fetchJson('/api/telegram/sync', { method: 'POST' });
   },
 
   async register(data: {
