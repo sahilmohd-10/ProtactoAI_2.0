@@ -12,17 +12,17 @@ import {
   AlertCircle,
   Search,
   Plus,
-  ShieldCheck,
   Camera,
   Check,
   Filter,
   TrendingUp,
   Activity,
-  Flame,
   FileText,
   Building,
   CheckSquare,
-  Clock3
+  Sparkles,
+  ShieldCheck,
+  ArrowUpRight
 } from 'lucide-react';
 import type { AttendanceRecord, AttendanceSummary, FaceProfile, WeeklyAttendanceTrend } from '../types';
 import { api } from '../services/api';
@@ -151,7 +151,7 @@ export const AttendanceManagement: React.FC = () => {
 
   const todayStr = summary?.date || new Date().toISOString().split('T')[0];
 
-  // Combined list for "Today's" view: all enrolled people with their check-in status
+  // Map of checked-in personnel for today
   const checkedInMap = new Map<string, AttendanceRecord>();
   records.forEach((r) => {
     if (r.date === todayStr) {
@@ -179,896 +179,759 @@ export const AttendanceManagement: React.FC = () => {
     return rec?.status?.toLowerCase() === statusFilter.toLowerCase();
   });
 
+  const filteredHistoryRecords = records.filter((r) => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        r.person_name.toLowerCase().includes(q) ||
+        r.status.toLowerCase().includes(q) ||
+        (r.shift && r.shift.toLowerCase().includes(q)) ||
+        (r.date && r.date.includes(q))
+      );
+    }
+    return true;
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
       {/* Toast Notification */}
       {notification && (
         <div style={{
-          padding: '12px 18px',
-          borderRadius: '8px',
+          padding: '12px 20px',
+          borderRadius: '16px',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          fontSize: '13px',
-          fontWeight: 500,
-          backgroundColor: notification.type === 'success' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-          border: `1px solid ${notification.type === 'success' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
-          color: notification.type === 'success' ? '#4ADE80' : '#F87171'
+          fontSize: '13.5px',
+          fontWeight: 600,
+          backgroundColor: notification.type === 'success' ? '#EBF8F2' : '#FEE2E2',
+          border: `1px solid ${notification.type === 'success' ? 'rgba(15, 81, 50, 0.2)' : 'rgba(220, 38, 38, 0.2)'}`,
+          color: notification.type === 'success' ? '#0F5132' : '#DC2626',
+          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04)'
         }}>
-          {notification.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          {notification.type === 'success' ? <CheckCircle2 size={18} color="#0F5132" /> : <AlertCircle size={18} color="#DC2626" />}
           <span>{notification.message}</span>
         </div>
       )}
 
-      {/* Header and Title */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
+      {/* Donezo Header Section */}
+      <div className="donezo-header">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-              Advanced Biometric Workforce Register
-            </h1>
-            <span style={{
-              fontSize: '11px',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              backgroundColor: 'rgba(34, 197, 94, 0.12)',
-              color: '#4ADE80',
-              border: '1px solid rgba(34, 197, 94, 0.25)',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4ADE80', display: 'inline-block' }} />
-              Live AI Surveillance Active
-            </span>
-          </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-            Autonomous facial feature identification, industrial shift tracking, punctuality analytics, and live Excel synchronization.
-          </p>
+          <h1>Biometric Attendance & Excel Register</h1>
+          <p>Autonomous facial recognition, 24-hour shift de-duplication, punctuality metrics, and live Excel synchronization.</p>
         </div>
 
         {/* Global Action Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
+            type="button"
             onClick={() => setIsCheckInModalOpen(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              backgroundColor: 'var(--bg-surface-elevated)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: '6px',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
+            className="donezo-btn-green"
           >
-            <Plus size={14} />
-            <span>Manual Override</span>
+            <Plus size={16} />
+            <span>Manual Check-In</span>
           </button>
 
           <button
+            type="button"
             onClick={handleSyncExcel}
             disabled={isSyncingExcel}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              backgroundColor: 'var(--bg-surface-elevated)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: '6px',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: isSyncingExcel ? 'not-allowed' : 'pointer'
-            }}
+            className="donezo-btn-outline"
           >
-            <RefreshCw size={14} style={{ animation: isSyncingExcel ? 'spin 1s linear infinite' : 'none' }} />
-            <span>{isSyncingExcel ? 'Syncing...' : 'Force Excel Sync'}</span>
+            <RefreshCw size={15} className={isSyncingExcel ? 'spin' : ''} />
+            <span>{isSyncingExcel ? 'Syncing...' : 'Sync Excel'}</span>
           </button>
 
           <a
             href={api.getAttendanceExportUrl()}
             download="Attendance.xlsx"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              backgroundColor: 'rgba(34, 197, 94, 0.12)',
-              color: '#4ADE80',
-              border: '1px solid rgba(34, 197, 94, 0.3)',
-              borderRadius: '6px',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              textDecoration: 'none'
-            }}
+            className="donezo-btn-outline"
+            style={{ textDecoration: 'none' }}
           >
-            <Download size={14} />
+            <Download size={15} />
             <span>Download .XLSX</span>
           </a>
 
           <button
+            type="button"
             onClick={handleOpenExcel}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              backgroundColor: '#0F5132',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
+            className="donezo-btn-outline"
           >
-            <FileSpreadsheet size={14} />
-            <span>Open Live in Excel</span>
+            <FileSpreadsheet size={15} color="#0F5132" />
+            <span>Open in Excel</span>
           </button>
 
           <a
             href={api.getAttendanceCsvExportUrl()}
             download={`attendance_${todayStr}.csv`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              backgroundColor: 'rgba(59, 130, 246, 0.12)',
-              color: '#60A5FA',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              borderRadius: '6px',
-              fontSize: '12.5px',
-              fontWeight: 600,
-              textDecoration: 'none'
-            }}
+            className="donezo-btn-outline"
+            style={{ textDecoration: 'none' }}
           >
-            <FileText size={14} />
+            <FileText size={15} />
             <span>Export CSV</span>
           </a>
         </div>
       </div>
 
-
-
-      {/* 6 Executive KPI Metric Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '14px'
-      }}>
-        {/* Card 1: Total Enrolled */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '10px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Total Workforce
-            </span>
-            <Users size={16} style={{ color: 'var(--text-secondary)' }} />
+      {/* 5 Donezo KPI Metric Cards */}
+      <div className="donezo-kpi-grid">
+        {/* Card 1: Featured Deep Forest Green Card - Total Workforce */}
+        <div className="donezo-card-green">
+          <div className="donezo-card-header">
+            <span className="donezo-card-title">Enrolled Workforce</span>
+            <div className="donezo-arrow-circle">
+              <Users size={16} />
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div>
+            <div className="donezo-card-number">
               {summary?.total_enrolled ?? enrolledPeople.length}
+            </div>
+            <span className="donezo-badge-green">
+              <span>●</span> 100% Biometric Enrolled
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Personnel</span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: '#4ADE80', fontWeight: 600 }}>
-            100% Biometric Enrolled
           </div>
         </div>
 
         {/* Card 2: Present Today */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '10px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Present Today
-            </span>
-            <UserCheck size={16} style={{ color: '#4ADE80' }} />
+        <div className="donezo-card-white">
+          <div className="donezo-card-header">
+            <span className="donezo-card-title">Present Today</span>
+            <div className="donezo-arrow-circle">
+              <UserCheck size={16} color="#16A34A" />
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div>
+            <div className="donezo-card-number" style={{ color: '#16A34A' }}>
               {summary?.present_today ?? checkedInMap.size}
+            </div>
+            <span className="donezo-badge-white">
+              {summary?.attendance_rate ?? 0}% Turnout Rate
             </span>
-            <span style={{
-              fontSize: '11px',
-              padding: '1px 6px',
-              borderRadius: '4px',
-              backgroundColor: 'rgba(34, 197, 94, 0.15)',
-              color: '#4ADE80',
-              fontWeight: 700
-            }}>
-              {summary?.attendance_rate ?? 0}% Rate
-            </span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-            {summary?.absent_today ?? 0} Awaiting check-in
           </div>
         </div>
 
         {/* Card 3: Active On-Site Now */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '10px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Active On-Site
-            </span>
-            <Activity size={16} style={{ color: '#38BDF8' }} />
+        <div className="donezo-card-white">
+          <div className="donezo-card-header">
+            <span className="donezo-card-title">Active On-Site</span>
+            <div className="donezo-arrow-circle">
+              <Activity size={16} color="#2563EB" />
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div>
+            <div className="donezo-card-number" style={{ color: '#2563EB' }}>
               {summary?.active_on_site_now ?? summary?.present_today ?? 0}
+            </div>
+            <span className="donezo-badge-white">
+              Live camera pulse (45m)
             </span>
-            <span style={{
-              fontSize: '11px',
-              padding: '1px 6px',
-              borderRadius: '4px',
-              backgroundColor: 'rgba(56, 189, 248, 0.15)',
-              color: '#38BDF8',
-              fontWeight: 700
-            }}>
-              Live Pulse
-            </span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-            Seen on camera in last 45m
           </div>
         </div>
 
-        {/* Card 4: Punctuality Score */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '10px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Punctuality Index
-            </span>
-            <Clock3 size={16} style={{ color: '#FBBF24' }} />
+        {/* Card 4: Punctuality Index */}
+        <div className="donezo-card-white">
+          <div className="donezo-card-header">
+            <span className="donezo-card-title">Punctuality Score</span>
+            <div className="donezo-arrow-circle">
+              <Clock size={16} color="#D97706" />
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
+          <div>
+            <div className="donezo-card-number" style={{ color: '#D97706' }}>
               {summary?.punctuality_rate ?? 100}%
+            </div>
+            <span className="donezo-badge-white">
+              {summary?.on_time_count ?? 0} On-time arrivals
             </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-              {summary?.on_time_count ?? 0} On-Time
-            </span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: (summary?.late_count ?? 0) > 0 ? '#FBBF24' : 'var(--text-secondary)' }}>
-            {summary?.late_count ?? 0} Late arrivals logged
           </div>
         </div>
 
-        {/* Card 5: Overtime Accumulated */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '10px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Total Overtime
+        {/* Card 5: Local Excel Registry */}
+        <div className="donezo-card-white">
+          <div className="donezo-card-header">
+            <span className="donezo-card-title">Excel Registry</span>
+            <div className="donezo-arrow-circle">
+              <FileSpreadsheet size={16} color="#0F5132" />
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '12px 0 6px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#16A34A', display: 'inline-block' }} />
+              <span>Active</span>
+            </div>
+            <span className="donezo-badge-white">
+              {summary?.last_excel_sync ? `Synced: ${new Date(summary.last_excel_sync).toLocaleTimeString()}` : 'Real-time 24h Excel'}
             </span>
-            <TrendingUp size={16} style={{ color: '#A78BFA' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {summary?.total_overtime_hours ?? 0}
-            </span>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Hours</span>
-          </div>
-          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
-            Avg {summary?.average_hours ?? 0} hrs/worker
-          </div>
-        </div>
-
-        {/* Card 6: Excel Synchronization */}
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: '10px',
-          padding: '16px 18px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--accent-citron)', fontWeight: 700, textTransform: 'uppercase' }}>
-              Excel Registry
-            </span>
-            <FileSpreadsheet size={16} style={{ color: 'var(--accent-citron)' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Auto-Synchronized
-            </span>
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {summary?.last_excel_sync ? `Synced: ${new Date(summary.last_excel_sync).toLocaleTimeString()}` : 'Real-time pipeline'}
           </div>
         </div>
       </div>
 
-      {/* Tabs and Analytics Section */}
+      {/* Navigation Tabs and Search / Filter Card */}
       <div style={{
-        backgroundColor: 'var(--bg-surface)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: '10px',
-        padding: '18px 20px',
+        backgroundColor: '#FFFFFF',
+        borderRadius: '24px',
+        padding: '16px 22px',
+        border: '1px solid #E2E8F0',
         display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
+        flexWrap: 'wrap',
+        gap: '16px',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
       }}>
-        {/* Navigation Tabs */}
+        {/* Segmented Tab Navigation Controls */}
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          borderBottom: '1px solid var(--border-subtle)',
-          paddingBottom: '12px'
+          display: 'inline-flex',
+          backgroundColor: '#F1F5F9',
+          padding: '4px',
+          borderRadius: '14px',
+          gap: '4px'
         }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setActiveTab('today')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: activeTab === 'today' ? 'var(--accent-citron)' : 'transparent',
-                backgroundColor: activeTab === 'today' ? 'rgba(230, 255, 0, 0.08)' : 'transparent',
-                color: activeTab === 'today' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontSize: '12.5px',
-                fontWeight: activeTab === 'today' ? 700 : 500,
-                cursor: 'pointer'
-              }}
-            >
-              Today's Live Register ({checkedInMap.size}/{enrolledPeople.length})
-            </button>
-
-            <button
-              onClick={() => setActiveTab('analytics')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: activeTab === 'analytics' ? 'var(--accent-citron)' : 'transparent',
-                backgroundColor: activeTab === 'analytics' ? 'rgba(230, 255, 0, 0.08)' : 'transparent',
-                color: activeTab === 'analytics' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontSize: '12.5px',
-                fontWeight: activeTab === 'analytics' ? 700 : 500,
-                cursor: 'pointer'
-              }}
-            >
-              Shift & Punctuality Analytics
-            </button>
-
-            <button
-              onClick={() => setActiveTab('history')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: activeTab === 'history' ? 'var(--accent-citron)' : 'transparent',
-                backgroundColor: activeTab === 'history' ? 'rgba(230, 255, 0, 0.08)' : 'transparent',
-                color: activeTab === 'history' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontSize: '12.5px',
-                fontWeight: activeTab === 'history' ? 700 : 500,
-                cursor: 'pointer'
-              }}
-            >
-              Historical Register ({records.length})
-            </button>
-
-            <button
-              onClick={() => setActiveTab('directory')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: activeTab === 'directory' ? 'var(--accent-citron)' : 'transparent',
-                backgroundColor: activeTab === 'directory' ? 'rgba(230, 255, 0, 0.08)' : 'transparent',
-                color: activeTab === 'directory' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontSize: '12.5px',
-                fontWeight: activeTab === 'directory' ? 700 : 500,
-                cursor: 'pointer'
-              }}
-            >
-              Personnel Directory ({enrolledPeople.length})
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px', color: 'var(--text-tertiary)' }}>
-            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
-            <span>Continuous background scanning active</span>
-          </div>
+          {[
+            { id: 'today', label: `Today's Register (${checkedInMap.size}/${enrolledPeople.length})`, icon: Calendar },
+            { id: 'analytics', label: 'Shift & Punctuality', icon: Activity },
+            { id: 'history', label: `Historical Register (${records.length})`, icon: Clock },
+            { id: 'directory', label: `Personnel Directory (${enrolledPeople.length})`, icon: Users },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: isActive ? 700 : 600,
+                  backgroundColor: isActive ? '#FFFFFF' : 'transparent',
+                  color: isActive ? '#0F172A' : '#64748B',
+                  boxShadow: isActive ? '0 2px 6px rgba(15, 23, 42, 0.06)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Icon size={15} color={isActive ? '#0F5132' : '#94A3B8'} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tab 2: Shift & Punctuality Analytics Dashboard */}
-        {activeTab === 'analytics' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* 7-Day Trend Chart */}
-            <div style={{
-              backgroundColor: 'var(--bg-app)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              padding: '18px 20px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                    7-Day Attendance & Punctuality Trend
-                  </h3>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                    Daily workforce turnout and arrival punctuality overview.
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', fontSize: '11.5px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4ADE80' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#22C55E' }} />
-                    On-Time
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#FBBF24' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: '#F59E0B' }} />
-                    Late
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-tertiary)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'var(--bg-surface-elevated)' }} />
-                    Absent
-                  </span>
-                </div>
-              </div>
+        {/* Search & Status Filters */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Search Box */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#F8FAFC',
+            padding: '8px 14px',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            width: '240px'
+          }}>
+            <Search size={15} color="#94A3B8" />
+            <input
+              type="text"
+              placeholder="Search personnel, ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: '13px',
+                color: '#0F172A',
+                width: '100%'
+              }}
+            />
+          </div>
 
-              {/* Visual Bars for Weekly Trend */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', height: '140px', paddingTop: '10px' }}>
-                {summary?.weekly_trend?.map((item: WeeklyAttendanceTrend, idx: number) => {
-                  const total = Math.max(1, summary?.total_enrolled || 1);
-                  const onTimeH = (item.on_time / total) * 100;
-                  const lateH = (item.late / total) * 100;
+          {/* Quick Filter Buttons for Today View */}
+          {activeTab === 'today' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#94A3B8', marginRight: '4px' }}>FILTER:</span>
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'active', label: 'Active Now' },
+                { id: 'on_time', label: 'On-Time' },
+                { id: 'late', label: 'Late' },
+                { id: 'overtime', label: 'Overtime' },
+                { id: 'absent', label: 'Absent' }
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setStatusFilter(f.id)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: statusFilter === f.id ? 700 : 500,
+                    backgroundColor: statusFilter === f.id ? '#0F5132' : '#F1F5F9',
+                    color: statusFilter === f.id ? '#FFFFFF' : '#475569',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* TAB 1: TODAY'S LIVE ATTENDANCE REGISTER */}
+      {activeTab === 'today' && (
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '24px',
+          border: '1px solid #E2E8F0',
+          overflow: 'hidden',
+          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
+        }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <thead>
+                <tr style={{
+                  backgroundColor: '#F8FAFC',
+                  borderBottom: '1px solid #E2E8F0',
+                  color: '#64748B',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em'
+                }}>
+                  <th style={{ padding: '16px 20px' }}>Worker / Identity</th>
+                  <th style={{ padding: '16px 20px' }}>Status</th>
+                  <th style={{ padding: '16px 20px' }}>Assigned Shift</th>
+                  <th style={{ padding: '16px 20px' }}>Punctuality</th>
+                  <th style={{ padding: '16px 20px' }}>First In</th>
+                  <th style={{ padding: '16px 20px' }}>Last Seen</th>
+                  <th style={{ padding: '16px 20px' }}>Duration</th>
+                  <th style={{ padding: '16px 20px' }}>Overtime</th>
+                  <th style={{ padding: '16px 20px' }}>Detection Stream</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEnrolledToday.map((person) => {
+                  const rec = checkedInMap.get(person.name.toLowerCase());
+                  const isPresent = !!rec;
+
                   return (
-                    <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: '6px' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {item.present}
-                      </div>
-                      <div style={{
-                        width: '100%',
-                        maxWidth: '42px',
-                        height: '90px',
-                        backgroundColor: 'var(--bg-surface-elevated)',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        flexDirection: 'column-reverse',
-                        overflow: 'hidden'
-                      }}>
-                        <div style={{ height: `${onTimeH}%`, backgroundColor: '#22C55E', transition: 'height 0.3s' }} />
-                        <div style={{ height: `${lateH}%`, backgroundColor: '#F59E0B', transition: 'height 0.3s' }} />
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                        {item.day}
-                      </div>
-                    </div>
+                    <tr
+                      key={person.id}
+                      style={{
+                        borderBottom: '1px solid #F1F5F9',
+                        transition: 'background-color 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      {/* Worker Identity */}
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '50%',
+                            backgroundColor: isPresent ? '#EBF8F2' : '#F1F5F9',
+                            color: isPresent ? '#0F5132' : '#94A3B8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            border: `1px solid ${isPresent ? 'rgba(15, 81, 50, 0.2)' : '#E2E8F0'}`
+                          }}>
+                            {person.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '13.5px' }}>
+                              {person.name}
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: '#94A3B8', fontFamily: 'var(--font-mono)' }}>
+                              EMP-{person.id.toString().padStart(3, '0')}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td style={{ padding: '16px 20px' }}>
+                        {isPresent ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            backgroundColor: '#EBF8F2',
+                            color: '#0F5132',
+                            fontSize: '12px',
+                            fontWeight: 700
+                          }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16A34A' }} />
+                            {rec.status}
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            backgroundColor: '#FEE2E2',
+                            color: '#DC2626',
+                            fontSize: '12px',
+                            fontWeight: 600
+                          }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#DC2626' }} />
+                            Not Checked In
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Assigned Shift */}
+                      <td style={{ padding: '16px 20px', color: '#475569', fontSize: '13px' }}>
+                        {rec?.shift?.split(' (')[0] || 'General Shift'}
+                      </td>
+
+                      {/* Punctuality Badge */}
+                      <td style={{ padding: '16px 20px' }}>
+                        {isPresent ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: rec.punctuality === 'On Time' ? '#EBF8F2' : '#FEF3C7',
+                            color: rec.punctuality === 'On Time' ? '#0F5132' : '#D97706',
+                            fontSize: '11.5px',
+                            fontWeight: 600
+                          }}>
+                            {rec.punctuality === 'On Time' ? '✓ On-Time' : `⚠️ Late (+${rec.late_minutes || 15}m)`}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94A3B8', fontSize: '12px' }}>--</span>
+                        )}
+                      </td>
+
+                      {/* First In */}
+                      <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontSize: '12.5px', color: '#0F172A' }}>
+                        {rec?.first_in ? new Date(rec.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                      </td>
+
+                      {/* Last Seen / Out */}
+                      <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontSize: '12.5px', color: '#0F172A' }}>
+                        {rec?.last_out ? new Date(rec.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                      </td>
+
+                      {/* Duration */}
+                      <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontSize: '12.5px', color: '#0F172A', fontWeight: 600 }}>
+                        {isPresent ? `${rec.total_hours.toFixed(2)} hrs` : '0.00 hrs'}
+                      </td>
+
+                      {/* Overtime */}
+                      <td style={{ padding: '16px 20px' }}>
+                        {isPresent && (rec.overtime_hours ?? 0) > 0 ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: '#EDE9FE',
+                            color: '#7C3AED',
+                            fontSize: '11.5px',
+                            fontWeight: 700
+                          }}>
+                            +{rec.overtime_hours?.toFixed(2)}h OT
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94A3B8', fontSize: '12px' }}>0.00</span>
+                        )}
+                      </td>
+
+                      {/* Detection Zone / Camera */}
+                      <td style={{ padding: '16px 20px', color: '#64748B', fontSize: '12.5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Camera size={14} color="#94A3B8" />
+                          <span>{rec?.camera_source || 'Optical Turnstile Stream'}</span>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: SHIFT & PUNCTUALITY ANALYTICS */}
+      {activeTab === 'analytics' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* 7-Day Trend Chart Card */}
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '24px',
+            border: '1px solid #E2E8F0',
+            padding: '24px 28px',
+            boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#0F172A' }}>
+                  7-Day Attendance & Turnout Trend
+                </h3>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                  Daily workforce turnout and arrival punctuality overview.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '12px', fontWeight: 600 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0F5132' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0F5132' }} />
+                  On-Time Arrivals
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#D97706' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                  Late Arrivals
+                </span>
               </div>
             </div>
 
-            {/* Industrial Shift Breakdown */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
-              <div style={{
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                padding: '16px'
-              }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
-                  Shift Distribution (Today)
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {Object.entries(summary?.shift_distribution || { 'General Shift': summary?.present_today || 0 }).map(([sh, count]) => (
-                    <div key={sh} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>{sh}</span>
-                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{count} workers</span>
+            {/* Visual Bars for Weekly Trend */}
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', height: '160px', paddingTop: '10px' }}>
+              {summary?.weekly_trend?.map((item: WeeklyAttendanceTrend, idx: number) => {
+                const total = Math.max(1, summary?.total_enrolled || 1);
+                const onTimeH = (item.on_time / total) * 100;
+                const lateH = (item.late / total) * 100;
+                return (
+                  <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: '8px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
+                      {item.present}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '8px',
-                padding: '16px'
-              }}>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '10px' }}>
-                  Punctuality & Overtime Highlights
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Standard Shift Duration:</span>
-                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>8.0 Hours</span>
+                    <div style={{
+                      width: '100%',
+                      maxWidth: '46px',
+                      height: '110px',
+                      backgroundColor: '#F1F5F9',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      flexDirection: 'column-reverse',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ height: `${onTimeH}%`, backgroundColor: '#0F5132', transition: 'height 0.3s ease' }} />
+                      <div style={{ height: `${lateH}%`, backgroundColor: '#F59E0B', transition: 'height 0.3s ease' }} />
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>
+                      {item.day}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Punctuality Grace Period:</span>
-                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>15 Minutes</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Workers with Overtime:</span>
-                    <span style={{ fontWeight: 700, color: '#A78BFA' }}>{summary?.overtime_count || 0} Personnel</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
-        )}
 
-        {/* Tab 1: Today's Live Attendance View */}
-        {activeTab === 'today' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Filter Bar */}
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: 'var(--bg-app)',
-                border: '1px solid var(--border-medium)',
-                borderRadius: '6px',
-                padding: '6px 12px',
-                flex: '1 1 200px',
-                maxWidth: '300px'
-              }}>
-                <Search size={14} style={{ color: 'var(--text-tertiary)' }} />
-                <input
-                  type="text"
-                  placeholder="Search personnel..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: 'var(--text-primary)',
-                    fontSize: '12.5px',
-                    width: '100%'
-                  }}
-                />
+          {/* Industrial Shift Breakdown & Highlights */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '24px',
+              border: '1px solid #E2E8F0',
+              padding: '24px',
+              boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
+            }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', marginBottom: '16px' }}>
+                Shift Distribution (Today)
               </div>
-
-              {/* Status Filter Pills */}
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {[
-                  { id: 'all', label: 'All Personnel' },
-                  { id: 'active', label: '🟢 Active Now' },
-                  { id: 'on_time', label: '✓ On-Time' },
-                  { id: 'late', label: '⚠️ Late' },
-                  { id: 'overtime', label: '⏱️ Overtime' },
-                  { id: 'absent', label: '❌ Absent' }
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => setStatusFilter(f.id)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '5px',
-                      border: '1px solid',
-                      borderColor: statusFilter === f.id ? 'var(--accent-citron)' : 'var(--border-subtle)',
-                      backgroundColor: statusFilter === f.id ? 'rgba(230, 255, 0, 0.1)' : 'var(--bg-app)',
-                      color: statusFilter === f.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      fontSize: '11.5px',
-                      fontWeight: statusFilter === f.id ? 700 : 500,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {f.label}
-                  </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {Object.entries(summary?.shift_distribution || { 'General Shift': summary?.present_today || 0 }).map(([sh, count]) => (
+                  <div key={sh} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                    <span style={{ color: '#64748B', fontWeight: 500 }}>{sh}</span>
+                    <span style={{ fontWeight: 700, color: '#0F172A' }}>{count} workers</span>
+                  </div>
                 ))}
               </div>
             </div>
 
-            {/* Attendance Table */}
-            <div style={{ overflowX: 'auto', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--bg-app)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    <th style={{ padding: '10px 14px' }}>Worker / Identity</th>
-                    <th style={{ padding: '10px 14px' }}>Status</th>
-                    <th style={{ padding: '10px 14px' }}>Assigned Shift</th>
-                    <th style={{ padding: '10px 14px' }}>Punctuality</th>
-                    <th style={{ padding: '10px 14px' }}>First In</th>
-                    <th style={{ padding: '10px 14px' }}>Last Seen</th>
-                    <th style={{ padding: '10px 14px' }}>Duration</th>
-                    <th style={{ padding: '10px 14px' }}>Overtime</th>
-                    <th style={{ padding: '10px 14px' }}>Detection Zone / Camera</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEnrolledToday.map((person) => {
-                    const rec = checkedInMap.get(person.name.toLowerCase());
-                    const isPresent = !!rec;
-
-                    return (
-                      <tr
-                        key={person.id}
-                        style={{
-                          borderBottom: '1px solid var(--border-subtle)',
-                          backgroundColor: 'transparent'
-                        }}
-                      >
-                        {/* Worker Identity */}
-                        <td style={{ padding: '12px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '50%',
-                              backgroundColor: isPresent ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-surface-elevated)',
-                              color: isPresent ? '#4ADE80' : 'var(--text-tertiary)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              border: `1px solid ${isPresent ? 'rgba(34, 197, 94, 0.3)' : 'var(--border-subtle)'}`
-                            }}>
-                              {person.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                                {person.name}
-                              </div>
-                              <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                                EMP-{person.id.toString().padStart(3, '0')}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Status Badge */}
-                        <td style={{ padding: '12px 14px' }}>
-                          {isPresent ? (
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: rec.status === 'Full Day' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.12)',
-                              color: '#4ADE80',
-                              fontSize: '11px',
-                              fontWeight: 700
-                            }}>
-                              <Check size={11} /> {rec.status}
-                            </span>
-                          ) : (
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                              color: '#F87171',
-                              fontSize: '11px',
-                              fontWeight: 600
-                            }}>
-                              Not Checked In
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Assigned Shift */}
-                        <td style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontSize: '11.5px' }}>
-                          {rec?.shift?.split(' (')[0] || 'General Shift'}
-                        </td>
-
-                        {/* Punctuality */}
-                        <td style={{ padding: '12px 14px' }}>
-                          {isPresent ? (
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              color: rec.punctuality === 'On Time' ? '#4ADE80' : '#FBBF24',
-                              backgroundColor: rec.punctuality === 'On Time' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(245, 158, 11, 0.12)',
-                              padding: '2px 7px',
-                              borderRadius: '4px'
-                            }}>
-                              {rec.punctuality === 'On Time' ? '✓ On Time' : `⚠️ Late (${rec.late_minutes || 15}m)`}
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>--</span>
-                          )}
-                        </td>
-
-                        {/* First In */}
-                        <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-primary)' }}>
-                          {rec?.first_in ? new Date(rec.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
-                        </td>
-
-                        {/* Last Seen / Out */}
-                        <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-primary)' }}>
-                          {rec?.last_out ? new Date(rec.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
-                        </td>
-
-                        {/* Duration */}
-                        <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-primary)' }}>
-                          {isPresent ? `${rec.total_hours.toFixed(2)} hrs` : '0.00 hrs'}
-                        </td>
-
-                        {/* Overtime */}
-                        <td style={{ padding: '12px 14px' }}>
-                          {isPresent && (rec.overtime_hours ?? 0) > 0 ? (
-                            <span style={{
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              color: '#A78BFA',
-                              backgroundColor: 'rgba(167, 139, 250, 0.12)',
-                              padding: '2px 6px',
-                              borderRadius: '4px'
-                            }}>
-                              +{rec.overtime_hours?.toFixed(2)} hrs OT
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>0.00</span>
-                          )}
-                        </td>
-
-                        {/* Camera Source / Location */}
-                        <td style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontSize: '11.5px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Camera size={13} style={{ color: 'var(--text-tertiary)' }} />
-                            <span>{rec?.camera_source || 'Optical Turnstile Stream'}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Historical Records */}
-        {activeTab === 'history' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ overflowX: 'auto', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--bg-app)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-tertiary)', fontSize: '11px', textTransform: 'uppercase' }}>
-                    <th style={{ padding: '10px 14px' }}>Date</th>
-                    <th style={{ padding: '10px 14px' }}>Personnel</th>
-                    <th style={{ padding: '10px 14px' }}>Status</th>
-                    <th style={{ padding: '10px 14px' }}>Shift</th>
-                    <th style={{ padding: '10px 14px' }}>Check In</th>
-                    <th style={{ padding: '10px 14px' }}>Check Out</th>
-                    <th style={{ padding: '10px 14px' }}>Duration</th>
-                    <th style={{ padding: '10px 14px' }}>Scans</th>
-                    <th style={{ padding: '10px 14px' }}>Method</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((r) => (
-                    <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)' }}>{r.date}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-primary)' }}>{r.person_name}</td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                          color: '#4ADE80',
-                          fontSize: '11px',
-                          fontWeight: 700
-                        }}>
-                          {r.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{r.shift?.split(' (')[0] || 'General'}</td>
-                      <td style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)' }}>
-                        {r.first_in ? new Date(r.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
-                      </td>
-                      <td style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)' }}>
-                        {r.last_out ? new Date(r.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
-                      </td>
-                      <td style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)' }}>{r.total_hours.toFixed(2)} hrs</td>
-                      <td style={{ padding: '10px 14px' }}>{r.check_in_count}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{r.verification_mode}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 4: Personnel Directory */}
-        {activeTab === 'directory' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
-            {enrolledPeople.map((person) => (
-              <div
-                key={person.id}
-                style={{
-                  backgroundColor: 'var(--bg-app)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}
-              >
-                <div style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--bg-surface-elevated)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  color: 'var(--accent-citron)',
-                  fontSize: '14px'
-                }}>
-                  {person.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+            <div style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '24px',
+              border: '1px solid #E2E8F0',
+              padding: '24px',
+              boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
+            }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', marginBottom: '16px' }}>
+                Punctuality & Shift Highlights
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Standard Shift Length:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>8.0 Hours</span>
                 </div>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>
-                    {person.name}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    EMP-{person.id.toString().padStart(3, '0')} • Enrolled {person.created_at ? new Date(person.created_at).toLocaleDateString() : 'Active'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#4ADE80', marginTop: '2px', fontWeight: 600 }}>
-                    Biometric Encryption Active
-                  </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Grace Period:</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>15 Minutes</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748B' }}>Workers in Overtime:</span>
+                  <span style={{ fontWeight: 700, color: '#7C3AED' }}>{summary?.overtime_count || 0} Personnel</span>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* TAB 3: HISTORICAL REGISTER TABLE */}
+      {activeTab === 'history' && (
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '24px',
+          border: '1px solid #E2E8F0',
+          overflow: 'hidden',
+          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
+        }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+              <thead>
+                <tr style={{
+                  backgroundColor: '#F8FAFC',
+                  borderBottom: '1px solid #E2E8F0',
+                  color: '#64748B',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em'
+                }}>
+                  <th style={{ padding: '16px 20px' }}>Date</th>
+                  <th style={{ padding: '16px 20px' }}>Personnel</th>
+                  <th style={{ padding: '16px 20px' }}>Status</th>
+                  <th style={{ padding: '16px 20px' }}>Shift</th>
+                  <th style={{ padding: '16px 20px' }}>Check In</th>
+                  <th style={{ padding: '16px 20px' }}>Check Out</th>
+                  <th style={{ padding: '16px 20px' }}>Duration</th>
+                  <th style={{ padding: '16px 20px' }}>Scans</th>
+                  <th style={{ padding: '16px 20px' }}>Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredHistoryRecords.map((r) => (
+                  <tr
+                    key={r.id}
+                    style={{ borderBottom: '1px solid #F1F5F9', transition: 'background-color 0.15s ease' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', color: '#64748B' }}>{r.date}</td>
+                    <td style={{ padding: '16px 20px', fontWeight: 700, color: '#0F172A' }}>{r.person_name}</td>
+                    <td style={{ padding: '16px 20px' }}>
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        backgroundColor: '#EBF8F2',
+                        color: '#0F5132',
+                        fontSize: '12px',
+                        fontWeight: 700
+                      }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#16A34A' }} />
+                        {r.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '16px 20px', color: '#475569' }}>{r.shift?.split(' (')[0] || 'General'}</td>
+                    <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', color: '#0F172A' }}>
+                      {r.first_in ? new Date(r.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                    </td>
+                    <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', color: '#0F172A' }}>
+                      {r.last_out ? new Date(r.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                    </td>
+                    <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#0F172A' }}>
+                      {r.total_hours.toFixed(2)} hrs
+                    </td>
+                    <td style={{ padding: '16px 20px', color: '#64748B' }}>{r.check_in_count}</td>
+                    <td style={{ padding: '16px 20px', color: '#64748B' }}>{r.verification_mode}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: ENROLLED PERSONNEL DIRECTORY */}
+      {activeTab === 'directory' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {enrolledPeople.map((person) => (
+            <div
+              key={person.id}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: '24px',
+                border: '1px solid #E2E8F0',
+                padding: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                boxShadow: '0 4px 16px rgba(15, 23, 42, 0.02)'
+              }}
+            >
+              <div style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '50%',
+                backgroundColor: '#EBF8F2',
+                color: '#0F5132',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 800,
+                fontSize: '15px',
+                border: '1px solid rgba(15, 81, 50, 0.2)'
+              }}>
+                {person.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '14px' }}>
+                  {person.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                  EMP-{person.id.toString().padStart(3, '0')} • Active
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#16A34A', marginTop: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <ShieldCheck size={13} />
+                  <span>Biometric Verified</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualName(person.name);
+                  setIsCheckInModalOpen(true);
+                }}
+                className="donezo-btn-outline"
+                style={{ padding: '6px 14px', fontSize: '12px' }}
+              >
+                + Check In
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Manual Check-In Modal */}
       {isCheckInModalOpen && (
@@ -1078,8 +941,8 @@ export const AttendanceManagement: React.FC = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(15, 23, 42, 0.5)',
+          backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1087,126 +950,129 @@ export const AttendanceManagement: React.FC = () => {
           padding: '20px'
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-medium)',
-            borderRadius: '12px',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '24px',
             width: '100%',
             maxWidth: '460px',
-            padding: '24px',
+            padding: '28px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '18px'
+            gap: '20px',
+            boxShadow: '0 20px 50px rgba(15, 23, 42, 0.15)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Manual Attendance Check-In
-              </h3>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, margin: 0, color: '#0F172A' }}>
+                  Manual Attendance Check-In
+                </h3>
+                <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0 0' }}>
+                  Record a verified attendance entry for today's registry.
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsCheckInModalOpen(false)}
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: 'var(--text-tertiary)',
-                  fontSize: '18px',
-                  cursor: 'pointer'
+                  color: '#94A3B8',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px'
                 }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleManualCheckIn} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleManualCheckIn} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label style={{ fontSize: '11.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>Personnel</label>
+                <label style={{ fontSize: '12px', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Personnel Name
+                </label>
                 <input
                   type="text"
-                  placeholder="Enter worker's full name"
+                  placeholder="Enter worker full name"
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-medium)',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    marginTop: '4px'
+                    padding: '11px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1.5px solid #E2E8F0',
+                    color: '#0F172A',
+                    fontSize: '13.5px',
+                    marginTop: '6px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '11.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</label>
+                <label style={{ fontSize: '12px', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Attendance Status
+                </label>
                 <select
                   value={manualStatus}
                   onChange={(e) => setManualStatus(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-medium)',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    marginTop: '4px'
+                    padding: '11px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1.5px solid #E2E8F0',
+                    color: '#0F172A',
+                    fontSize: '13.5px',
+                    marginTop: '6px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <option value="Present">Present</option>
                   <option value="Full Day">Full Day</option>
                   <option value="Half Day">Half Day</option>
-                  <option value="On Duty">On Duty</option>
+                  <option value="Overtime">Overtime</option>
                 </select>
               </div>
 
               <div>
-                <label style={{ fontSize: '11.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Reason</label>
+                <label style={{ fontSize: '12px', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Notes / Shift Reason
+                </label>
                 <input
                   type="text"
                   value={manualNotes}
                   onChange={(e) => setManualNotes(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-medium)',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    marginTop: '4px'
+                    padding: '11px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1.5px solid #E2E8F0',
+                    color: '#0F172A',
+                    fontSize: '13.5px',
+                    marginTop: '6px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
                 <button
                   type="button"
                   onClick={() => setIsCheckInModalOpen(false)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '6px',
-                    backgroundColor: 'transparent',
-                    border: '1px solid var(--border-subtle)',
-                    color: 'var(--text-secondary)',
-                    fontSize: '12.5px',
-                    cursor: 'pointer'
-                  }}
+                  className="donezo-btn-outline"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingCheckIn}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    backgroundColor: 'var(--accent-citron)',
-                    border: 'none',
-                    color: '#000',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
+                  className="donezo-btn-green"
                 >
                   {isSubmittingCheckIn ? 'Recording...' : 'Record Check-In'}
                 </button>
