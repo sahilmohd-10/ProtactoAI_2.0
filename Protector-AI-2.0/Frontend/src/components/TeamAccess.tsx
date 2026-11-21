@@ -1,10 +1,31 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Search,
+  Users,
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Key,
+  CheckCircle2,
+  AlertCircle,
+  Trash2,
+  RefreshCw,
+  Copy,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  UserPlus,
+  Lock,
+  X,
+  Clock,
+  Sparkles
+} from 'lucide-react';
 import type { User, AuthUser } from '../types';
 import { api } from '../services/api';
 
 interface TeamAccessProps {
   users: User[];
-  permissionMatrix: Record<string, string[]>;
+  permissionMatrix?: Record<string, string[]>;
   currentUser?: AuthUser | null;
   onRefreshTeam?: () => void;
   onSwitchToFaceTraining?: () => void;
@@ -16,11 +37,32 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   onRefreshTeam,
   onSwitchToFaceTraining
 }) => {
-  // Always grant full administrative management capability to user
-  const canManage = true;
-  
-  // State for Add Member Modal
+  // Search & Filters State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'All' | 'Administrator' | 'Operator'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Active' | 'Inactive'>('All');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
+
+  // Modals & Async States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPruning, setIsPruning] = useState(false);
+  const [authorizingUserId, setAuthorizingUserId] = useState<number | null>(null);
+  const [isTokenLoading, setIsTokenLoading] = useState(false);
+  const [operatorToken, setOperatorToken] = useState('OP-AUTH-2026');
+
+  // Copy Feedback State
+  const [copiedMasterToken, setCopiedMasterToken] = useState(false);
+  const [copiedTokenUserId, setCopiedTokenUserId] = useState<number | null>(null);
+
+  // Success Toast
+  const [successToast, setSuccessToast] = useState('');
+
+  // Add Member Form
   const [formData, setFormData] = useState({
     username: '',
     first_name: '',
@@ -32,12 +74,8 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [successToast, setSuccessToast] = useState('');
 
-  // Operator Authorization Token Management
-  const [operatorToken, setOperatorToken] = useState('OP-AUTH-2026');
-  const [isTokenLoading, setIsTokenLoading] = useState(false);
-
+  // Auto-fetch Master Operator Token
   useEffect(() => {
     const fetchToken = async () => {
       try {
@@ -52,13 +90,32 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     fetchToken();
   }, []);
 
+  const showSuccess = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(''), 4500);
+  };
+
+  const handleCopyMasterToken = () => {
+    navigator.clipboard.writeText(operatorToken);
+    setCopiedMasterToken(true);
+    showSuccess(`Copied Master Token (${operatorToken}) to clipboard.`);
+    setTimeout(() => setCopiedMasterToken(false), 2000);
+  };
+
+  const handleCopyUserToken = (user: User, token: string) => {
+    navigator.clipboard.writeText(token);
+    setCopiedTokenUserId(user.id);
+    showSuccess(`Copied unique passkey for ${user.name} (${token})`);
+    setTimeout(() => setCopiedTokenUserId(null), 2000);
+  };
+
   const handleGenerateNewToken = async () => {
     setIsTokenLoading(true);
     try {
       const res = await api.createOperatorToken();
       if (res?.active_token) {
         setOperatorToken(res.active_token);
-        showSuccess(`Generated new Operator Authorization Token: ${res.active_token}`);
+        showSuccess(`Generated brand new Master Security Token: ${res.active_token}`);
       }
     } catch (err: any) {
       alert(`Failed to generate token: ${err.message}`);
@@ -67,23 +124,12 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     }
   };
 
-  // Delete Individual User State
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Prune Test Operators State
-  const [isPruning, setIsPruning] = useState(false);
-
-  // Filter Tabs & Authorization State
-  const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'operator' | 'admin'>('all');
-  const [authorizingUserId, setAuthorizingUserId] = useState<number | null>(null);
-
   const handleAuthorizeUser = async (user: User) => {
     setAuthorizingUserId(user.id);
     try {
       const res: any = await (api as any).authorizeUser(user.id);
       if (res?.success) {
-        showSuccess(`Authorized operator ${user.name}! Unique Token: ${res?.token || 'Issued'}`);
+        showSuccess(`Authorized operator ${user.name}! Unique Passkey: ${res?.token || 'Issued'}`);
         if (onRefreshTeam) onRefreshTeam();
       }
     } catch (err: any) {
@@ -97,7 +143,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     try {
       const res: any = await (api as any).regenerateUserToken(user.id);
       if (res?.success) {
-        showSuccess(`Generated new unique token for ${user.name}: ${res?.token}`);
+        showSuccess(`Regenerated passkey for ${user.name}: ${res?.token}`);
         if (onRefreshTeam) onRefreshTeam();
       }
     } catch (err: any) {
@@ -110,17 +156,12 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     try {
       const res: any = await (api as any).revokeUserAuthorization(user.id);
       if (res?.success) {
-        showSuccess(`Revoked authorization for ${user.name}. Status set to Pending.`);
+        showSuccess(`Revoked authorization for ${user.name}. Status reverted to Pending.`);
         if (onRefreshTeam) onRefreshTeam();
       }
     } catch (err: any) {
       alert(`Failed to revoke operator: ${err.message}`);
     }
-  };
-
-  const showSuccess = (msg: string) => {
-    setSuccessToast(msg);
-    setTimeout(() => setSuccessToast(''), 4500);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -158,27 +199,6 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     }
   };
 
-  const handleRoleChange = async (userId: number, newRole: 'Administrator' | 'Operator') => {
-    try {
-      await api.updateTeamUser(userId, { role: newRole });
-      showSuccess(`Updated security role to ${newRole}`);
-      if (onRefreshTeam) onRefreshTeam();
-    } catch (err: any) {
-      alert(`Failed to update role: ${err.message}`);
-    }
-  };
-
-  const handleStatusToggle = async (userId: number, currentStatus: string) => {
-    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-    try {
-      await api.updateTeamUser(userId, { status: newStatus as any });
-      showSuccess(`Account status changed to ${newStatus}`);
-      if (onRefreshTeam) onRefreshTeam();
-    } catch (err: any) {
-      alert(`Failed to toggle status: ${err.message}`);
-    }
-  };
-
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     setIsDeleting(true);
@@ -210,715 +230,1087 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
     }
   };
 
-  const hasTestUsers = users.some(u => u.email.startsWith('worker_') || u.name.includes('Test Operator'));
+  // Filter Logic (Identical to Incidents)
+  const filtered = users.filter((u) => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesQ =
+      !q ||
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      ((u as any).operator_auth_token || '').toLowerCase().includes(q) ||
+      (u.role || '').toLowerCase().includes(q);
+
+    const matchesRole =
+      roleFilter === 'All' ||
+      (roleFilter === 'Administrator' && (u.role === 'Administrator' || (u as any).role === 'Admin')) ||
+      (roleFilter === 'Operator' && u.role === 'Operator');
+
+    const matchesStatus =
+      statusFilter === 'All' ||
+      String(u.status).toLowerCase() === statusFilter.toLowerCase();
+
+    return matchesQ && matchesRole && matchesStatus;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageUsers = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Metrics
+  const pendingCount = users.filter((u) => String(u.status) === 'Pending').length;
+  const activeOpsCount = users.filter((u) => u.role === 'Operator' && String(u.status) === 'Active').length;
+  const adminCount = users.filter((u) => u.role === 'Administrator' || (u as any).role === 'Admin').length;
+  const hasTestUsers = users.some(
+    (u) => u.email.startsWith('worker_') || u.name.includes('Test Operator')
+  );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Toast Alert */}
       {successToast && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '24px',
-          zIndex: 9999,
-          backgroundColor: 'var(--bg-surface-elevated)',
-          border: '1px solid var(--accent-citron)',
-          color: 'var(--text-primary)',
-          padding: '12px 18px',
-          borderRadius: '8px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent-citron)' }} />
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '24px',
+            zIndex: 9999,
+            backgroundColor: '#0F172A',
+            border: '1px solid #334155',
+            color: '#FFFFFF',
+            padding: '12px 18px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}
+        >
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E' }} />
           {successToast}
         </div>
       )}
 
-      {/* Header & Section Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+      {/* Top Header & Actions Card (Organized like Incidents) */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '20px',
+          padding: '20px 24px',
+          border: '1px solid #E2E8F0'
+        }}
+      >
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-            Team Access & Role Permissions
+          <h1
+            style={{
+              fontSize: '22px',
+              fontWeight: 800,
+              color: '#0F172A',
+              margin: 0,
+              letterSpacing: '-0.02em'
+            }}
+          >
+            Team Access & Authentication
           </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '4px 0 0 0', maxWidth: '640px' }}>
-            Manage user accounts, assign Administrator or Operator roles, and configure role-based access control.
+          <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+            Manage authorized operators, enforce Administrator security tokens, and oversee team credentials.
           </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {hasTestUsers && (
             <button
+              type="button"
               onClick={handleCleanupTestUsers}
               disabled={isPruning}
-              className="btn-secondary"
               style={{
-                color: 'var(--safety-violation)',
-                borderColor: 'rgba(255, 90, 82, 0.4)',
-                backgroundColor: 'rgba(255, 90, 82, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-              {isPruning ? 'Pruning...' : 'Prune Test Operators'}
-            </button>
-          )}
-
-          {onSwitchToFaceTraining && (
-            <button
-              onClick={onSwitchToFaceTraining}
-              className="btn-secondary"
-              style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                color: '#0F5132',
-                backgroundColor: 'rgba(15, 81, 50, 0.08)',
-                borderColor: 'rgba(15, 81, 50, 0.3)'
+                padding: '9px 16px',
+                backgroundColor: '#FEE2E2',
+                border: '1px solid #FCA5A5',
+                borderRadius: '12px',
+                color: '#B91C1C',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: isPruning ? 'not-allowed' : 'pointer'
               }}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-              Face Training Studio
+              <Trash2 size={14} />
+              <span>{isPruning ? 'Pruning...' : 'Prune Test Operators'}</span>
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => {
               if (onRefreshTeam) onRefreshTeam();
               showSuccess('Team roster refreshed.');
             }}
-            className="btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              backgroundColor: '#FFFFFF',
+              border: '1.5px solid #CBD5E1',
+              borderRadius: '12px',
+              color: '#0F172A',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-            </svg>
-            Refresh
+            <RefreshCw size={14} />
+            <span>Refresh</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="btn-citron"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 18px',
+              backgroundColor: '#0F5132',
+              border: 'none',
+              borderRadius: '12px',
+              color: '#FFFFFF',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(15, 81, 50, 0.25)'
+            }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            Add Team Member
+            <UserPlus size={15} />
+            <span>Add Team Member</span>
           </button>
         </div>
       </div>
 
-      {/* Administrator Operator Authorization Control Panel */}
-      <div style={{
-        backgroundColor: 'var(--bg-surface-elevated)',
-        borderRadius: '16px',
-        padding: '20px 24px',
-        border: '1.5px solid var(--border-subtle)',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '280px' }}>
-          <div style={{
-            width: '46px',
-            height: '46px',
-            borderRadius: '12px',
-            backgroundColor: 'rgba(2, 132, 199, 0.12)',
-            border: '1px solid rgba(2, 132, 199, 0.25)',
+      {/* Telemetry Stat Cards Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '16px'
+        }}
+      >
+        {/* Card 1: Total Personnel */}
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: '1px solid #E2E8F0',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            color: '#0284C7',
-            flexShrink: 0
-          }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <circle cx="12" cy="11" r="2"/>
-            </svg>
+            gap: '16px'
+          }}
+        >
+          <div
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              backgroundColor: '#F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#334155',
+              flexShrink: 0
+            }}
+          >
+            <Users size={22} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Operator Authorization Gatekeeper
-              </span>
-              <span style={{
-                fontSize: '10px',
-                fontFamily: 'var(--font-mono)',
-                padding: '2px 8px',
-                borderRadius: '100px',
-                backgroundColor: 'rgba(34, 197, 94, 0.12)',
-                color: '#16A34A',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                fontWeight: 700
-              }}>
-                MANDATORY ENFORCED
-              </span>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>
+              {users.length}
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0', maxWidth: '580px', lineHeight: 1.4 }}>
-              Operators can only log in if they provide their username, password, and this Administrator-issued security token. Anyone without this token is blocked.
-            </p>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginTop: '2px' }}>
+              Total Registered Accounts
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{
+        {/* Card 2: Active Operators */}
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px'
+          }}
+        >
+          <div
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              backgroundColor: '#E0F2FE',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#0284C7',
+              flexShrink: 0
+            }}
+          >
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0284C7', lineHeight: 1.1 }}>
+              {activeOpsCount}
+            </div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginTop: '2px' }}>
+              Active Authorized Operators
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Pending Approval */}
+        <div
+          style={{
+            backgroundColor: pendingCount > 0 ? '#FFFBEB' : '#FFFFFF',
+            borderRadius: '20px',
+            padding: '18px 20px',
+            border: pendingCount > 0 ? '1.5px solid #FCD34D' : '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            cursor: pendingCount > 0 ? 'pointer' : 'default'
+          }}
+          onClick={() => {
+            if (pendingCount > 0) {
+              setStatusFilter('Pending');
+              setCurrentPage(1);
+            }
+          }}
+          title={pendingCount > 0 ? 'Click to filter pending operators' : ''}
+        >
+          <div
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              backgroundColor: pendingCount > 0 ? '#FEF3C7' : '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: pendingCount > 0 ? '#D97706' : '#94A3B8',
+              flexShrink: 0
+            }}
+          >
+            <AlertCircle size={22} />
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: '24px',
+                fontWeight: 800,
+                color: pendingCount > 0 ? '#D97706' : '#0F172A',
+                lineHeight: 1.1
+              }}
+            >
+              {pendingCount}
+            </div>
+            <div
+              style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                color: pendingCount > 0 ? '#B45309' : '#64748B',
+                marginTop: '2px'
+              }}
+            >
+              {pendingCount > 0 ? 'Pending Admin Authorization' : 'All Operators Authorized'}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Master Security Passkey */}
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '16px 20px',
+            border: '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '14px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                backgroundColor: '#DCFCE7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#16A34A',
+                flexShrink: 0
+              }}
+            >
+              <Key size={20} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                Master Access Key
+              </div>
+              <div
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  color: '#0F5132',
+                  letterSpacing: '0.5px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {operatorToken}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={handleCopyMasterToken}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                backgroundColor: '#FFFFFF',
+                color: '#0F172A',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+              title="Copy Master Token"
+            >
+              {copiedMasterToken ? <Check size={12} color="#16A34A" /> : <Copy size={12} />}
+              <span>{copiedMasterToken ? 'Copied' : 'Copy'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateNewToken}
+              disabled={isTokenLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '6px 8px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: '#F1F5F9',
+                color: '#334155',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: isTokenLoading ? 'not-allowed' : 'pointer'
+              }}
+              title="Generate New Token"
+            >
+              <RefreshCw size={12} className={isTokenLoading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter & Search Bar Card (Matching Incidents Style) */}
+      <div
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '20px',
+          padding: '16px 20px',
+          border: '1px solid #E2E8F0',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '16px',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        {/* Search */}
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '8px 16px',
-            borderRadius: '10px',
-            backgroundColor: 'var(--bg-app)',
-            border: '1px solid var(--border-subtle)'
-          }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Active Key:</span>
-            <span style={{ fontSize: '15px', fontWeight: 800, color: '#0284C7', fontFamily: 'monospace', letterSpacing: '1px' }}>
-              {operatorToken}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(operatorToken);
-              showSuccess(`Copied Operator Authorization Token (${operatorToken}) to clipboard.`);
+            backgroundColor: '#F8FAFC',
+            padding: '8px 14px',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            flex: 1,
+            minWidth: '240px',
+            maxWidth: '420px'
+          }}
+        >
+          <Search size={16} color="#94A3B8" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
             }}
-            className="btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-            Copy Token
-          </button>
-
-          <button
-            type="button"
-            onClick={handleGenerateNewToken}
-            disabled={isTokenLoading}
-            className="btn-citron"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-            </svg>
-            {isTokenLoading ? 'Generating...' : 'Generate New Token'}
-          </button>
+            placeholder="Search member by name, username, email, token..."
+            style={{
+              border: 'none',
+              background: 'transparent',
+              outline: 'none',
+              width: '100%',
+              fontSize: '13px',
+              color: '#0F172A'
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#94A3B8' }}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
-      </div>
 
-      {/* Users Roster Table with Authorization Filter Tabs */}
-      <div className="precision-surface" style={{ overflow: 'hidden' }}>
-        <div style={{
-          padding: '12px 18px',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
-          {/* Filter Navigation Tabs */}
+        {/* Filters Group */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Role Filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              type="button"
-              onClick={() => setFilterTab('all')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                fontWeight: 700,
-                backgroundColor: filterTab === 'all' ? 'var(--bg-app)' : 'transparent',
-                color: filterTab === 'all' ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                boxShadow: filterTab === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-              }}
-            >
-              ALL MEMBERS ({users.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTab('pending')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                backgroundColor: filterTab === 'pending' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                color: filterTab === 'pending' ? '#D97706' : users.filter(u => String(u.status) === 'Pending').length > 0 ? '#F59E0B' : 'var(--text-tertiary)'
-              }}
-            >
-              <span>PENDING APPROVAL</span>
-              <span style={{
-                backgroundColor: users.filter(u => String(u.status) === 'Pending').length > 0 ? '#F59E0B' : 'var(--border-subtle)',
-                color: users.filter(u => String(u.status) === 'Pending').length > 0 ? '#000000' : 'var(--text-tertiary)',
-                borderRadius: '100px',
-                fontSize: '10px',
-                padding: '1px 6px',
-                fontWeight: 800
-              }}>
-                {users.filter(u => String(u.status) === 'Pending').length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTab('operator')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                fontWeight: 700,
-                backgroundColor: filterTab === 'operator' ? 'var(--bg-app)' : 'transparent',
-                color: filterTab === 'operator' ? 'var(--text-primary)' : 'var(--text-tertiary)'
-              }}
-            >
-              OPERATORS ({users.filter(u => u.role === 'Operator').length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTab('admin')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                fontWeight: 700,
-                backgroundColor: filterTab === 'admin' ? 'var(--bg-app)' : 'transparent',
-                color: filterTab === 'admin' ? 'var(--text-primary)' : 'var(--text-tertiary)'
-              }}
-            >
-              ADMINISTRATORS
-            </button>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8', marginRight: '4px' }}>ROLE:</span>
+            {(['All', 'Administrator', 'Operator'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => {
+                  setRoleFilter(r);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '12px',
+                  fontWeight: roleFilter === r ? 700 : 500,
+                  backgroundColor: roleFilter === r ? '#0F5132' : '#F1F5F9',
+                  color: roleFilter === r ? '#FFFFFF' : '#475569',
+                  cursor: 'pointer'
+                }}
+              >
+                {r === 'Administrator' ? 'Admins' : r === 'Operator' ? 'Operators' : 'All Roles'}
+              </button>
+            ))}
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <span className="status-pill status-pill-safe">MFA ENFORCED</span>
-            <span className="status-pill status-pill-safe" style={{ color: 'var(--accent-citron)', borderColor: 'rgba(215, 255, 100, 0.4)' }}>
-              ADMIN PRIVILEGES GRANTED
-            </span>
-          </div>
-        </div>
+          {/* Status Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8', marginRight: '4px' }}>STATUS:</span>
+            {(['All', 'Pending', 'Active', 'Inactive'] as const).map((st) => {
+              const count =
+                st === 'Pending'
+                  ? pendingCount
+                  : st === 'Active'
+                  ? users.filter((u) => String(u.status) === 'Active').length
+                  : st === 'Inactive'
+                  ? users.filter((u) => String(u.status) === 'Inactive').length
+                  : users.length;
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-surface-elevated)' }}>
-                <th style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Member Identity</th>
-                <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Security Role</th>
-                <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Account Status</th>
-                <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Unique Security Token</th>
-                <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Last Active</th>
-                <th style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase', textAlign: 'right' }}>Admin Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users
-                .filter(u => {
-                  if (filterTab === 'pending') return String(u.status) === 'Pending';
-                  if (filterTab === 'operator') return u.role === 'Operator';
-                  if (filterTab === 'admin') return u.role === 'Administrator' || (u as any).role === 'Admin';
-                  return true;
-                })
-                .map((user) => {
-                const isRootAdmin = user.email === 'admin@protector.ai' && (user.role === 'Administrator' || (user as any).role === 'Admin');
-                const isCurrent = currentUser?.id === user.id || currentUser?.email === user.email;
-                const isPending = String(user.status) === 'Pending';
+              const isSelected = statusFilter === st;
 
-                return (
-                  <tr
-                    key={user.id}
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(st);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: isSelected ? 700 : 500,
+                    backgroundColor: isSelected
+                      ? st === 'Pending'
+                        ? '#D97706'
+                        : '#1E293B'
+                      : st === 'Pending' && pendingCount > 0
+                      ? '#FEF3C7'
+                      : '#F1F5F9',
+                    color: isSelected
+                      ? '#FFFFFF'
+                      : st === 'Pending' && pendingCount > 0
+                      ? '#B45309'
+                      : '#475569',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <span>{st}</span>
+                  <span
                     style={{
-                      borderBottom: '1px solid var(--border-subtle)',
-                      transition: 'background-color 0.15s',
-                      backgroundColor: isPending ? 'rgba(245, 158, 11, 0.04)' : 'transparent'
+                      fontSize: '10px',
+                      padding: '1px 5px',
+                      borderRadius: '100px',
+                      backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.06)',
+                      fontWeight: 800
                     }}
                   >
-                    {/* Identity */}
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '6px',
-                          backgroundColor: 'var(--bg-surface-elevated)',
-                          border: isPending ? '1.5px solid #F59E0B' : '1px solid var(--border-charcoal)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '11px',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 700,
-                          color: isPending ? '#D97706' : user.role === 'Administrator' || (user as any).role === 'Admin' ? 'var(--accent-citron)' : 'var(--text-primary)'
-                        }}>
-                          {user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
-                        </div>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{user.name}</span>
-                            {isCurrent && (
-                              <span style={{
-                                fontSize: '9px',
-                                fontFamily: 'var(--font-mono)',
-                                padding: '1px 5px',
-                                borderRadius: '3px',
-                                backgroundColor: 'rgba(215, 255, 100, 0.15)',
-                                color: 'var(--accent-citron)',
-                                border: '1px solid rgba(215, 255, 100, 0.3)'
-                              }}>
-                                YOU
-                              </span>
-                            )}
-                            {isRootAdmin && (
-                              <span style={{
-                                fontSize: '9px',
-                                fontFamily: 'var(--font-mono)',
-                                padding: '1px 5px',
-                                borderRadius: '3px',
-                                backgroundColor: 'rgba(99, 214, 161, 0.15)',
-                                color: 'var(--safety-safe)',
-                                border: '1px solid rgba(99, 214, 161, 0.3)'
-                              }}>
-                                ROOT
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Role Switcher */}
-                    <td style={{ padding: '12px 14px' }}>
-                      <select
-                        value={user.role === 'Admin' ? 'Administrator' : user.role}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value as any)}
-                        style={{
-                          backgroundColor: 'var(--bg-app)',
-                          border: '1px solid var(--border-subtle)',
-                          color: user.role === 'Administrator' || user.role === 'Admin' ? 'var(--accent-citron)' : 'var(--text-primary)',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '11px',
-                          outline: 'none',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <option value="Administrator">Administrator</option>
-                        <option value="Operator">Operator</option>
-                      </select>
-                    </td>
-
-                    {/* Status Display */}
-                    <td style={{ padding: '12px 14px' }}>
-                      {isPending ? (
-                        <span
-                          className="status-pill"
-                          style={{
-                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                            color: '#D97706',
-                            border: '1px solid rgba(245, 158, 11, 0.4)',
-                            fontWeight: 700,
-                            fontSize: '10px'
-                          }}
-                        >
-                          ⏳ PENDING APPROVAL
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleStatusToggle(user.id, user.status)}
-                          title="Click to toggle account status"
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          <span className={`status-pill ${user.status === 'Active' ? 'status-pill-safe' : 'status-pill-warning'}`} style={{ cursor: 'pointer' }}>
-                            ✓ {user.status}
-                          </span>
-                        </button>
-                      )}
-                    </td>
-
-                    {/* Unique Security Token */}
-                    <td style={{ padding: '12px 14px' }}>
-                      {user.role === 'Operator' ? (
-                        (user as any).operator_auth_token ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <code style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              color: '#0284C7',
-                              backgroundColor: 'var(--bg-app)',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--border-subtle)',
-                              letterSpacing: '0.5px'
-                            }}>
-                              {(user as any).operator_auth_token}
-                            </code>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const tok = (user as any).operator_auth_token;
-                                if (tok) {
-                                  navigator.clipboard.writeText(tok);
-                                  showSuccess(`Copied unique token for ${user.name} (${tok})`);
-                                }
-                              }}
-                              className="btn-secondary"
-                              style={{ padding: '2px 6px', fontSize: '10px' }}
-                              title="Copy Token"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                            {isPending ? 'Pending Issuance' : 'OP-AUTH-2026 (Default)'}
-                          </span>
-                        )
-                      ) : (
-                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                          Master Administrator
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Last Active */}
-                    <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', fontSize: '11px' }}>
-                      {user.last_active ? new Date(user.last_active).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Online now'}
-                    </td>
-
-                    {/* Actions */}
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      {isRootAdmin ? (
-                        <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>
-                          Protected Root
-                        </span>
-                      ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                          {isPending ? (
-                            <button
-                              type="button"
-                              disabled={authorizingUserId === user.id}
-                              onClick={() => handleAuthorizeUser(user)}
-                              className="btn-citron"
-                              style={{
-                                fontSize: '11px',
-                                padding: '4px 10px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontWeight: 700
-                              }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                              </svg>
-                              {authorizingUserId === user.id ? 'Authorizing...' : 'Authorize & Issue Token'}
-                            </button>
-                          ) : user.role === 'Operator' ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleRegenerateToken(user)}
-                                className="btn-secondary"
-                                style={{ fontSize: '10.5px', padding: '3px 8px' }}
-                                title="Regenerate a brand new unique security passkey"
-                              >
-                                ↻ New Token
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeUser(user)}
-                                style={{
-                                  fontSize: '10.5px',
-                                  padding: '3px 8px',
-                                  color: '#EF4444',
-                                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer'
-                                }}
-                                title="Revoke authorization"
-                              >
-                                Revoke
-                              </button>
-                            </>
-                          ) : null}
-
-                          <button
-                            onClick={() => setUserToDelete(user)}
-                            style={{
-                              fontSize: '11px',
-                              padding: '4px 8px',
-                              color: 'var(--safety-violation)',
-                              backgroundColor: 'rgba(255, 90, 82, 0.08)',
-                              border: '1px solid rgba(255, 90, 82, 0.25)',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontFamily: 'var(--font-mono)'
-                            }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                            Remove
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Role Privileges Matrix */}
-      <div className="precision-surface" style={{ padding: '20px' }}>
-        <div className="section-tag" style={{ marginBottom: '14px' }}>
-          <span className="section-tag-num">02</span>
-          <span>/ ROLE PRIVILEGES MATRIX</span>
-        </div>
-
+      {/* Structured Clean Members Table Card (Matching Incidents Table) */}
+      <div
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '20px',
+          border: '1px solid #E2E8F0',
+          overflow: 'hidden'
+        }}
+      >
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)', backgroundColor: 'var(--bg-surface-elevated)' }}>
-                <th style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', fontSize: '10px' }}>PERMISSION SCOPE</th>
-                <th style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--accent-citron)', textAlign: 'center', fontSize: '10.5px' }}>ADMINISTRATOR</th>
-                <th style={{ padding: '8px 12px', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', textAlign: 'center', fontSize: '10.5px' }}>OPERATOR</th>
+              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                  MEMBER IDENTITY
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                  SECURITY ROLE
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                  ACCOUNT STATUS
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                  SECURITY PASSKEY
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                  LAST ACTIVE
+                </th>
+                <th style={{ padding: '14px 18px', fontSize: '12px', fontWeight: 700, color: '#64748B', textAlign: 'right' }}>
+                  ADMIN ACTIONS
+                </th>
               </tr>
             </thead>
             <tbody>
-              {[
-                { label: 'View Real-Time Optical Feeds', admin: true, op: true },
-                { label: 'Acknowledge PPE Infractions', admin: true, op: true },
-                { label: 'Resolve Safety Violations', admin: true, op: true },
-                { label: 'Permanently Delete Incident Records', admin: true, op: false },
-                { label: 'Manage Team Members & Assign Security Roles', admin: true, op: true },
-                { label: 'Execute Terminal Administrative Commands', admin: true, op: true },
-                { label: 'Calibrate YOLOv8 Inference & Hardware Telemetry', admin: true, op: true },
-                { label: 'Export Formal Compliance Audits', admin: true, op: true },
-              ].map((perm) => (
-                <tr key={perm.label} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <td style={{ padding: '9px 12px', color: 'var(--text-primary)', fontWeight: 500 }}>
-                    {perm.label}
-                  </td>
-                  <td style={{ padding: '9px 12px', textAlign: 'center', color: 'var(--safety-safe)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                    ✓
-                  </td>
-                  <td style={{ padding: '9px 12px', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
-                    {perm.op ? (
-                      <span style={{ color: 'var(--safety-safe)', fontWeight: 700 }}>✓</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    )}
+              {pageUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748B' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <Users size={32} color="#CBD5E1" />
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>No matching team members found</div>
+                      <div style={{ fontSize: '12px', color: '#94A3B8' }}>Try adjusting your search criteria or filter tags.</div>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                pageUsers.map((user) => {
+                  const isRootAdmin =
+                    user.email === 'admin@protector.ai' &&
+                    (user.role === 'Administrator' || (user as any).role === 'Admin');
+                  const isPending = String(user.status) === 'Pending';
+                  const isOperator = user.role === 'Operator';
+                  const userPasskey = (user as any).operator_auth_token;
+                  const initials = user.name
+                    ? user.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()
+                    : 'U';
+
+                  return (
+                    <tr
+                      key={user.id}
+                      style={{
+                        borderBottom: '1px solid #F1F5F9',
+                        backgroundColor: isPending ? '#FFFBEB' : '#FFFFFF',
+                        transition: 'background-color 0.15s ease'
+                      }}
+                    >
+                      {/* Member Identity */}
+                      <td style={{ padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '10px',
+                              backgroundColor: isRootAdmin
+                                ? '#0F5132'
+                                : isOperator
+                                ? '#E0F2FE'
+                                : '#F1F5F9',
+                              color: isRootAdmin
+                                ? '#FFFFFF'
+                                : isOperator
+                                ? '#0284C7'
+                                : '#334155',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              flexShrink: 0
+                            }}
+                          >
+                            {initials}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0F172A' }}>
+                              {user.name}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                              {user.email}
+                              {user.username && user.username !== user.email && (
+                                <span style={{ marginLeft: '6px', color: '#94A3B8', fontFamily: 'monospace' }}>
+                                  (@{user.username})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Security Role */}
+                      <td style={{ padding: '14px 18px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            backgroundColor: isOperator ? '#F0F9FF' : '#F5F3FF',
+                            color: isOperator ? '#0369A1' : '#6D28D9',
+                            border: `1px solid ${isOperator ? '#BAE6FD' : '#DDD6FE'}`
+                          }}
+                        >
+                          {isOperator ? <Shield size={12} /> : <Lock size={12} />}
+                          <span>{user.role}</span>
+                        </span>
+                      </td>
+
+                      {/* Account Status */}
+                      <td style={{ padding: '14px 18px' }}>
+                        {isPending ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#FEF3C7',
+                              color: '#B45309',
+                              border: '1px solid #FCD34D'
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                backgroundColor: '#F59E0B'
+                              }}
+                            />
+                            Pending Approval
+                          </span>
+                        ) : String(user.status) === 'Active' ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#DCFCE7',
+                              color: '#15803D',
+                              border: '1px solid #86EFAC'
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                backgroundColor: '#22C55E'
+                              }}
+                            />
+                            Active
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              backgroundColor: '#F1F5F9',
+                              color: '#64748B',
+                              border: '1px solid #CBD5E1'
+                            }}
+                          >
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Security Passkey */}
+                      <td style={{ padding: '14px 18px' }}>
+                        {isOperator ? (
+                          userPasskey ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <code
+                                style={{
+                                  fontFamily: 'monospace',
+                                  fontSize: '11.5px',
+                                  fontWeight: 800,
+                                  color: '#0369A1',
+                                  backgroundColor: '#F0F9FF',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #BAE6FD',
+                                  letterSpacing: '0.5px'
+                                }}
+                              >
+                                {userPasskey}
+                              </code>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyUserToken(user, userPasskey)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #CBD5E1',
+                                  backgroundColor: '#FFFFFF',
+                                  color: '#0F172A',
+                                  cursor: 'pointer',
+                                  fontSize: '11px'
+                                }}
+                                title="Copy Passkey"
+                              >
+                                {copiedTokenUserId === user.id ? (
+                                  <Check size={11} color="#16A34A" />
+                                ) : (
+                                  <Copy size={11} />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '11.5px', color: isPending ? '#D97706' : '#94A3B8', fontStyle: 'italic' }}>
+                              {isPending ? 'Pending Issuance' : 'OP-AUTH-2026 (Default)'}
+                            </span>
+                          )
+                        ) : (
+                          <span style={{ fontSize: '11.5px', color: '#94A3B8', fontStyle: 'italic' }}>
+                            Root Admin Access
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Last Active */}
+                      <td style={{ padding: '14px 18px', fontSize: '12px', color: '#64748B' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Clock size={13} color="#94A3B8" />
+                          <span>
+                            {user.last_active
+                              ? new Date(user.last_active).toLocaleDateString([], {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })
+                              : 'Active today'}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Admin Actions */}
+                      <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                        {isRootAdmin ? (
+                          <span style={{ fontSize: '11.5px', color: '#94A3B8', fontStyle: 'italic' }}>
+                            Protected Master
+                          </span>
+                        ) : (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                            {isPending ? (
+                              <button
+                                type="button"
+                                disabled={authorizingUserId === user.id}
+                                onClick={() => handleAuthorizeUser(user)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  padding: '6px 12px',
+                                  backgroundColor: '#0F5132',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: authorizingUserId === user.id ? 'not-allowed' : 'pointer',
+                                  boxShadow: '0 2px 6px rgba(15, 81, 50, 0.25)'
+                                }}
+                              >
+                                <CheckCircle2 size={13} />
+                                <span>{authorizingUserId === user.id ? 'Authorizing...' : 'Authorize'}</span>
+                              </button>
+                            ) : isOperator ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRegenerateToken(user)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '5px 9px',
+                                    backgroundColor: '#FFFFFF',
+                                    border: '1px solid #CBD5E1',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: '#0F172A',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Issue a new unique token"
+                                >
+                                  <RefreshCw size={11} />
+                                  <span>Token</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeUser(user)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '5px 9px',
+                                    backgroundColor: '#FEE2E2',
+                                    border: '1px solid #FCA5A5',
+                                    borderRadius: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: '#B91C1C',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Revoke operator authorization"
+                                >
+                                  Revoke
+                                </button>
+                              </>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(user)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '6px',
+                                backgroundColor: '#FFFFFF',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '8px',
+                                color: '#EF4444',
+                                cursor: 'pointer'
+                              }}
+                              title="Delete Member"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar (Matching Incidents Pagination) */}
+        {filtered.length > pageSize && (
+          <div
+            style={{
+              padding: '14px 20px',
+              backgroundColor: '#F8FAFC',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}
+          >
+            <div style={{ fontSize: '12.5px', color: '#64748B' }}>
+              Showing {(currentPage - 1) * pageSize + 1} to{' '}
+              {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} members
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  backgroundColor: currentPage === 1 ? '#F1F5F9' : '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: currentPage === 1 ? '#94A3B8' : '#0F172A',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <ChevronLeft size={14} />
+                <span>Previous</span>
+              </button>
+
+              <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A', padding: '0 6px' }}>
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  backgroundColor: currentPage === totalPages ? '#F1F5F9' : '#FFFFFF',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: currentPage === totalPages ? '#94A3B8' : '#0F172A',
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <span>Next</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Add User Modal */}
+      {/* Add Member Modal (Apple HIG Style) */}
       {isAddModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px'
-        }}>
-          <div className="precision-surface" style={{
-            width: '100%',
-            maxWidth: '480px',
-            padding: '24px',
-            borderRadius: '12px',
-            border: '1px solid var(--border-charcoal)',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              padding: '24px 28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #E2E8F0'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <div>
-                <div className="section-tag" style={{ marginBottom: '4px' }}>
-                  <span className="section-tag-num">RBAC</span>
-                  <span>/ NEW CREDENTIAL</span>
-                </div>
-                <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Add Team Member</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                  Add Team Member
+                </h3>
+                <p style={{ fontSize: '12.5px', color: '#64748B', margin: '4px 0 0 0' }}>
+                  Register an operator or administrator credential.
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '18px', cursor: 'pointer' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '4px'
+                }}
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
 
             {errorMsg && (
-              <div style={{
-                padding: '8px 12px',
-                backgroundColor: 'var(--safety-violation-bg)',
-                border: '1px solid var(--safety-violation)',
-                color: 'var(--safety-violation)',
-                borderRadius: '6px',
-                fontSize: '11.5px',
-                fontFamily: 'var(--font-mono)',
-                marginBottom: '14px'
-              }}>
+              <div
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#FEE2E2',
+                  border: '1px solid #FCA5A5',
+                  color: '#B91C1C',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  marginBottom: '16px',
+                  fontWeight: 600
+                }}
+              >
                 {errorMsg}
               </div>
             )}
 
-            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                     FIRST NAME *
                   </label>
                   <input
@@ -928,18 +1320,19 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                     onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                     style={{
                       width: '100%',
-                      backgroundColor: 'var(--bg-app)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      color: 'var(--text-primary)',
-                      fontSize: '12px',
-                      outline: 'none'
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '9px 12px',
+                      color: '#0F172A',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                     LAST NAME *
                   </label>
                   <input
@@ -949,69 +1342,71 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                     onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                     style={{
                       width: '100%',
-                      backgroundColor: 'var(--bg-app)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      color: 'var(--text-primary)',
-                      fontSize: '12px',
-                      outline: 'none'
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '9px 12px',
+                      color: '#0F172A',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                   USERNAME *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. john_officer"
+                  placeholder="e.g. operator_john"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   style={{
                     width: '100%',
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '12px',
-                    fontFamily: 'var(--font-mono)',
-                    outline: 'none'
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    padding: '9px 12px',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                   WORK EMAIL *
                 </label>
                 <input
                   type="email"
                   required
-                  placeholder="officer@protector.ai"
+                  placeholder="officer@company.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   style={{
                     width: '100%',
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '12px',
-                    fontFamily: 'var(--font-mono)',
-                    outline: 'none'
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    padding: '9px 12px',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                     ROLE
                   </label>
                   <select
@@ -1019,13 +1414,14 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                     onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
                     style={{
                       width: '100%',
-                      backgroundColor: 'var(--bg-app)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      color: 'var(--text-primary)',
-                      fontSize: '12px',
-                      outline: 'none'
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '9px 12px',
+                      color: '#0F172A',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                   >
                     <option value="Operator">Operator</option>
@@ -1034,30 +1430,31 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                     PHONE (OPTIONAL)
                   </label>
                   <input
                     type="tel"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="+91 98765 43210"
                     value={formData.phone_number}
                     onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                     style={{
                       width: '100%',
-                      backgroundColor: 'var(--bg-app)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: '6px',
-                      padding: '8px 10px',
-                      color: 'var(--text-primary)',
-                      fontSize: '12px',
-                      outline: 'none'
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '9px 12px',
+                      color: '#0F172A',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
                   INITIAL PASSWORD (DEFAULT: Protecto@2026)
                 </label>
                 <input
@@ -1067,34 +1464,51 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   style={{
                     width: '100%',
-                    backgroundColor: 'var(--bg-app)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    color: 'var(--text-primary)',
-                    fontSize: '12px',
-                    fontFamily: 'var(--font-mono)',
-                    outline: 'none'
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '10px',
+                    padding: '9px 12px',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="btn-secondary"
-                  style={{ fontSize: '12px' }}
+                  style={{
+                    padding: '9px 16px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '10px',
+                    color: '#0F172A',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn-citron"
-                  style={{ fontSize: '12px' }}
+                  style={{
+                    padding: '9px 20px',
+                    backgroundColor: '#0F5132',
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(15, 81, 50, 0.25)'
+                  }}
                 >
-                  {isSubmitting ? 'Registering...' : 'Create Account'}
+                  {isSubmitting ? 'Creating...' : 'Create Account'}
                 </button>
               </div>
             </form>
@@ -1104,37 +1518,51 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
 
       {/* Delete Confirmation Modal */}
       {userToDelete && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '20px'
-        }}>
-          <div className="precision-surface" style={{
-            width: '100%',
-            maxWidth: '420px',
-            padding: '24px',
-            borderRadius: '12px',
-            border: '1px solid var(--safety-violation)',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
-          }}>
-            <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--safety-violation)', marginBottom: '8px' }}>
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              padding: '24px 28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #E2E8F0'
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#DC2626', margin: 0, marginBottom: '8px' }}>
               Confirm Account Removal
             </h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px' }}>
-              Are you sure you want to permanently revoke credentials and delete <strong style={{ color: 'var(--text-primary)' }}>{userToDelete.name}</strong> ({userToDelete.email})?
+            <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.5, margin: '0 0 20px 0' }}>
+              Are you sure you want to permanently revoke credentials and remove{' '}
+              <strong style={{ color: '#0F172A' }}>{userToDelete.name}</strong> ({userToDelete.email})?
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button
                 type="button"
                 onClick={() => setUserToDelete(null)}
-                className="btn-secondary"
-                style={{ fontSize: '12px' }}
+                style={{
+                  padding: '9px 16px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '10px',
+                  color: '#0F172A',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
               >
                 Cancel
               </button>
@@ -1142,19 +1570,19 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                 type="button"
                 disabled={isDeleting}
                 onClick={handleDeleteUser}
-                className="btn-danger"
                 style={{
-                  fontSize: '12px',
-                  backgroundColor: 'var(--safety-violation)',
-                  color: '#fff',
+                  padding: '9px 18px',
+                  backgroundColor: '#DC2626',
+                  color: '#FFFFFF',
                   border: 'none',
-                  borderRadius: '5px',
-                  padding: '8px 16px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
                 }}
               >
-                {isDeleting ? 'Deleting...' : 'Remove Member'}
+                {isDeleting ? 'Removing...' : 'Remove Member'}
               </button>
             </div>
           </div>
