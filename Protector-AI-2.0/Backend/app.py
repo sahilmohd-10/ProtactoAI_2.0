@@ -841,6 +841,152 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         logger.info("ℹ️ SMTP credentials (SMTP_PASS) not set in .env; OTP logged to console only.")
     return False
 
+def send_agent_email(to_email: str, subject: str, message_body: str, category: str = "general") -> tuple[bool, str]:
+    """
+    Autonomous Email Agent dispatcher.
+    Sends rich HTML notifications, daily reports, and incident alerts to users.
+    """
+    to_email = (to_email or "").strip().lower()
+    subject = (subject or "Protector AI Notification").strip()
+    message_body = (message_body or "").strip()
+    category = category.lower().strip()
+
+    if not to_email:
+        return False, "Recipient email address is required."
+    if not message_body:
+        return False, "Message body cannot be empty."
+
+    logger.info(f"📧 [EMAIL AGENT] Dispatching {category.upper()} email to {to_email}: '{subject}'")
+
+    badge_color = "#2563EB"
+    badge_bg = "#EFF6FF"
+    badge_text = "PROTECTOR AI INTELLIGENCE"
+    if category == "alert":
+        badge_color = "#DC2626"
+        badge_bg = "#FEF2F2"
+        badge_text = "CRITICAL SAFETY ALERT"
+    elif category == "report":
+        badge_color = "#0284C7"
+        badge_bg = "#F0F9FF"
+        badge_text = "DAILY SAFETY REPORT"
+    elif category == "otp":
+        badge_color = "#16A34A"
+        badge_bg = "#F0FDF4"
+        badge_text = "SECURITY AUTHENTICATION"
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    formatted_body = "".join(f"<p style='margin: 0 0 12px 0; font-size: 14.5px; line-height: 1.6; color: #334155;'>{line}</p>" for line in message_body.split("\n") if line.strip())
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 32px 16px;">
+        <tr>
+          <td align="center">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #FFFFFF; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; overflow: hidden;">
+              <tr>
+                <td style="padding: 28px 32px; background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);">
+                  <div>
+                    <h1 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">🛡️ Protector AI 2.0</h1>
+                    <p style="color: #94A3B8; font-size: 11px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">Industrial Safety Intelligence</p>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 32px 32px 24px 32px;">
+                  <div style="display: inline-block; padding: 4px 10px; border-radius: 20px; background-color: {badge_bg}; color: {badge_color}; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 14px;">
+                    {badge_text}
+                  </div>
+                  <h2 style="color: #0F172A; font-size: 20px; font-weight: 800; margin: 0 0 16px 0; line-height: 1.3;">
+                    {subject}
+                  </h2>
+                  <div style="background-color: #FFFFFF; border-radius: 12px; margin-bottom: 24px;">
+                    {formatted_body}
+                  </div>
+                  <div style="border-top: 1px solid #F1F5F9; padding-top: 16px; margin-top: 20px;">
+                    <p style="font-size: 11.5px; color: #94A3B8; margin: 0;">Timestamp: {now_str} (IST) · Autonomous Safety Agent</p>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 16px 32px; background-color: #F8FAFC; border-top: 1px solid #F1F5F9; text-align: center;">
+                  <p style="color: #94A3B8; font-size: 11px; margin: 0; line-height: 1.5;">
+                    Protector AI 2.0 · Automated Optical Safety Monitoring Console<br/>
+                    Administrator: <strong>Mohd Sahil</strong>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    """
+
+    resend_api_key = os.getenv("RESEND_API_KEY", "")
+    if resend_api_key:
+        try:
+            import urllib.request
+            import json
+
+            def _send_resend(target: str) -> bool:
+                req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=json.dumps({
+                        "from": os.getenv("RESEND_FROM", "Protector AI <onboarding@resend.dev>"),
+                        "to": [target],
+                        "subject": subject,
+                        "html": html_content
+                    }).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {resend_api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "Protector-AI-Client/2.0"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    return resp.status in (200, 201)
+
+            try:
+                if _send_resend(to_email):
+                    logger.info(f"✅ [EMAIL AGENT] Successfully delivered '{subject}' to {to_email}")
+                    return True, f"Delivered directly to {to_email} via Resend HTTPS API"
+            except urllib.error.HTTPError as http_err:
+                err_text = http_err.read().decode("utf-8", errors="ignore")
+                if "protectoaismvdu@gmail.com" in err_text or "only send testing emails to your own email address" in err_text:
+                    logger.info("ℹ️ Resend sandbox mode: delivering to verified Resend address (protectoaismvdu@gmail.com)")
+                    if _send_resend("protectoaismvdu@gmail.com"):
+                        return True, f"Delivered to registered Resend inbox (protectoaismvdu@gmail.com) for {to_email}"
+                return False, f"Resend API error: {err_text}"
+        except Exception as e:
+            logger.warning(f"⚠️ Email Agent Resend dispatch error: {e}")
+            return False, str(e)
+
+    return False, "No email provider configured. Please set RESEND_API_KEY in .env."
+
+@app.route("/api/tools/send-email", methods=["POST"])
+def api_send_email():
+    data = request.get_json(silent=True) or {}
+    to_email = (data.get("recipient_email") or data.get("to") or "").strip()
+    subject = (data.get("subject") or "Protector AI Notification").strip()
+    message = (data.get("message") or data.get("body") or "").strip()
+    category = (data.get("category") or "general").strip()
+
+    if not to_email or not message:
+        return jsonify({"success": False, "error": "Recipient email and message body are required."}), 400
+
+    from tools import ToolRegistry
+    result = ToolRegistry.execute("send_email", {
+        "recipient_email": to_email,
+        "subject": subject,
+        "message": message,
+        "category": category
+    }, user_email="admin@protector.ai")
+
+    return jsonify(result)
+
 @app.route("/api/auth/forgot-password", methods=["POST"])
 def forgot_password():
     data = request.get_json(silent=True) or {}

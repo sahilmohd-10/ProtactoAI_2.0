@@ -620,6 +620,13 @@ export const api = {
     });
   },
 
+  async sendAgentEmail(recipient_email: string, subject: string, message: string, category?: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    return fetchJson('/api/tools/send-email', {
+      method: 'POST',
+      body: JSON.stringify({ recipient_email, subject, message, category: category || 'general' })
+    });
+  },
+
   // ==========================================
   // OPERATOR AUTHORIZATION TOKEN MANAGEMENT
   // ==========================================

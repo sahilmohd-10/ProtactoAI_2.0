@@ -152,6 +152,18 @@ TOOL_DEFINITIONS = {
         "parameters": {},
         "is_mutation": True,
         "requires_confirmation": False
+    },
+    "send_email": {
+        "name": "send_email",
+        "description": "Dispatch an official Protector AI security email, incident alert, daily report, or custom notification to a user.",
+        "parameters": {
+            "recipient_email": {"type": "string", "required": True},
+            "subject": {"type": "string", "required": True},
+            "message": {"type": "string", "required": True},
+            "category": {"type": "string", "enum": ["alert", "report", "otp", "general"], "default": "general"}
+        },
+        "is_mutation": True,
+        "requires_confirmation": False
     }
 }
 
@@ -547,5 +559,42 @@ class ToolRegistry:
             "success": success,
             "message": msg,
             "excel_path": str(attendance_service.excel_path)
+        }
+
+    @staticmethod
+    def _tool_send_email(db, args, user_email):
+        recipient = (args.get("recipient_email") or args.get("to") or "").strip()
+        subject = (args.get("subject") or "Protector AI Security Notification").strip()
+        message = (args.get("message") or args.get("body") or "").strip()
+        category = (args.get("category") or "general").strip()
+
+        if not recipient:
+            return {"success": False, "error": "Recipient email address is required."}
+        if not message:
+            return {"success": False, "error": "Email message body cannot be empty."}
+
+        from app import send_agent_email
+        success, info = send_agent_email(recipient, subject, message, category=category)
+
+        # Record immutable audit log
+        try:
+            audit = AuditLog(
+                user_id=1,
+                user_email=user_email,
+                action="AGENT_EMAIL_DISPATCH",
+                details=f"Email Agent sent '{subject}' to {recipient} (Status: {'Delivered' if success else 'Failed'}). Info: {info}",
+                timestamp=datetime.now(timezone.utc)
+            )
+            db.add(audit)
+            db.commit()
+        except Exception:
+            db.rollback()
+
+        return {
+            "success": success,
+            "recipient": recipient,
+            "subject": subject,
+            "status": "Delivered" if success else "Failed",
+            "info": info
         }
 
