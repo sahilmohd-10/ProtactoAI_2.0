@@ -722,15 +722,40 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
                     return True
             except urllib.error.HTTPError as http_err:
                 err_text = http_err.read().decode("utf-8", errors="ignore")
-                # If Resend test sandbox requires sending to the account owner email
-                if "protectoaismvdu@gmail.com" in err_text or "only send testing emails to your own email address" in err_text:
-                    logger.info("ℹ️ Resend sandbox mode detected: forwarding OTP to registered Resend owner (protectoaismvdu@gmail.com)")
-                    if _dispatch_resend("protectoaismvdu@gmail.com"):
-                        return True
-                else:
-                    logger.warning(f"⚠️ Resend HTTP {http_err.code}: {err_text}")
+                logger.warning(f"⚠️ Resend dispatch to {to_email} rejected (HTTP {http_err.code}): {err_text}")
+                if "only send testing emails to your own email address" in err_text:
+                    logger.warning(f"⚠️ Resend sandbox restriction: Current API key only delivers to its registered account. To send directly to {to_email}, create a Resend API key with {to_email} or verify a domain at resend.com/domains.")
+            except Exception as err:
+                logger.warning(f"⚠️ Could not dispatch via Resend: {err}")
         except Exception as err:
             logger.warning(f"⚠️ Could not dispatch via Resend: {err}")
+
+    # 2. Try Brevo HTTPS API (Port 443 - supports any custom email recipient)
+    brevo_api_key = os.getenv("BREVO_API_KEY", "")
+    if brevo_api_key:
+        try:
+            import urllib.request
+            import json
+            brevo_req = urllib.request.Request(
+                "https://api.brevo.com/v3/smtp/email",
+                data=json.dumps({
+                    "sender": {"name": "Protector AI", "email": os.getenv("BREVO_SENDER", "security@protector.ai")},
+                    "to": [{"email": to_email}],
+                    "subject": f"Protector AI — Password Reset Verification Code: {otp_code}",
+                    "htmlContent": html_body
+                }).encode("utf-8"),
+                headers={
+                    "api-key": brevo_api_key,
+                    "Content-Type": "application/json",
+                    "User-Agent": "Protector-AI-Client/2.0"
+                }
+            )
+            with urllib.request.urlopen(brevo_req, timeout=8) as b_resp:
+                if b_resp.status in (200, 201):
+                    logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via Brevo HTTPS API")
+                    return True
+        except Exception as b_err:
+            logger.warning(f"⚠️ Brevo HTTPS API notice: {b_err}")
 
     # 2. Dispatch official Google Firebase reset to recipient via HTTPS Port 443
     try:
@@ -955,13 +980,38 @@ def send_agent_email(to_email: str, subject: str, message_body: str, category: s
                     return True, f"Delivered directly to {to_email} via Resend HTTPS API"
             except urllib.error.HTTPError as http_err:
                 err_text = http_err.read().decode("utf-8", errors="ignore")
-                if "protectoaismvdu@gmail.com" in err_text or "only send testing emails to your own email address" in err_text:
-                    logger.info("ℹ️ Resend sandbox mode: delivering to verified Resend address (protectoaismvdu@gmail.com)")
-                    if _send_resend("protectoaismvdu@gmail.com"):
-                        return True, f"Delivered to registered Resend inbox (protectoaismvdu@gmail.com) for {to_email}"
+                logger.warning(f"⚠️ Resend HTTP {http_err.code} when dispatching to {to_email}: {err_text}")
                 return False, f"Resend API error: {err_text}"
         except Exception as e:
             logger.warning(f"⚠️ Email Agent Resend dispatch error: {e}")
+            return False, str(e)
+
+    # Brevo HTTPS API
+    brevo_api_key = os.getenv("BREVO_API_KEY", "")
+    if brevo_api_key:
+        try:
+            import urllib.request
+            import json
+            brevo_req = urllib.request.Request(
+                "https://api.brevo.com/v3/smtp/email",
+                data=json.dumps({
+                    "sender": {"name": "Protector AI", "email": os.getenv("BREVO_SENDER", "security@protector.ai")},
+                    "to": [{"email": to_email}],
+                    "subject": subject,
+                    "htmlContent": html_content
+                }).encode("utf-8"),
+                headers={
+                    "api-key": brevo_api_key,
+                    "Content-Type": "application/json",
+                    "User-Agent": "Protector-AI-Client/2.0"
+                }
+            )
+            with urllib.request.urlopen(brevo_req, timeout=8) as b_resp:
+                if b_resp.status in (200, 201):
+                    logger.info(f"✅ [EMAIL AGENT] Successfully delivered '{subject}' to {to_email} via Brevo")
+                    return True, f"Delivered directly to {to_email} via Brevo HTTPS API"
+        except Exception as e:
+            logger.warning(f"⚠️ Brevo dispatch error: {e}")
             return False, str(e)
 
     return False, "No email provider configured. Please set RESEND_API_KEY in .env."

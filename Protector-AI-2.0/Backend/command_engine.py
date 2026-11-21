@@ -340,69 +340,6 @@ class CommandEngine:
                     "output": f"Generated {fmt.upper()} report with {d['count']} records. Ready for export."
                 }
 
-        # Handle 'email' / 'mail' command
-        if cmd_lower in ("email", "mail"):
-            if len(tokens) < 2:
-                return {
-                    "type": "error",
-                    "output": "Usage: email <recipient_email> <subject> | <message>\nExample: email sahilmohammad512@gmail.com Daily Report | All workers compliant today."
-                }
-            
-            # Check if user says: email report to <recipient>
-            if len(tokens) >= 4 and tokens[1].lower() in ("report", "summary") and tokens[2].lower() == "to":
-                target_email = tokens[3]
-                stats_res = ToolRegistry.execute("get_ppe_statistics", {"period": "today"}, user_email)
-                stats = stats_res.get("data", {}) if stats_res.get("success") else {}
-                rate = stats.get("compliance_rate", 94.2)
-                total = stats.get("total_detections", 0)
-                body = (
-                    f"Protector AI Autonomous Daily Safety Report\n\n"
-                    f"Overall Safety Compliance: {rate}%\n"
-                    f"Total Active Detections Today: {total}\n"
-                    f"Live Cameras Monitored: cam_01 (Optical 1080p)\n"
-                    f"Status: Normal Operations - All High Hazard Sectors Protected.\n\n"
-                    f"Automated digest compiled by Protector AI 2.0 Email Agent."
-                )
-                res = ToolRegistry.execute("send_email", {
-                    "recipient_email": target_email,
-                    "subject": f"Protector AI Daily Safety Report — {rate}% Compliance",
-                    "message": body,
-                    "category": "report"
-                }, user_email)
-                if res.get("success"):
-                    return {
-                        "type": "success",
-                        "title": "Email Agent Dispatch",
-                        "output": f"✅ Daily Safety Report successfully emailed to {target_email} ({res.get('data', {}).get('info', '')})."
-                    }
-                else:
-                    return {"type": "error", "output": f"Failed to send email: {res.get('error')}"}
-
-            target_email = tokens[1]
-            rest_of_cmd = raw_cmd[len(tokens[0]):].strip()[len(target_email):].strip()
-            if "|" in rest_of_cmd:
-                subj, msg = rest_of_cmd.split("|", 1)
-                subj = subj.strip()
-                msg = msg.strip()
-            else:
-                subj = "Protector AI Safety Notification"
-                msg = rest_of_cmd.strip() or "This is an automated notification from the Protector AI 2.0 Email Agent."
-
-            res = ToolRegistry.execute("send_email", {
-                "recipient_email": target_email,
-                "subject": subj,
-                "message": msg,
-                "category": "general"
-            }, user_email)
-            if res.get("success"):
-                return {
-                    "type": "success",
-                    "title": "Email Agent Dispatch",
-                    "output": f"✅ Email successfully dispatched to {target_email} with subject '{subj}'."
-                }
-            else:
-                return {"type": "error", "output": f"Failed to dispatch email: {res.get('error')}"}
-
         # FALLBACK: Natural-Language Interpretation Mode
         return CommandEngine.interpret_natural_language(raw_cmd, user_email, confirmed, history)
 
@@ -436,38 +373,6 @@ class CommandEngine:
                 return {"type": "navigation", "target": "team", "output": "Opening Team Access & RBAC..."}
             elif "setting" in q or "health" in q or "diagnostics" in q:
                 return {"type": "navigation", "target": "settings", "output": "Opening System Settings & Health..."}
-
-        # Intent: Autonomous Email Agent request
-        if "email" in q or "mail" in q or "send an email" in q:
-            import re
-            emails = re.findall(r'[\w\.-]+@[\w\.-]+', query)
-            target_email = emails[0] if emails else "sahilmohammad512@gmail.com"
-            stats_res = ToolRegistry.execute("get_ppe_statistics", {"period": "today"}, user_email)
-            stats = stats_res.get("data", {}) if stats_res.get("success") else {}
-            rate = stats.get("compliance_rate", 94.2)
-            total = stats.get("total_detections", 0)
-            body = (
-                f"Automated Safety Briefing for Protector AI Operations:\n\n"
-                f"• Shift Compliance Rate: {rate}%\n"
-                f"• Monitored Workforce Detections Today: {total}\n"
-                f"• Monitored Optical Streams: Camera CAM_01\n"
-                f"• Status: High hazard areas secured.\n\n"
-                f"Report dispatched by Protector AI 2.0 Autonomous Email Agent on request of: {user_email}"
-            )
-            res = ToolRegistry.execute("send_email", {
-                "recipient_email": target_email,
-                "subject": f"Protector AI Autonomous Safety Briefing ({rate}% Compliance)",
-                "message": body,
-                "category": "report"
-            }, user_email)
-            if res.get("success"):
-                return {
-                    "type": "success",
-                    "title": "Email Agent · Report Delivered",
-                    "output": f"✅ Autonomous Email Agent dispatched safety briefing to {target_email} ({res.get('data', {}).get('info', '')})."
-                }
-            else:
-                return {"type": "error", "output": f"Email Agent dispatch failed: {res.get('error')}"}
 
         # Intent 3: Missing gloves or specific violation search
         if "missing glove" in q or "gloves" in q:
