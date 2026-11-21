@@ -60,6 +60,13 @@ try:
 except Exception as _att_init_err:
     logger.warning(f"Attendance initialization deferred: {_att_init_err}")
 
+# Auto-start hardware biometric camera worker for continuous real-time face identification
+try:
+    camera_manager_instance.start_camera("cam_01")
+    logger.info("Automatic live camera biometric scanner initialized on cam_01")
+except Exception as _cam_init_err:
+    logger.warning(f"Live camera scanner auto-start deferred: {_cam_init_err}")
+
 
 app = Flask(__name__, static_folder=str(config.STATIC_DIR), static_url_path="/static")
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -1770,6 +1777,7 @@ def delete_people_profile(profile_id):
 # ==========================================
 
 @app.route("/api/attendance", methods=["GET"])
+@app.route("/api/attendance/records", methods=["GET"])
 def get_attendance_records():
     """List attendance records with optional filtering by date, personnel name, and status."""
     date_filter = request.args.get("date")  # YYYY-MM-DD
@@ -1972,6 +1980,7 @@ def mark_attendance_by_image():
 
 
 @app.route("/api/attendance/sync-excel", methods=["POST"])
+@app.route("/api/attendance/sync_excel", methods=["POST"])
 def sync_attendance_excel():
     """Force synchronization to D:\\Downloads\\Attandance.xlsx."""
     try:
@@ -1993,6 +2002,28 @@ def sync_attendance_excel():
     except Exception as ex:
         logger.exception("Failed to force sync attendance excel.")
         return jsonify({"error": f"Sync failed: {ex}"}), 500
+
+
+@app.route("/api/attendance/open-excel", methods=["POST", "GET"])
+def open_attendance_excel_locally():
+    """Directly open the latest attendance Excel workbook in Microsoft Excel on the local machine."""
+    try:
+        from attendance_service import attendance_service
+        attendance_service.sync_to_excel()
+        target = attendance_service.excel_path
+        if not target.exists():
+            target = Path(r"D:\Downloads\Attandance.xlsx")
+        if target.exists():
+            os.startfile(str(target))
+            return jsonify({
+                "success": True,
+                "message": f"Opened {target.name} in Microsoft Excel.",
+                "excel_path": str(target)
+            })
+        return jsonify({"success": False, "error": "Excel workbook file not found on disk"}), 404
+    except Exception as ex:
+        logger.exception("Failed to launch Microsoft Excel.")
+        return jsonify({"success": False, "error": str(ex)}), 500
 
 
 @app.route("/api/attendance/export", methods=["GET"])

@@ -470,6 +470,17 @@ export const api = {
     });
   },
 
+  async openAttendanceExcel(): Promise<{
+    success: boolean;
+    message: string;
+    excel_path?: string;
+    error?: string;
+  }> {
+    return fetchJson('/api/attendance/open-excel', {
+      method: 'POST'
+    });
+  },
+
   getAttendanceExportUrl(): string {
     return `${API_BASE}/api/attendance/export`;
   },

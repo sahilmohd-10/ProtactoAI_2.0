@@ -106,6 +106,20 @@ export const AttendanceManagement: React.FC = () => {
     }
   };
 
+  // Launch local Excel handler
+  const handleOpenExcel = async () => {
+    try {
+      const res = await api.openAttendanceExcel();
+      if (res.success) {
+        showNotification('success', res.message || 'Launched Microsoft Excel with latest workbook.');
+      } else {
+        showNotification('error', res.error || 'Failed to open Excel.');
+      }
+    } catch (err: any) {
+      showNotification('error', err.message || 'Could not launch Microsoft Excel.');
+    }
+  };
+
   // Submit manual check-in
   const handleManualCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,6 +297,26 @@ export const AttendanceManagement: React.FC = () => {
             <Download size={14} />
             <span>Download .XLSX</span>
           </a>
+
+          <button
+            onClick={handleOpenExcel}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              backgroundColor: '#0F5132',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <FileSpreadsheet size={14} />
+            <span>Open Live in Excel</span>
+          </button>
 
           <a
             href={api.getAttendanceCsvExportUrl()}

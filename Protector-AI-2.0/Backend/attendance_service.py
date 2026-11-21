@@ -760,6 +760,14 @@ class AttendanceService:
                     except PermissionError:
                         locked_targets.append(str(dest))
                         logger.warning(f"Excel workbook {dest} is open and locked by Microsoft Excel. Close the file in Excel to allow background syncing.")
+                        # Save to companion _Live file so user can immediately view latest updates
+                        try:
+                            companion_dest = dest.parent / f"{dest.stem}_Live{dest.suffix}"
+                            shutil.copy2(temp_path, companion_dest)
+                            saved_count += 1
+                            logger.info(f"Excel workbook synchronized to companion file: {companion_dest}")
+                        except Exception as comp_err:
+                            logger.debug(f"Could not copy to companion destination {companion_dest}: {comp_err}")
                     except Exception as err:
                         logger.warning(f"Could not copy attendance workbook to {dest}: {err}")
 
