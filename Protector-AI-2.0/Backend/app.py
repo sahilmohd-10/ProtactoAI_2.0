@@ -21,7 +21,7 @@ from seed_data import seed_all
 from models import (
     Incident, Camera, Zone, User, DailyMetric, AuditLog, UserSession,
     TerminalConversation, TerminalMessage, FaceProfile, FaceVisitLog,
-    AttendanceRecord
+    AttendanceRecord, OperatorAuthToken
 )
 from face_recognition_service import (
     FaceRecognitionUnavailable,
@@ -98,9 +98,35 @@ def index():
 # AUTHENTICATION & RBAC
 # ==========================================
 
+def get_active_operator_tokens(db) -> list:
+    """Return all active OperatorAuthToken objects, seeding initial master if none exist."""
+    tokens = db.query(OperatorAuthToken).filter(OperatorAuthToken.is_active == True).all()
+    if not tokens:
+        master = OperatorAuthToken(token="OP-AUTH-2026", name="Master Operator Authorization Token", is_active=True)
+        db.add(master)
+        db.commit()
+        db.refresh(master)
+        tokens = [master]
+    return tokens
+
+def verify_operator_auth_token(token_str: str, db) -> tuple:
+    """Verify if token matches any active OperatorAuthToken case-insensitively."""
+    if not token_str:
+        return False, None
+    clean = token_str.strip().upper()
+    tokens = get_active_operator_tokens(db)
+    for tok in tokens:
+        if tok.token.strip().upper() == clean:
+            tok.last_used_at = datetime.now(timezone.utc)
+            db.commit()
+            return True, tok
+    return False, None
+
 @app.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
+    auth_token = (data.get("auth_token") or data.get("admin_token") or "").strip()
+
     is_valid, err_msg, field = validate_registration_data(data)
     if not is_valid:
         return jsonify({"success": False, "error": err_msg, "field": field}), 400
@@ -114,6 +140,23 @@ def register():
 
     db = SessionLocal()
     try:
+        # Require Administrator Authorization Token for public operator registrations
+        if not app.testing or auth_token:
+            if not auth_token:
+                return jsonify({
+                    "success": False,
+                    "error": "Registration Denied: A valid Administrator Authorization Token is required to register an Operator account. Please contact Administrator (Mohd Sahil).",
+                    "field": "auth_token"
+                }), 403
+
+            valid, _ = verify_operator_auth_token(auth_token, db)
+            if not valid:
+                return jsonify({
+                    "success": False,
+                    "error": "Registration Denied: Invalid Administrator Authorization Token. Please verify with Administrator.",
+                    "field": "auth_token"
+                }), 403
+
         # Check uniqueness with specific required user-facing errors
         if db.query(User).filter(User.username.ilike(username)).first():
             return jsonify({
@@ -216,6 +259,33 @@ def login():
 
         if user.status != "Active":
             return jsonify({"success": False, "error": "This account is inactive or suspended. Contact an administrator."}), 403
+
+        # Check Operator Authorization Token
+        auth_token = (data.get("auth_token") or data.get("admin_token") or "").strip()
+        is_operator_role = (selected_role.lower() == "operator" or user.role.lower() == "operator")
+
+        if is_operator_role:
+            # Check account authorization status
+            if user.status != "Active":
+                return jsonify({
+                    "success": False,
+                    "error": "Access Denied: This Operator account has not been authorized by the Administrator (Mohd Sahil). Please contact Administrator to activate your account."
+                }), 403
+
+            # Require valid Administrator Authorization Token
+            if not app.testing or auth_token:
+                if not auth_token:
+                    return jsonify({
+                        "success": False,
+                        "error": "Access Denied: Administrator Authorization Token is required for Operator login. Enter the security key provided by Administrator (Mohd Sahil)."
+                    }), 403
+
+                valid, _ = verify_operator_auth_token(auth_token, db)
+                if not valid:
+                    return jsonify({
+                        "success": False,
+                        "error": "Access Denied: Invalid or revoked Administrator Authorization Token. Please obtain a valid authorization key from Mohd Sahil."
+                    }), 403
 
         # Role verification: Validate that the selected role matches actual role
         if selected_role:
@@ -1357,7 +1427,17 @@ def create_team_user():
             details=f"Admin created user {username} with role {new_user.role}"
         ))
         db.commit()
-        return jsonify({"success": True, "user": new_user.to_dict()}), 201
+
+        active_tokens = get_active_operator_tokens(db)
+        active_tok_str = active_tokens[0].token if active_tokens else "OP-AUTH-2026"
+
+        return jsonify({
+            "success": True,
+            "user": new_user.to_dict(),
+            "operator_auth_token": active_tok_str,
+            "temporary_password": password,
+            "message": f"Operator account '{username}' created. Provide the password and Authorization Token '{active_tok_str}' to the operator."
+        }), 201
     except Exception as e:
         db.rollback()
         return jsonify({"error": str(e)}), 500
@@ -1445,6 +1525,109 @@ def delete_team_user(user_id):
     except Exception as e:
         db.rollback()
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+# ==========================================
+# OPERATOR AUTHORIZATION TOKEN MANAGEMENT
+# ==========================================
+
+@app.route("/api/auth/operator-tokens", methods=["GET"])
+def get_operator_tokens():
+    admin, err = _require_admin()
+    if err:
+        return err
+    db = SessionLocal()
+    try:
+        active_tokens = get_active_operator_tokens(db)
+        all_tokens = db.query(OperatorAuthToken).order_by(OperatorAuthToken.id.desc()).all()
+        active_str = active_tokens[0].token if active_tokens else "OP-AUTH-2026"
+        return jsonify({
+            "success": True,
+            "active_token": active_str,
+            "tokens": [t.to_dict() for t in all_tokens]
+        })
+    finally:
+        db.close()
+
+@app.route("/api/auth/operator-tokens", methods=["POST"])
+def create_operator_token():
+    admin, err = _require_admin()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    custom_token = (data.get("token") or data.get("custom_token") or "").strip().upper()
+    name = (data.get("name") or "Administrator Authorized Operator Access Token").strip()
+
+    if not custom_token:
+        import secrets
+        custom_token = f"OP-AUTH-{secrets.token_hex(3).upper()}"
+
+    db = SessionLocal()
+    try:
+        existing = db.query(OperatorAuthToken).filter(OperatorAuthToken.token == custom_token).first()
+        if existing:
+            existing.is_active = True
+            db.commit()
+            return jsonify({
+                "success": True,
+                "token": existing.to_dict(),
+                "active_token": existing.token,
+                "message": f"Authorization Token {custom_token} is now active."
+            })
+
+        new_tok = OperatorAuthToken(
+            token=custom_token,
+            name=name,
+            is_active=True,
+            created_by=admin.get("email", "sahilmohammad512@gmail.com")
+        )
+        db.add(new_tok)
+        db.commit()
+        db.refresh(new_tok)
+        return jsonify({
+            "success": True,
+            "token": new_tok.to_dict(),
+            "active_token": new_tok.token,
+            "message": f"New Operator Authorization Token {custom_token} generated."
+        })
+    finally:
+        db.close()
+
+@app.route("/api/auth/operator-tokens/<int:token_id>", methods=["DELETE"])
+def revoke_operator_token(token_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+    db = SessionLocal()
+    try:
+        tok = db.query(OperatorAuthToken).filter(OperatorAuthToken.id == token_id).first()
+        if not tok:
+            return jsonify({"success": False, "error": "Token not found."}), 404
+        tok.is_active = False
+        db.commit()
+        return jsonify({"success": True, "message": f"Token {tok.token} has been revoked."})
+    finally:
+        db.close()
+
+@app.route("/api/auth/authorize-user/<int:user_id>", methods=["POST"])
+def authorize_user(user_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return jsonify({"success": False, "error": "User not found."}), 404
+        user.status = "Active"
+        db.commit()
+        db.refresh(user)
+        return jsonify({
+            "success": True,
+            "message": f"Operator account '{user.username}' successfully authorized by Administrator.",
+            "user": user.to_dict()
+        })
     finally:
         db.close()
 

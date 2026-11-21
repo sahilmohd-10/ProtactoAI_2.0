@@ -16,6 +16,8 @@ from copilot import copilot_instance
 
 class ProtectorAITestSuite(unittest.TestCase):
     def setUp(self):
+        app.testing = True
+        app.config["TESTING"] = True
         self.client = app.test_client()
         self.client.testing = True
 
@@ -175,7 +177,8 @@ class ProtectorAITestSuite(unittest.TestCase):
         res_op = self.client.post("/api/auth/login", json={
             "username_or_email": "operator",
             "password": "operator 123",
-            "role": "Operator"
+            "role": "Operator",
+            "auth_token": "OP-AUTH-2026"
         })
         self.assertEqual(res_op.status_code, 200)
         data_op = res_op.get_json()
@@ -187,7 +190,8 @@ class ProtectorAITestSuite(unittest.TestCase):
         res = self.client.post("/api/auth/login", json={
             "username_or_email": "operator",
             "password": "operator 123",
-            "role": "Administrator"
+            "role": "Administrator",
+            "auth_token": "OP-AUTH-2026"
         })
         self.assertEqual(res.status_code, 403)
         data = res.get_json()

@@ -281,3 +281,27 @@ class AttendanceRecord(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
 
+
+class OperatorAuthToken(Base):
+    __tablename__ = "operator_auth_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(100), default="Operator Access Token")
+    is_active = Column(Boolean, default=True)
+    created_by = Column(String(120), default="sahilmohammad512@gmail.com")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_used_at = Column(DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "token": self.token,
+            "name": self.name,
+            "is_active": self.is_active,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None
+        }
+
+

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, ShieldCheck, KeyRound } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
@@ -14,6 +14,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [authToken, setAuthToken] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [role] = useState<'Operator'>('Operator');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +41,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
       setError('Password must be at least 8 characters long.');
       return;
     }
+    if (!authToken.trim()) {
+      setError('A valid Administrator Authorization Token is required to register an Operator account. Contact Administrator (Mohd Sahil).');
+      return;
+    }
     if (!agreeTerms) {
       setError('You must agree to the Terms of Service.');
       return;
@@ -58,7 +63,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
         username: generatedUsername,
         email: trimmedEmail,
         password: password,
-        confirm_password: password
+        confirm_password: password,
+        auth_token: authToken.trim()
       });
 
       if (res.success && res.user) {
@@ -217,6 +223,31 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+              </div>
+
+              {/* Administrator Authorization Token */}
+              <div className="smartnest-input-group">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label className="smartnest-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                    <KeyRound size={14} color="#0284C7" />
+                    <span>Administrator Authorization Token</span>
+                  </label>
+                  <span style={{ fontSize: '10.5px', color: '#0284C7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Required
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={authToken}
+                  onChange={(e) => setAuthToken(e.target.value)}
+                  placeholder="e.g. OP-AUTH-2026"
+                  className="smartnest-input"
+                  style={{ fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 600, color: '#0F172A' }}
+                  disabled={loading}
+                />
+                <p style={{ fontSize: '11px', color: '#64748B', margin: '4px 0 0 2px' }}>
+                  Must be provided by Administrator (Mohd Sahil) to approve access.
+                </p>
               </div>
 
               {/* Terms Checkbox */}

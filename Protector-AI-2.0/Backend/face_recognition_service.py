@@ -403,6 +403,12 @@ class FaceRecognitionService:
 
     def decrypt_templates(self, encrypted_templates: str) -> list[np.ndarray]:
         """Decrypt stored face templates into numpy arrays (160x160)."""
+        if not encrypted_templates:
+            return []
+        if isinstance(encrypted_templates, bytes):
+            encrypted_templates = encrypted_templates.decode("ascii", errors="ignore")
+        if not encrypted_templates.strip():
+            return []
         try:
             template_data = self._cipher().decrypt(encrypted_templates.encode("ascii"))
             parsed = json.loads(template_data.decode("utf-8"))
@@ -427,6 +433,12 @@ class FaceRecognitionService:
 
     def decrypt_deep_embeddings(self, encrypted_templates: str) -> Optional[np.ndarray]:
         """Extract precomputed 128-D deep feature centroid or template embeddings."""
+        if not encrypted_templates:
+            return None
+        if isinstance(encrypted_templates, bytes):
+            encrypted_templates = encrypted_templates.decode("ascii", errors="ignore")
+        if not encrypted_templates.strip():
+            return None
         try:
             template_data = self._cipher().decrypt(encrypted_templates.encode("ascii"))
             parsed = json.loads(template_data.decode("utf-8"))

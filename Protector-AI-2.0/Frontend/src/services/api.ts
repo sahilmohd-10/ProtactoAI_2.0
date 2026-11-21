@@ -497,6 +497,7 @@ export const api = {
     username_or_email: string;
     password: string;
     role?: string;
+    auth_token?: string;
   }): Promise<{ success: boolean; token: string; user: AuthUser }> {
     const res = await fetchJson<{ success: boolean; token: string; user: AuthUser }>('/api/auth/login', {
       method: 'POST',
@@ -560,6 +561,7 @@ export const api = {
     phone_number?: string;
     password: string;
     confirm_password: string;
+    auth_token?: string;
   }): Promise<{ success: boolean; token: string; user: AuthUser; message?: string }> {
     const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; message?: string }>('/api/auth/register', {
       method: 'POST',
@@ -609,6 +611,32 @@ export const api = {
     return fetchJson<{ success: boolean; message: string }>('/api/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify(data)
+    });
+  },
+
+  // ==========================================
+  // OPERATOR AUTHORIZATION TOKEN MANAGEMENT
+  // ==========================================
+  async getOperatorTokens(): Promise<{ success: boolean; active_token: string; tokens: any[] }> {
+    return fetchJson('/api/auth/operator-tokens');
+  },
+
+  async createOperatorToken(custom_token?: string, name?: string): Promise<{ success: boolean; active_token: string; token: any; message: string }> {
+    return fetchJson('/api/auth/operator-tokens', {
+      method: 'POST',
+      body: JSON.stringify({ token: custom_token, name })
+    });
+  },
+
+  async revokeOperatorToken(tokenId: number): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/auth/operator-tokens/${tokenId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async authorizeUser(userId: number): Promise<{ success: boolean; message: string; user: any }> {
+    return fetchJson(`/api/auth/authorize-user/${userId}`, {
+      method: 'POST'
     });
   },
 

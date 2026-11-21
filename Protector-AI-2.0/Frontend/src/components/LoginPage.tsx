@@ -21,6 +21,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   const [identifier, setIdentifier] = useState('admin');
   const [password, setPassword] = useState('Admin@123');
   const [role, setRole] = useState<'Administrator' | 'Operator'>('Administrator');
+  const [authToken, setAuthToken] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,13 +52,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
       setError('Please enter your account password.');
       return;
     }
+    if (role === 'Operator' && !authToken.trim()) {
+      setError('Administrator Authorization Token is required for Operator login. Enter the security key provided by Administrator (Mohd Sahil).');
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await api.login({
         username_or_email: trimmedId,
         password,
-        role
+        role,
+        auth_token: authToken.trim()
       });
 
       if (res.success && res.user) {
@@ -375,6 +381,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     </button>
                   </div>
                 </div>
+
+                {/* Administrator Authorization Token - Required for Operator Role */}
+                {role === 'Operator' && (
+                  <div className="smartnest-input-group" style={{ marginTop: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <label className="smartnest-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                        <KeyRound size={14} color="#0284C7" />
+                        <span>Administrator Authorization Token</span>
+                      </label>
+                      <span style={{ fontSize: '10.5px', color: '#0284C7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Required
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={authToken}
+                      onChange={(e) => setAuthToken(e.target.value)}
+                      placeholder="e.g. OP-AUTH-2026"
+                      className="smartnest-input"
+                      style={{ fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 600, color: '#0F172A' }}
+                      disabled={loading}
+                    />
+                    <p style={{ fontSize: '11px', color: '#64748B', margin: '4px 0 0 2px' }}>
+                      Security passkey issued exclusively by Administrator (Mohd Sahil).
+                    </p>
+                  </div>
+                )}
 
                 {/* Remember Me & Forgot Password Row */}
                 <div style={{

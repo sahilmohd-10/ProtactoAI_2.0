@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { User, AuthUser } from '../types';
 import { api } from '../services/api';
 
@@ -32,6 +32,39 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [successToast, setSuccessToast] = useState('');
 
+  // Operator Authorization Token Management
+  const [operatorToken, setOperatorToken] = useState('OP-AUTH-2026');
+  const [isTokenLoading, setIsTokenLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      try {
+        const res = await api.getOperatorTokens();
+        if (res?.active_token) {
+          setOperatorToken(res.active_token);
+        }
+      } catch (e) {
+        // Fallback gracefully
+      }
+    };
+    fetchToken();
+  }, []);
+
+  const handleGenerateNewToken = async () => {
+    setIsTokenLoading(true);
+    try {
+      const res = await api.createOperatorToken();
+      if (res?.active_token) {
+        setOperatorToken(res.active_token);
+        showSuccess(`Generated new Operator Authorization Token: ${res.active_token}`);
+      }
+    } catch (err: any) {
+      alert(`Failed to generate token: ${err.message}`);
+    } finally {
+      setIsTokenLoading(false);
+    }
+  };
+
   // Delete Individual User State
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -41,7 +74,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
 
   const showSuccess = (msg: string) => {
     setSuccessToast(msg);
-    setTimeout(() => setSuccessToast(''), 3500);
+    setTimeout(() => setSuccessToast(''), 4500);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -55,11 +88,12 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
 
     setIsSubmitting(true);
     try {
-      await api.createTeamUser({
+      const createdRes = await api.createTeamUser({
         ...formData,
         password: formData.password || 'Protecto@2026'
       });
       setIsAddModalOpen(false);
+      const assignedToken = (createdRes as any)?.operator_auth_token || operatorToken;
       setFormData({
         username: '',
         first_name: '',
@@ -69,7 +103,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
         role: 'Operator',
         password: ''
       });
-      showSuccess(`Created user ${formData.username} successfully.`);
+      showSuccess(`Created operator ${formData.username}! Hand them Password & Authorization Token: ${assignedToken}`);
       if (onRefreshTeam) onRefreshTeam();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to create user account.');
@@ -216,6 +250,108 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
             Add Team Member
+          </button>
+        </div>
+      </div>
+
+      {/* Administrator Operator Authorization Control Panel */}
+      <div style={{
+        backgroundColor: 'var(--bg-surface-elevated)',
+        borderRadius: '16px',
+        padding: '20px 24px',
+        border: '1.5px solid var(--border-subtle)',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '280px' }}>
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: 'rgba(2, 132, 199, 0.12)',
+            border: '1px solid rgba(2, 132, 199, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#0284C7',
+            flexShrink: 0
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <circle cx="12" cy="11" r="2"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Operator Authorization Gatekeeper
+              </span>
+              <span style={{
+                fontSize: '10px',
+                fontFamily: 'var(--font-mono)',
+                padding: '2px 8px',
+                borderRadius: '100px',
+                backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                color: '#16A34A',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                fontWeight: 700
+              }}>
+                MANDATORY ENFORCED
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0', maxWidth: '580px', lineHeight: 1.4 }}>
+              Operators can only log in if they provide their username, password, and this Administrator-issued security token. Anyone without this token is blocked.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '8px 16px',
+            borderRadius: '10px',
+            backgroundColor: 'var(--bg-app)',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Active Key:</span>
+            <span style={{ fontSize: '15px', fontWeight: 800, color: '#0284C7', fontFamily: 'monospace', letterSpacing: '1px' }}>
+              {operatorToken}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(operatorToken);
+              showSuccess(`Copied Operator Authorization Token (${operatorToken}) to clipboard.`);
+            }}
+            className="btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy Token
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGenerateNewToken}
+            disabled={isTokenLoading}
+            className="btn-citron"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            {isTokenLoading ? 'Generating...' : 'Generate New Token'}
           </button>
         </div>
       </div>
