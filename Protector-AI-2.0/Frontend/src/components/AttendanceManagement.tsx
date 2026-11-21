@@ -279,7 +279,7 @@ export const AttendanceManagement: React.FC = () => {
 
           <a
             href={api.getAttendanceExportUrl()}
-            download="Attandance.xlsx"
+            download="Attendance.xlsx"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -389,7 +389,7 @@ export const AttendanceManagement: React.FC = () => {
             color: '#4ADE80',
             fontWeight: 700
           }}>
-            Target: D:\Downloads\Attandance.xlsx
+            Target: D:\Downloads\Attendance.xlsx
           </span>
           <button
             onClick={handleSyncExcel}

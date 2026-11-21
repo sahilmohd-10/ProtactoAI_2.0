@@ -56,7 +56,7 @@ try:
     attendance_service.seed_history_from_visit_logs(_init_db_sess)
     attendance_service.sync_to_excel()
     _init_db_sess.close()
-    logger.info("Biometric attendance registry initialized and synced to D:\\Downloads\\Attandance.xlsx")
+    logger.info("Biometric attendance registry initialized and synced to D:\\Downloads\\Attendance.xlsx")
 except Exception as _att_init_err:
     logger.warning(f"Attendance initialization deferred: {_att_init_err}")
 
@@ -2225,7 +2225,7 @@ def mark_attendance_by_image():
 @app.route("/api/attendance/sync-excel", methods=["POST"])
 @app.route("/api/attendance/sync_excel", methods=["POST"])
 def sync_attendance_excel():
-    """Force synchronization to D:\\Downloads\\Attandance.xlsx."""
+    """Force synchronization to D:\\Downloads\\Attendance.xlsx."""
     try:
         from attendance_service import attendance_service
         success, message = attendance_service.sync_to_excel()
@@ -2255,7 +2255,7 @@ def open_attendance_excel_locally():
         attendance_service.sync_to_excel()
         target = attendance_service.excel_path
         if not target.exists():
-            target = Path(r"D:\Downloads\Attandance.xlsx")
+            target = Path(r"D:\Downloads\Attendance.xlsx")
         if target.exists():
             os.startfile(str(target))
             return jsonify({
@@ -2280,7 +2280,7 @@ def export_attendance_excel():
         return send_file(
             str(attendance_service.excel_path),
             as_attachment=True,
-            download_name="Attandance.xlsx",
+            download_name="Attendance.xlsx",
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as ex:

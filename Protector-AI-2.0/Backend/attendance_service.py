@@ -23,7 +23,7 @@ logger = logging.getLogger("ProtectorAI.Attendance")
 
 class AttendanceService:
     def __init__(self, excel_path: Optional[Path] = None):
-        self.excel_path = Path(excel_path or getattr(config, "PRIMARY_ATTENDANCE_PATH", Path(r"D:\Downloads\Attandance.xlsx")))
+        self.excel_path = Path(excel_path or getattr(config, "PRIMARY_ATTENDANCE_PATH", Path(r"D:\Downloads\Attendance.xlsx")))
         self._lock = threading.RLock()
         self._last_excel_sync_time: float = 0.0
         self._sync_cooldown_seconds: float = 5.0
@@ -722,11 +722,8 @@ class AttendanceService:
                 # Candidate synchronization targets (Live OneDrive, D:\Downloads, C:\Downloads, and Backend data)
                 candidate_paths = [
                     target_path,
-                    Path(r"D:\Downloads\Attandance.xlsx"),
                     Path(r"D:\Downloads\Attendance.xlsx"),
-                    Path(r"C:\Users\sahil\OneDrive\Documents\Attandance.xlsx"),
                     Path(r"C:\Users\sahil\OneDrive\Documents\Attendance.xlsx"),
-                    Path(r"C:\Users\sahil\Downloads\Attandance.xlsx"),
                     Path(r"C:\Users\sahil\Downloads\Attendance.xlsx"),
                     getattr(config, "DATA_DIR", Path("data")) / "attendance.xlsx",
                 ]
@@ -905,7 +902,7 @@ class AttendanceService:
             datetime.fromtimestamp(self.excel_path.stat().st_mtime, tz=timezone.utc).isoformat()
             if excel_exists else None
         )
-        onedrive_url = getattr(config, "ONEDRIVE_LIVE_URL", "https://d.docs.live.net/13FB1DC024CF6090/Documents/Attandance.xlsx")
+        onedrive_url = getattr(config, "ONEDRIVE_LIVE_URL", "https://d.docs.live.net/13FB1DC024CF6090/Documents/Attendance.xlsx")
 
         return {
             "date": today_str,
