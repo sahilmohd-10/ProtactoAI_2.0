@@ -11,5 +11,7 @@ pypdf>=4.0.0
 opencv-contrib-python>=4.8.0,<5.0
 cryptography>=42.0.0
 openpyxl>=3.1.0
+gunicorn>=21.2.0
+python-dotenv>=1.0.0
 
 
