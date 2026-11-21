@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowLeft, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, ShieldCheck, Clock, CheckCircle2, X, FileText, Check } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
@@ -14,7 +14,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [role] = useState<'Operator'>('Operator');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
       return;
     }
     if (!agreeTerms) {
-      setError('You must agree to the Terms of Service.');
+      setError('You must review and agree to the Terms of Service to create an account.');
+      setShowTermsModal(true);
       return;
     }
 
@@ -269,20 +271,62 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                     </div>
                   </div>
 
-                  {/* Terms Checkbox */}
-              <div style={{ margin: '8px 0 20px 0', fontSize: '13px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
-                    style={{ accentColor: '#2563EB', width: '15px', height: '15px' }}
-                  />
-                  <span>
-                    I agree to the <strong style={{ color: '#2563EB' }}>Terms of Service</strong>
-                  </span>
-                </label>
-              </div>
+                  {/* Terms Checkbox & All-Condition Window Trigger */}
+                  <div style={{ margin: '10px 0 20px 0', fontSize: '13px' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', userSelect: 'none' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!agreeTerms) {
+                            setShowTermsModal(true);
+                          } else {
+                            setAgreeTerms(false);
+                          }
+                        }}
+                        aria-checked={agreeTerms}
+                        role="checkbox"
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '4px',
+                          border: agreeTerms ? 'none' : '2px solid #CBD5E1',
+                          backgroundColor: agreeTerms ? '#2563EB' : '#FFFFFF',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          padding: 0,
+                          transition: 'all 0.15s ease',
+                          flexShrink: 0,
+                          boxShadow: agreeTerms ? '0 2px 4px rgba(37, 99, 235, 0.25)' : 'none'
+                        }}
+                      >
+                        {agreeTerms && <Check size={13} color="#FFFFFF" strokeWidth={3.5} />}
+                      </button>
+
+                      <span style={{ color: '#64748B' }}>
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: '#2563EB',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            textDecoration: 'none'
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+                          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+                        >
+                          Terms of Service
+                        </button>
+                      </span>
+                    </div>
+                  </div>
 
               {/* Submit Button */}
               <button
@@ -351,6 +395,264 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
         onSuccess={onRegisterSuccess}
         defaultRole={role}
       />
+
+      {/* Terms of Service & Industrial Safety Operational Policy (All-Condition Window) */}
+      {showTermsModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowTermsModal(false);
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '680px',
+              maxHeight: '88vh',
+              backgroundColor: '#FFFFFF',
+              borderRadius: '20px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              border: '1px solid #E2E8F0',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #F1F5F9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: '#0F172A',
+                color: '#FFFFFF'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#60A5FA',
+                    border: '1px solid rgba(96, 165, 250, 0.3)'
+                  }}
+                >
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+                    Terms of Service & Operational Policies
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#94A3B8' }}>
+                    ProtectoAI 2.0 Industrial Safety & Biometric Intelligence Platform
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTermsModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.15s ease'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#FFFFFF')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#94A3B8')}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable Conditions Body */}
+            <div
+              style={{
+                padding: '24px 28px',
+                overflowY: 'auto',
+                fontSize: '13px',
+                lineHeight: 1.6,
+                color: '#334155',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px'
+              }}
+            >
+              <div
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#EFF6FF',
+                  borderRadius: '12px',
+                  border: '1px solid #BFDBFE',
+                  color: '#1E40AF',
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}
+              >
+                <ShieldCheck size={20} color="#2563EB" style={{ flexShrink: 0 }} />
+                <span>
+                  Please carefully read and review all platform conditions. Agreeing to these terms is mandatory for accessing ProtectoAI surveillance, biometric logging, and industrial safety telemetry.
+                </span>
+              </div>
+
+              {/* Condition 1 */}
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                  1. Personnel Biometric Identification & Optical Facial Processing
+                </h4>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  By enrolling or registering, you authorize ProtectoAI to process optical video frames using Haar Cascades, CLAHE contrast enhancement, and Local Binary Patterns Histograms (LBPH) to identify authorized personnel and automate shift attendance. All biometric facial representations are stored in local, encrypted SQLite registries with AES-256 protected templates.
+                </p>
+              </div>
+
+              {/* Condition 2 */}
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                  2. Autonomous Computer Vision PPE Surveillance & OSHA Standards
+                </h4>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  ProtectoAI continuously evaluates 25 industrial hazard classes (including Hardhats, High-Visibility Vests, Protective Eyewear, Gloves, Fall-Protection Harnesses, and Heavy Equipment interactions) pursuant to OSHA industrial safety mandates. All camera feeds are monitored in real-time to alert personnel of hazardous breaches.
+                </p>
+              </div>
+
+              {/* Condition 3 */}
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                  3. Individual Security Tokens & Operator Access Credentials
+                </h4>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  New operator registrations are subject to explicit approval by Administrator Mohd Sahil (<code>sahilmohammad512@gmail.com</code>). Once authorized, each operator receives an individual, cryptographically unique security token. This token is non-transferable and must never be shared. Unauthorized credential sharing will result in permanent revocation of platform privileges.
+                </p>
+              </div>
+
+              {/* Condition 4 */}
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                  4. Automated Incident Logging & Permanent Audit Records
+                </h4>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  When safety infractions occur (e.g. missing PPE, hazardous zone intrusion), the system captures an optical snapshot, timestamps the occurrence, and records the incident immutably in the compliance database. Official OSHA-ready safety audits and attendance registers may be exported by authorized administrators.
+                </p>
+              </div>
+
+              {/* Condition 5 */}
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                  5. Supervisory Administrator Authority & Access Revocation
+                </h4>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  The Administrator retains the right to approve, place on hold, regenerate tokens for, or revoke access of any operator at any time to preserve industrial site security and physical workforce protection.
+                </p>
+              </div>
+
+              {/* Condition 6 */}
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                  6. System Usage & Site Safety Compliance
+                </h4>
+                <p style={{ margin: 0, color: '#475569' }}>
+                  ProtectoAI is an intelligent supervisory decision-support system. It supplements, but does not replace, mandatory industrial safety protocols, physical safety barriers, personal vigilance, or emergency response procedures. Operators must follow all on-site regulatory directives.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer with Action Buttons */}
+            <div
+              style={{
+                padding: '16px 24px',
+                borderTop: '1px solid #E2E8F0',
+                backgroundColor: '#F8FAFC',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#64748B' }}>
+                {agreeTerms ? (
+                  <span style={{ color: '#16A34A', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <CheckCircle2 size={14} /> You have agreed to all conditions
+                  </span>
+                ) : (
+                  <span>Click "I Agree to All Conditions" to accept & proceed</span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(false)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    backgroundColor: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Decline & Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAgreeTerms(true);
+                    setShowTermsModal(false);
+                    setError(null);
+                  }}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  <span>I Agree to All Conditions</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
