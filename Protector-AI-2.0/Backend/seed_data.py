@@ -98,16 +98,14 @@ def seed_all():
         db.add_all(zones)
         db.commit()
 
-    # 4. Seed enrolled personnel biometric profiles if empty
-    if db.query(FaceProfile).count() == 0:
-        now = datetime.now(timezone.utc)
-        profiles = [
-            FaceProfile(id=1, name="Mohd Sahil", consent_recorded=True, consented_at=now, enrolled_by_user_id=1, encrypted_templates=b''),
-            FaceProfile(id=2, name="Alok", consent_recorded=True, consented_at=now, enrolled_by_user_id=1, encrypted_templates=b''),
-            FaceProfile(id=3, name="Faisal", consent_recorded=True, consented_at=now, enrolled_by_user_id=1, encrypted_templates=b'')
-        ]
-        db.add_all(profiles)
-        db.commit()
+    # 4. Seed enrolled personnel biometric profiles
+    now = datetime.now(timezone.utc)
+    existing_profiles = {p.name.lower(): p for p in db.query(FaceProfile).all()}
+    standard_profiles = ["Mohd Sahil", "Alok", "Faisal"]
+    for p_name in standard_profiles:
+        if p_name.lower() not in existing_profiles:
+            db.add(FaceProfile(name=p_name, consent_recorded=True, consented_at=now, enrolled_by_user_id=1, encrypted_templates=b''))
+    db.commit()
 
     # 5. Initial audit log if empty
     if db.query(AuditLog).count() == 0:

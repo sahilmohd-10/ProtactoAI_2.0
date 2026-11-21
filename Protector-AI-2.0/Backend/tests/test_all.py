@@ -628,7 +628,7 @@ class ProtectorAITestSuite(unittest.TestCase):
             # Verify attendance record exists for today
             rec = data["records"][0]
             self.assertEqual(rec["person_name"], "Mohd Sahil")
-            self.assertIn(rec["status"], ["Present", "Half Day", "Full Day"])
+            self.assertIn(rec["status"], ["Present", "Half Day", "Full Day", "Overtime"])
 
     def test_23_oauth_config_and_login(self):
         # 1. Config endpoint

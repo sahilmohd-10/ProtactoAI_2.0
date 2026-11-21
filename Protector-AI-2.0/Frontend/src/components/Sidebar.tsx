@@ -10,7 +10,8 @@ import {
   LogOut,
   ShieldCheck,
   Lock,
-  UserCheck
+  UserCheck,
+  CalendarCheck
 } from 'lucide-react';
 import type { AuthUser } from '../types';
 
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'console', label: 'Tasks / Camera', icon: Camera },
     { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'attendance', label: 'Attendance & Excel', icon: CalendarCheck },
     {
       id: 'people',
       label: 'Face Training',

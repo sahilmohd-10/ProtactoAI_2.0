@@ -180,14 +180,20 @@ class AttendanceService:
 
         now_utc = datetime.now(timezone.utc)
         today_str = self.get_current_date_str()
+        twenty_four_hours_ago = now_utc - timedelta(hours=24)
 
         with self._lock:
+            # 24-HOUR UNIQUE RECORD GUARD:
+            # Check if this person already has an attendance record either:
+            # 1. Matching today's local date string (today_str), OR
+            # 2. Created/checked-in within the past 24 hours
             record = (
                 db.query(AttendanceRecord)
                 .filter(
-                    AttendanceRecord.date == today_str,
-                    func.lower(AttendanceRecord.person_name) == lower_name
+                    func.lower(AttendanceRecord.person_name) == lower_name,
+                    (AttendanceRecord.date == today_str) | (AttendanceRecord.first_in >= twenty_four_hours_ago)
                 )
+                .order_by(AttendanceRecord.id.desc())
                 .first()
             )
 
@@ -210,7 +216,7 @@ class AttendanceService:
                 db.add(record)
                 db.commit()
                 db.refresh(record)
-                logger.info(f"[Attendance] Live check-in registered: {clean_name} at {now_utc.isoformat()}")
+                logger.info(f"[Attendance] New 24-hour unique check-in registered: {clean_name} at {now_utc.isoformat()}")
             else:
                 record.last_out = now_utc
                 record.check_in_count += 1
@@ -231,13 +237,18 @@ class AttendanceService:
                 diff_seconds = max(0.0, (t_last - t_first).total_seconds()) if (t_first and t_last) else 0.0
                 record.total_hours = round(diff_seconds / 3600.0, 2)
 
-                if record.total_hours >= 7.5:
+                if record.total_hours >= 8.0:
+                    record.status = "Overtime"
+                elif record.total_hours >= 7.5:
                     record.status = "Full Day"
+                elif record.total_hours >= 3.5:
+                    record.status = "Half Day"
                 else:
                     record.status = "Present"
 
                 db.commit()
                 db.refresh(record)
+                logger.info(f"[Attendance] Updated 24-hour record: {clean_name} (duration: {record.total_hours} hrs, count: {record.check_in_count})")
 
             now_ts = now_utc.timestamp()
             if force_excel_sync or is_new or (now_ts - self._last_excel_sync_time) >= self._sync_cooldown_seconds:
@@ -266,13 +277,15 @@ class AttendanceService:
         with self._lock:
             profile = db.query(FaceProfile).filter(func.lower(FaceProfile.name) == clean_name.lower()).first()
             profile_id = profile.id if profile else None
+            twenty_four_hours_ago = now_utc - timedelta(hours=24)
 
             record = (
                 db.query(AttendanceRecord)
                 .filter(
-                    AttendanceRecord.date == target_date,
-                    func.lower(AttendanceRecord.person_name) == clean_name.lower()
+                    func.lower(AttendanceRecord.person_name) == clean_name.lower(),
+                    (AttendanceRecord.date == target_date) | (AttendanceRecord.first_in >= twenty_four_hours_ago)
                 )
+                .order_by(AttendanceRecord.id.desc())
                 .first()
             )
 
@@ -372,10 +385,23 @@ class AttendanceService:
 
                 all_profiles = db.query(FaceProfile).order_by(FaceProfile.name.asc()).all()
                 all_records = db.query(AttendanceRecord).order_by(AttendanceRecord.date.desc(), AttendanceRecord.first_in.desc()).all()
-                today_records = [
+                raw_today = [
                     r for r in all_records
                     if r.date == today_str and r.person_name.strip().lower() not in UNRELEVANT_NAMES
                 ]
+                # Guarantee 100% 24-hour unique person representation in Excel (no duplicate rows)
+                unique_today_map = {}
+                for r in raw_today:
+                    p_key = r.person_name.strip().lower()
+                    if p_key not in unique_today_map:
+                        unique_today_map[p_key] = r
+                    else:
+                        prev = unique_today_map[p_key]
+                        # Keep the record with the higher duration or check-in count
+                        if (r.total_hours or 0) > (prev.total_hours or 0) or (r.check_in_count or 0) > (prev.check_in_count or 0):
+                            unique_today_map[p_key] = r
+
+                today_records = list(unique_today_map.values())
                 today_person_names = {r.person_name.lower(): r for r in today_records}
 
                 # Design system styling
