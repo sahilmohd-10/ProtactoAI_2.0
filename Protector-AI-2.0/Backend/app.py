@@ -43,9 +43,14 @@ from copilot import copilot_instance
 from openrouter_service import openrouter_service
 
 try:
-    from telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers
+    from telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers, start_telegram_polling
 except ImportError:
-    from Backend.telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers
+    from Backend.telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers, start_telegram_polling
+
+try:
+    start_telegram_polling()
+except Exception:
+    pass
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
