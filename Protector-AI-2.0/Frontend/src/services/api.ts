@@ -531,10 +531,10 @@ export const api = {
     return fetchJson('/api/auth/oauth/config');
   },
 
-  async exchangeGitHubOAuth(code: string, role?: string): Promise<{ success: boolean; token: string; user: AuthUser; provider: string }> {
-    const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; provider: string }>('/api/auth/oauth/github-exchange', {
+  async exchangeGitHubOAuth(code: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }> {
+    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }>('/api/auth/oauth/github-exchange', {
       method: 'POST',
-      body: JSON.stringify({ code, role: role || 'Operator' })
+      body: JSON.stringify({ code, role: role || 'Operator', auth_token })
     });
     if (res.token) {
       authStorage.setToken(res.token);
@@ -542,10 +542,10 @@ export const api = {
     return res;
   },
 
-  async verifyGoogleOAuth(credential: string, role?: string): Promise<{ success: boolean; token: string; user: AuthUser; provider: string }> {
-    const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; provider: string }>('/api/auth/oauth/google-verify', {
+  async verifyGoogleOAuth(credential: string, role?: string, auth_token?: string): Promise<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }> {
+    const res = await fetchJson<{ success: boolean; token?: string; user?: AuthUser; provider?: string; pending_approval?: boolean; requires_auth_token?: boolean }>('/api/auth/oauth/google-verify', {
       method: 'POST',
-      body: JSON.stringify({ credential, role: role || 'Operator' })
+      body: JSON.stringify({ credential, role: role || 'Operator', auth_token })
     });
     if (res.token) {
       authStorage.setToken(res.token);
@@ -562,8 +562,8 @@ export const api = {
     password: string;
     confirm_password: string;
     auth_token?: string;
-  }): Promise<{ success: boolean; token: string; user: AuthUser; message?: string }> {
-    const res = await fetchJson<{ success: boolean; token: string; user: AuthUser; message?: string }>('/api/auth/register', {
+  }): Promise<{ success: boolean; token?: string; user: AuthUser; message?: string; pending_approval?: boolean }> {
+    const res = await fetchJson<{ success: boolean; token?: string; user: AuthUser; message?: string; pending_approval?: boolean }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -634,10 +634,26 @@ export const api = {
     });
   },
 
-  async authorizeUser(userId: number): Promise<{ success: boolean; message: string; user: any }> {
+  async authorizeUser(userId: number): Promise<{ success: boolean; message: string; user: any; token?: string }> {
     return fetchJson(`/api/auth/authorize-user/${userId}`, {
       method: 'POST'
     });
+  },
+
+  async regenerateUserToken(userId: number): Promise<{ success: boolean; message: string; user: any; token: string }> {
+    return fetchJson(`/api/auth/regenerate-token/${userId}`, {
+      method: 'POST'
+    });
+  },
+
+  async revokeUserAuthorization(userId: number): Promise<{ success: boolean; message: string; user: any }> {
+    return fetchJson(`/api/auth/revoke-user/${userId}`, {
+      method: 'POST'
+    });
+  },
+
+  async getPendingOperators(): Promise<{ success: boolean; count: number; users: any[] }> {
+    return fetchJson('/api/auth/pending-operators');
   },
 
   // ==========================================

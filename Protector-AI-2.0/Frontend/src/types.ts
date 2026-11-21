@@ -8,7 +8,8 @@ export interface AuthUser {
   phone_number?: string;
   role: 'Administrator' | 'Operator';
   avatar?: string;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Pending';
+  operator_auth_token?: string;
   last_active?: string;
   created_at?: string;
 }
@@ -36,9 +37,11 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  username?: string;
   role: 'Admin' | 'Safety Manager' | 'Site Supervisor' | 'Auditor' | 'Lead Safety Engineer' | 'Administrator' | 'Operator';
   avatar?: string;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Pending';
+  operator_auth_token?: string;
   last_active?: string;
   created_at?: string;
 }

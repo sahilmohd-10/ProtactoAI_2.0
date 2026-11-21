@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, ExternalLink } from 'lucide-react';
+import { X, Loader2, ExternalLink, KeyRound, Clock } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 
@@ -20,6 +20,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState('');
   const [googleClientId, setGoogleClientId] = useState<string>(
     import.meta.env.VITE_GOOGLE_CLIENT_ID || '512272700093-5ebjj1071qjq04j9mdbci2idvtftpkau.apps.googleusercontent.com'
   );
@@ -50,10 +51,14 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             setLoading(true);
             setError(null);
             try {
-              const res = await api.verifyGoogleOAuth(response.credential, defaultRole);
+              const res = await api.verifyGoogleOAuth(response.credential, defaultRole, authToken.trim());
               if (res.success && res.user) {
                 onSuccess(res.user);
                 onClose();
+              } else if (res.pending_approval) {
+                setError('⏳ Account Pending Authorization: Your Operator account is awaiting approval from Administrator Mohd Sahil. Once authorized, you will receive your unique Operator Security Token.');
+              } else if (res.requires_auth_token) {
+                setError('🔑 Administrator Authorization Token is required for Operator login. Enter your unique security token issued by Administrator Mohd Sahil.');
               } else {
                 setError('Google verification failed.');
               }
@@ -230,18 +235,20 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           {error && (
             <div
               style={{
-                padding: '10px 14px',
+                padding: '12px 14px',
                 borderRadius: '12px',
-                backgroundColor: '#FEF2F2',
-                border: '1px solid #FEE2E2',
-                color: '#DC2626',
+                backgroundColor: error.toLowerCase().includes('pending') ? '#FFFBEB' : '#FEF2F2',
+                border: error.toLowerCase().includes('pending') ? '1px solid #FDE68A' : '1px solid #FEE2E2',
+                color: error.toLowerCase().includes('pending') ? '#B45309' : '#DC2626',
                 fontSize: '12.5px',
                 marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '8px',
+                lineHeight: 1.5
               }}
             >
+              {error.toLowerCase().includes('pending') && <Clock size={16} style={{ flexShrink: 0 }} />}
               <span>{error}</span>
             </div>
           )}
@@ -272,6 +279,27 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                   ? 'Authenticate securely using your Google Workspace or Personal account:'
                   : 'Authorize Protector AI 2.0 with your official GitHub account:'}
               </div>
+
+              {defaultRole === 'Operator' && (
+                <div style={{ width: '100%', marginBottom: '4px', textAlign: 'left' }}>
+                  <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <KeyRound size={13} color="#0284C7" />
+                    <span>Unique Operator Security Token (if authorized)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={authToken}
+                    onChange={(e) => setAuthToken(e.target.value)}
+                    placeholder="e.g. OP-01-A7E91B (leave blank if first time)"
+                    className="smartnest-input"
+                    style={{ fontFamily: 'monospace', fontSize: '13px', letterSpacing: '0.5px' }}
+                    disabled={loading}
+                  />
+                  <p style={{ fontSize: '11px', color: '#94A3B8', margin: '4px 0 0 2px' }}>
+                    First-time OAuth login creates an account pending Administrator authorization. Second-time logins require your unique token.
+                  </p>
+                </div>
+              )}
 
               {provider === 'google' ? (
                 <div style={{ width: '100%', display: 'flex', justifyContent: 'center', minHeight: '44px' }}>

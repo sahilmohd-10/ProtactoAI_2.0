@@ -17,6 +17,7 @@ interface SidebarProps {
   activeModule: string;
   onSelectModule: (module: string) => void;
   openIncidentsCount: number;
+  pendingOperatorsCount?: number;
   currentUser: AuthUser | null;
   onLogout?: () => void;
   onOpenTerminal?: () => void;
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeModule,
   onSelectModule,
   openIncidentsCount,
+  pendingOperatorsCount = 0,
   currentUser,
   onLogout,
   onOpenTerminal
@@ -37,7 +39,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'console', label: 'Tasks / Camera', icon: Camera },
     { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'people', label: 'Team', icon: Users, adminOnly: true }
+    {
+      id: 'people',
+      label: 'Team & Auth',
+      icon: Users,
+      adminOnly: true,
+      badge: pendingOperatorsCount > 0 ? `${pendingOperatorsCount} Pending` : undefined,
+      isPendingBadge: true
+    }
   ];
 
   const generalItems = [
@@ -84,7 +93,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {isRestricted ? (
                   <Lock size={12} style={{ color: '#94A3B8' }} />
                 ) : item.badge ? (
-                  <span className="donezo-nav-badge">{item.badge}</span>
+                  <span
+                    className="donezo-nav-badge"
+                    style={(item as any).isPendingBadge ? {
+                      backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                      color: '#B45309',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      fontWeight: 700,
+                      fontSize: '10px'
+                    } : undefined}
+                  >
+                    {item.badge}
+                  </span>
                 ) : null}
               </button>
             );

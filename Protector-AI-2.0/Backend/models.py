@@ -18,7 +18,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False, default="")
     role = Column(String(50), default="Operator")  # Administrator, Operator
     avatar = Column(String(255), default="")
-    status = Column(String(20), default="Active")  # Active, Inactive
+    status = Column(String(20), default="Active")  # Active, Inactive, Pending
+    operator_auth_token = Column(String(64), nullable=True, index=True)
     last_active = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -34,6 +35,7 @@ class User(Base):
             "role": self.role,
             "avatar": self.avatar,
             "status": self.status,
+            "operator_auth_token": self.operator_auth_token,
             "last_active": self.last_active.isoformat() if self.last_active else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
@@ -288,6 +290,8 @@ class OperatorAuthToken(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     token = Column(String(64), unique=True, nullable=False, index=True)
     name = Column(String(100), default="Operator Access Token")
+    user_id = Column(Integer, nullable=True, index=True)
+    user_email = Column(String(120), nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     created_by = Column(String(120), default="sahilmohammad512@gmail.com")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -298,6 +302,8 @@ class OperatorAuthToken(Base):
             "id": self.id,
             "token": self.token,
             "name": self.name,
+            "user_id": self.user_id,
+            "user_email": self.user_email,
             "is_active": self.is_active,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,

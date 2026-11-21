@@ -215,6 +215,10 @@ export function App() {
     (i) => i.status === 'Open' || i.status === 'In Review'
   ).length;
 
+  const pendingOperatorsCount = users.filter(
+    (u) => u.status === 'Pending'
+  ).length;
+
   const handleSelectModule = (mod: string) => {
     if (isOperator && (mod === 'people' || mod === 'team' || mod === 'settings')) return;
 
@@ -269,6 +273,7 @@ export function App() {
           activeModule={activeModule}
           onSelectModule={handleSelectModule}
           openIncidentsCount={openIncidentsCount}
+          pendingOperatorsCount={pendingOperatorsCount}
           currentUser={currentUser}
           onLogout={handleLogout}
           onOpenTerminal={() => setIsTerminalOpen(true)}

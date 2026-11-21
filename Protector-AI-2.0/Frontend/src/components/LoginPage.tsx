@@ -329,12 +329,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 <div style={{
                   padding: '12px 14px',
                   borderRadius: '12px',
-                  backgroundColor: '#FEF2F2',
-                  border: '1px solid #FEE2E2',
-                  color: '#DC2626',
+                  backgroundColor: error.toLowerCase().includes('pending') ? '#FFFBEB' : '#FEF2F2',
+                  border: error.toLowerCase().includes('pending') ? '1px solid #FDE68A' : '1px solid #FEE2E2',
+                  color: error.toLowerCase().includes('pending') ? '#B45309' : '#DC2626',
                   fontSize: '13px',
                   fontWeight: 500,
-                  marginBottom: '18px'
+                  marginBottom: '18px',
+                  lineHeight: 1.5
                 }}>
                   {error}
                 </div>
@@ -408,7 +409,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <label className="smartnest-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
                         <KeyRound size={14} color="#0284C7" />
-                        <span>Administrator Authorization Token</span>
+                        <span>Unique Administrator Security Token</span>
                       </label>
                       <span style={{ fontSize: '10.5px', color: '#0284C7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         Required
@@ -418,13 +419,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                       type="text"
                       value={authToken}
                       onChange={(e) => setAuthToken(e.target.value)}
-                      placeholder="e.g. OP-AUTH-2026"
+                      placeholder="e.g. OP-01-A7E91B"
                       className="smartnest-input"
                       style={{ fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 600, color: '#0F172A' }}
                       disabled={loading}
                     />
                     <p style={{ fontSize: '11px', color: '#64748B', margin: '4px 0 0 2px' }}>
-                      Security passkey issued exclusively by Administrator (Mohd Sahil).
+                      Unique security passkey issued specifically to your account by Administrator Mohd Sahil.
                     </p>
                   </div>
                 )}

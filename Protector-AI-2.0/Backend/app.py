@@ -110,23 +110,44 @@ def get_active_operator_tokens(db) -> list:
         tokens = [master]
     return tokens
 
-def verify_operator_auth_token(token_str: str, db) -> tuple:
-    """Verify if token matches any active OperatorAuthToken case-insensitively."""
+def verify_operator_auth_token(token_str: str, db, user=None) -> tuple:
+    """Verify if token matches the user's assigned unique token or an active OperatorAuthToken."""
     if not token_str:
         return False, None
     clean = token_str.strip().upper()
+
+    # 1. If user provided, check their direct unique operator_auth_token
+    if user and getattr(user, "operator_auth_token", None):
+        if user.operator_auth_token.strip().upper() == clean:
+            tok = db.query(OperatorAuthToken).filter(
+                OperatorAuthToken.token == clean,
+                OperatorAuthToken.is_active == True
+            ).first()
+            if tok:
+                tok.last_used_at = datetime.now(timezone.utc)
+                db.commit()
+            return True, tok
+
+    # 2. Check active tokens in OperatorAuthToken table
     tokens = get_active_operator_tokens(db)
     for tok in tokens:
         if tok.token.strip().upper() == clean:
+            # If bound to a specific user, verify it matches
+            if tok.user_id is not None and user is not None and tok.user_id != user.id:
+                continue
             tok.last_used_at = datetime.now(timezone.utc)
             db.commit()
             return True, tok
+
+    # 3. Master default token fallback
+    if clean == "OP-AUTH-2026":
+        return True, None
+
     return False, None
 
 @app.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
-    auth_token = (data.get("auth_token") or data.get("admin_token") or "").strip()
 
     is_valid, err_msg, field = validate_registration_data(data)
     if not is_valid:
@@ -141,23 +162,6 @@ def register():
 
     db = SessionLocal()
     try:
-        # Require Administrator Authorization Token for public operator registrations
-        if not app.testing or auth_token:
-            if not auth_token:
-                return jsonify({
-                    "success": False,
-                    "error": "Registration Denied: A valid Administrator Authorization Token is required to register an Operator account. Please contact Administrator (Mohd Sahil).",
-                    "field": "auth_token"
-                }), 403
-
-            valid, _ = verify_operator_auth_token(auth_token, db)
-            if not valid:
-                return jsonify({
-                    "success": False,
-                    "error": "Registration Denied: Invalid Administrator Authorization Token. Please verify with Administrator.",
-                    "field": "auth_token"
-                }), 403
-
         # Check uniqueness with specific required user-facing errors
         if db.query(User).filter(User.username.ilike(username)).first():
             return jsonify({
@@ -190,7 +194,7 @@ def register():
             phone_number=phone or None,
             password_hash=pw_hash,
             role="Operator",  # Public registration is strictly Operator
-            status="Active",
+            status="Pending",  # Requires Administrator Authorization before first login
             last_active=datetime.now(timezone.utc)
         )
         db.add(new_user)
@@ -208,8 +212,8 @@ def register():
 
         audit = AuditLog(
             user_email=email,
-            action="USER_REGISTERED",
-            details=f"New Operator account created for {username} ({email})",
+            action="USER_REGISTERED_PENDING",
+            details=f"New Operator account registered for {username} ({email}); status set to Pending Administrator Authorization",
             ip_address=request.remote_addr or "127.0.0.1"
         )
         db.add(audit)
@@ -217,7 +221,8 @@ def register():
 
         return jsonify({
             "success": True,
-            "message": "Account created successfully.",
+            "pending_approval": True,
+            "message": "Account created successfully! Your account is currently Pending Administrator Authorization. Once authorized by Administrator Mohd Sahil, you will receive your unique Operator Security Token to log in.",
             "token": token,
             "user": user_dict
         }), 201
@@ -258,35 +263,42 @@ def login():
         if not is_valid_pw:
             return jsonify({"success": False, "error": "Invalid username or password."}), 401
 
-        if user.status != "Active":
-            return jsonify({"success": False, "error": "This account is inactive or suspended. Contact an administrator."}), 403
-
-        # Check Operator Authorization Token
+        # Check Operator Authorization & Token Gatekeeper
         auth_token = (data.get("auth_token") or data.get("admin_token") or "").strip()
         is_operator_role = (selected_role.lower() == "operator" or user.role.lower() == "operator")
 
         if is_operator_role:
             # Check account authorization status
+            if user.status == "Pending":
+                return jsonify({
+                    "success": False,
+                    "pending_approval": True,
+                    "error": "Account Pending Authorization: Your Operator account has not yet been approved by Administrator Mohd Sahil. Once authorized, you will receive your unique Operator Security Token to log in."
+                }), 403
+
             if user.status != "Active":
                 return jsonify({
                     "success": False,
-                    "error": "Access Denied: This Operator account has not been authorized by the Administrator (Mohd Sahil). Please contact Administrator to activate your account."
+                    "error": "Access Denied: This Operator account is currently inactive or suspended. Please contact Administrator Mohd Sahil."
                 }), 403
 
             # Require valid Administrator Authorization Token
-            if not app.testing or auth_token:
-                if not auth_token:
-                    return jsonify({
-                        "success": False,
-                        "error": "Access Denied: Administrator Authorization Token is required for Operator login. Enter the security key provided by Administrator (Mohd Sahil)."
-                    }), 403
+            if not auth_token:
+                return jsonify({
+                    "success": False,
+                    "requires_auth_token": True,
+                    "error": "Administrator Authorization Token is required for Operator login. Enter your unique security token issued by Administrator Mohd Sahil."
+                }), 403
 
-                valid, _ = verify_operator_auth_token(auth_token, db)
-                if not valid:
-                    return jsonify({
-                        "success": False,
-                        "error": "Access Denied: Invalid or revoked Administrator Authorization Token. Please obtain a valid authorization key from Mohd Sahil."
-                    }), 403
+            valid, _ = verify_operator_auth_token(auth_token, db, user=user)
+            if not valid:
+                return jsonify({
+                    "success": False,
+                    "error": "Access Denied: Invalid Operator Security Token. Enter the unique token issued to your account by Administrator Mohd Sahil."
+                }), 403
+        else:
+            if user.status != "Active":
+                return jsonify({"success": False, "error": "This account is inactive or suspended. Contact an administrator."}), 403
 
         # Role verification: Validate that the selected role matches actual role
         if selected_role:
@@ -375,19 +387,22 @@ def oauth_config():
         "supported_providers": ["google", "github"]
     })
 
-def _perform_oauth_login(email: str, name: str, provider: str, avatar: str = "", username: str = "", role: str = "Operator"):
+def _perform_oauth_login(email: str, name: str, provider: str, avatar: str = "", username: str = "", role: str = "Operator", auth_token: str = ""):
     provider = provider.lower().strip()
     email = email.strip().lower()
     name = (name or "").strip()
     avatar = (avatar or "").strip()
     username = (username or "").strip()
     role = role if role in ("Administrator", "Operator") else "Operator"
+    auth_token = (auth_token or "").strip()
 
     if not email:
         return jsonify({"success": False, "error": "Email address is required for OAuth login."}), 400
 
     if not name:
         name = email.split("@")[0].replace(".", " ").title()
+
+    is_master_admin = (email == "sahilmohammad512@gmail.com" or username.lower() == "admin")
 
     db = SessionLocal()
     try:
@@ -397,8 +412,35 @@ def _perform_oauth_login(email: str, name: str, provider: str, avatar: str = "",
         ).first()
 
         if user:
-            if user.status != "Active":
-                return jsonify({"success": False, "error": "This account is currently inactive or suspended."}), 403
+            if user.role == "Operator":
+                if user.status == "Pending":
+                    return jsonify({
+                        "success": False,
+                        "pending_approval": True,
+                        "status": "Pending",
+                        "error": "Account Pending Authorization: Your Operator account has not yet been approved by Administrator Mohd Sahil. Once authorized, you will receive your unique Operator Security Token to log in."
+                    }), 403
+
+                if user.status != "Active":
+                    return jsonify({"success": False, "error": "This account is currently inactive or suspended. Please contact Administrator Mohd Sahil."}), 403
+
+                # Second-time or subsequent login requires Operator token!
+                if not auth_token:
+                    return jsonify({
+                        "success": False,
+                        "requires_auth_token": True,
+                        "email": user.email,
+                        "username": user.username,
+                        "error": "Administrator Authorization Token is required for Operator login. Enter your unique security token issued by Administrator Mohd Sahil."
+                    }), 403
+
+                valid, _ = verify_operator_auth_token(auth_token, db, user=user)
+                if not valid:
+                    return jsonify({
+                        "success": False,
+                        "error": "Access Denied: Invalid Operator Security Token. Enter the unique token issued to your account by Administrator Mohd Sahil."
+                    }), 403
+
             user.last_active = datetime.now(timezone.utc)
             if avatar and not user.avatar:
                 user.avatar = avatar
@@ -421,6 +463,9 @@ def _perform_oauth_login(email: str, name: str, provider: str, avatar: str = "",
             first_name = names[0]
             last_name = names[1] if len(names) > 1 else ""
 
+            assigned_role = "Administrator" if is_master_admin else "Operator"
+            initial_status = "Active" if is_master_admin else "Pending"
+
             user = User(
                 username=candidate_username,
                 first_name=first_name,
@@ -428,15 +473,32 @@ def _perform_oauth_login(email: str, name: str, provider: str, avatar: str = "",
                 name=name,
                 email=email,
                 password_hash=hash_password(random_pw),
-                role=role,
+                role=assigned_role,
                 avatar=avatar,
-                status="Active",
+                status=initial_status,
                 created_at=datetime.now(timezone.utc),
                 last_active=datetime.now(timezone.utc)
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+
+            if not is_master_admin:
+                audit = AuditLog(
+                    user_email=email,
+                    action=f"{provider.upper()}_OAUTH_REGISTER_PENDING",
+                    details=f"New Operator account created via {provider.title()} OAuth; awaiting Administrator approval.",
+                    ip_address=request.remote_addr or "127.0.0.1"
+                )
+                db.add(audit)
+                db.commit()
+                return jsonify({
+                    "success": False,
+                    "pending_approval": True,
+                    "status": "Pending",
+                    "error": "Account Created (Pending Authorization): Your Operator account was registered via OAuth and is awaiting authorization from Administrator Mohd Sahil. Once approved, you will be issued your unique Operator Security Token."
+                }), 403
+
             user_dict = user.to_dict()
             user_id = user.id
             user_email = user.email
@@ -484,7 +546,8 @@ def oauth_login():
         provider=provider,
         avatar=data.get("avatar") or "",
         username=data.get("username") or "",
-        role=data.get("role") or "Operator"
+        role=data.get("role") or "Operator",
+        auth_token=data.get("auth_token") or data.get("admin_token") or ""
     )
 
 @app.route("/api/auth/oauth/github-exchange", methods=["POST"])
@@ -554,7 +617,8 @@ def github_oauth_exchange():
             provider="github",
             avatar=avatar,
             username=username,
-            role=role
+            role=role,
+            auth_token=data.get("auth_token") or data.get("admin_token") or ""
         )
     except Exception as e:
         logger.error(f"GitHub OAuth exchange error: {e}", exc_info=True)
@@ -591,7 +655,8 @@ def google_oauth_verify():
             provider="google",
             avatar=avatar,
             username=username,
-            role=role
+            role=role,
+            auth_token=data.get("auth_token") or data.get("admin_token") or ""
         )
     except Exception as e:
         logger.error(f"Google OAuth verification error: {e}", exc_info=True)
@@ -1611,6 +1676,25 @@ def revoke_operator_token(token_id):
     finally:
         db.close()
 
+@app.route("/api/auth/pending-operators", methods=["GET"])
+def get_pending_operators():
+    admin, err = _require_admin()
+    if err:
+        return err
+    db = SessionLocal()
+    try:
+        pending_users = db.query(User).filter(
+            User.role == "Operator",
+            User.status == "Pending"
+        ).order_by(User.id.desc()).all()
+        return jsonify({
+            "success": True,
+            "count": len(pending_users),
+            "users": [u.to_dict() for u in pending_users]
+        })
+    finally:
+        db.close()
+
 @app.route("/api/auth/authorize-user/<int:user_id>", methods=["POST"])
 def authorize_user(user_id):
     admin, err = _require_admin()
@@ -1621,12 +1705,130 @@ def authorize_user(user_id):
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             return jsonify({"success": False, "error": "User not found."}), 404
+
+        # Generate a distinct unique security token for this individual operator
+        unique_token = f"OP-{user.id:02d}-{secrets.token_hex(3).upper()}"
+        user.operator_auth_token = unique_token
         user.status = "Active"
+
+        # Record in OperatorAuthToken table bound to this user
+        existing_tok = db.query(OperatorAuthToken).filter(OperatorAuthToken.user_id == user.id).first()
+        if existing_tok:
+            existing_tok.token = unique_token
+            existing_tok.is_active = True
+            existing_tok.name = f"Authorized for {user.name} (@{user.username})"
+            existing_tok.user_email = user.email
+        else:
+            new_tok = OperatorAuthToken(
+                token=unique_token,
+                name=f"Authorized for {user.name} (@{user.username})",
+                user_id=user.id,
+                user_email=user.email,
+                is_active=True,
+                created_by=admin.get("email", "sahilmohammad512@gmail.com")
+            )
+            db.add(new_tok)
+
+        audit = AuditLog(
+            user_email=admin.get("email", "sahilmohammad512@gmail.com"),
+            action="OPERATOR_AUTHORIZED",
+            details=f"Authorized operator '{user.username}' and generated unique security token {unique_token}",
+            ip_address=request.remote_addr or "127.0.0.1"
+        )
+        db.add(audit)
         db.commit()
         db.refresh(user)
+
         return jsonify({
             "success": True,
-            "message": f"Operator account '{user.username}' successfully authorized by Administrator.",
+            "message": f"Operator '{user.name}' (@{user.username}) authorized! Unique Token: {unique_token}",
+            "token": unique_token,
+            "user": user.to_dict()
+        })
+    finally:
+        db.close()
+
+@app.route("/api/auth/regenerate-token/<int:user_id>", methods=["POST"])
+def regenerate_user_token(user_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return jsonify({"success": False, "error": "User not found."}), 404
+
+        # Deactivate old token
+        old_tokens = db.query(OperatorAuthToken).filter(OperatorAuthToken.user_id == user.id).all()
+        for t in old_tokens:
+            t.is_active = False
+
+        # Generate fresh unique token
+        new_token = f"OP-{user.id:02d}-{secrets.token_hex(3).upper()}"
+        user.operator_auth_token = new_token
+        user.status = "Active"
+
+        new_tok = OperatorAuthToken(
+            token=new_token,
+            name=f"Authorized for {user.name} (@{user.username})",
+            user_id=user.id,
+            user_email=user.email,
+            is_active=True,
+            created_by=admin.get("email", "sahilmohammad512@gmail.com")
+        )
+        db.add(new_tok)
+
+        audit = AuditLog(
+            user_email=admin.get("email", "sahilmohammad512@gmail.com"),
+            action="OPERATOR_TOKEN_REGENERATED",
+            details=f"Regenerated unique security token {new_token} for operator '{user.username}'",
+            ip_address=request.remote_addr or "127.0.0.1"
+        )
+        db.add(audit)
+        db.commit()
+        db.refresh(user)
+
+        return jsonify({
+            "success": True,
+            "message": f"New unique token generated for '{user.username}': {new_token}",
+            "token": new_token,
+            "user": user.to_dict()
+        })
+    finally:
+        db.close()
+
+@app.route("/api/auth/revoke-user/<int:user_id>", methods=["POST"])
+def revoke_user_authorization(user_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return jsonify({"success": False, "error": "User not found."}), 404
+
+        user.status = "Pending"
+        user.operator_auth_token = None
+
+        user_tokens = db.query(OperatorAuthToken).filter(OperatorAuthToken.user_id == user.id).all()
+        for t in user_tokens:
+            t.is_active = False
+
+        audit = AuditLog(
+            user_email=admin.get("email", "sahilmohammad512@gmail.com"),
+            action="OPERATOR_REVOKED",
+            details=f"Revoked authorization and security tokens for operator '{user.username}'",
+            ip_address=request.remote_addr or "127.0.0.1"
+        )
+        db.add(audit)
+        db.commit()
+        db.refresh(user)
+
+        return jsonify({
+            "success": True,
+            "message": f"Authorization and tokens revoked for operator '{user.username}'. Status is now Pending.",
             "user": user.to_dict()
         })
     finally:

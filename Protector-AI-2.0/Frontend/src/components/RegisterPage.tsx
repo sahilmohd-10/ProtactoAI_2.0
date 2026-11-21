@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, ArrowLeft, ShieldCheck, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser } from '../types';
 import { SpinningDevice3D } from './SpinningDevice3D';
@@ -14,12 +14,12 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [authToken, setAuthToken] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [role] = useState<'Operator'>('Operator');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registeredPending, setRegisteredPending] = useState(false);
   const [oauthProvider, setOauthProvider] = useState<'google' | 'github' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,10 +41,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
       setError('Password must be at least 8 characters long.');
       return;
     }
-    if (!authToken.trim()) {
-      setError('A valid Administrator Authorization Token is required to register an Operator account. Contact Administrator (Mohd Sahil).');
-      return;
-    }
     if (!agreeTerms) {
       setError('You must agree to the Terms of Service.');
       return;
@@ -63,12 +59,15 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
         username: generatedUsername,
         email: trimmedEmail,
         password: password,
-        confirm_password: password,
-        auth_token: authToken.trim()
+        confirm_password: password
       });
 
       if (res.success && res.user) {
-        onRegisterSuccess(res.user);
+        if (res.user.status === 'Pending' || res.pending_approval) {
+          setRegisteredPending(true);
+        } else {
+          onRegisterSuccess(res.user);
+        }
       } else {
         setError('Registration failed. Please check your information.');
       }
@@ -142,115 +141,135 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
               </span>
             </div>
 
-            <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0', lineHeight: 1.25 }}>
-              Create an Account?
-            </h2>
-
-            <p style={{ fontSize: '13.5px', color: '#64748B', margin: '0 0 20px 0' }}>
-              Register your profile to participate in automated safety surveillance.
-            </p>
-
-            {error && (
-              <div style={{
-                padding: '12px 14px',
-                borderRadius: '12px',
-                backgroundColor: '#FEF2F2',
-                border: '1px solid #FEE2E2',
-                color: '#DC2626',
-                fontSize: '13px',
-                fontWeight: 500,
-                marginBottom: '18px'
-              }}>
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              {/* Name */}
-              <div className="smartnest-input-group">
-                <label className="smartnest-label">Full Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Johan orindo"
-                  className="smartnest-input"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Email */}
-              <div className="smartnest-input-group">
-                <label className="smartnest-label">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="joedoe75@gmail.com"
-                  className="smartnest-input"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Password */}
-              <div className="smartnest-input-group" style={{ position: 'relative' }}>
-                <label className="smartnest-label">Password</label>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="smartnest-input"
-                    style={{ paddingRight: '44px' }}
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '14px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#94A3B8',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+            {registeredPending ? (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: '#FEF3C7',
+                  color: '#D97706',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <Clock size={32} />
                 </div>
-              </div>
-
-              {/* Administrator Authorization Token */}
-              <div className="smartnest-input-group">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <label className="smartnest-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
-                    <KeyRound size={14} color="#0284C7" />
-                    <span>Administrator Authorization Token</span>
-                  </label>
-                  <span style={{ fontSize: '10.5px', color: '#0284C7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Required
-                  </span>
+                <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0' }}>
+                  Account Created!
+                </h2>
+                <div style={{
+                  padding: '16px',
+                  borderRadius: '14px',
+                  backgroundColor: '#FFFBEB',
+                  border: '1.5px solid #FDE68A',
+                  color: '#92400E',
+                  fontSize: '13.5px',
+                  margin: '18px 0',
+                  textAlign: 'left',
+                  lineHeight: 1.5
+                }}>
+                  <strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>
+                    ⏳ Status: Pending Administrator Authorization
+                  </strong>
+                  Your Operator account has been registered. For industrial workspace security, an Administrator (<strong>Mohd Sahil</strong>) must verify your account and issue your <strong>Unique Security Token</strong> before you can log in.
                 </div>
-                <input
-                  type="text"
-                  value={authToken}
-                  onChange={(e) => setAuthToken(e.target.value)}
-                  placeholder="e.g. OP-AUTH-2026"
-                  className="smartnest-input"
-                  style={{ fontFamily: 'monospace', letterSpacing: '1px', fontWeight: 600, color: '#0F172A' }}
-                  disabled={loading}
-                />
-                <p style={{ fontSize: '11px', color: '#64748B', margin: '4px 0 0 2px' }}>
-                  Must be provided by Administrator (Mohd Sahil) to approve access.
+                <button
+                  type="button"
+                  onClick={onSwitchToLogin}
+                  className="smartnest-btn-primary"
+                  style={{ width: '100%', marginTop: '10px' }}
+                >
+                  Proceed to Login
+                </button>
+              </div>
+            ) : (
+              <>
+                <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0', lineHeight: 1.25 }}>
+                  Create an Account?
+                </h2>
+
+                <p style={{ fontSize: '13.5px', color: '#64748B', margin: '0 0 20px 0' }}>
+                  Register your profile to participate in automated safety surveillance.
                 </p>
-              </div>
 
-              {/* Terms Checkbox */}
+                {error && (
+                  <div style={{
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: '#FEF2F2',
+                    border: '1px solid #FEE2E2',
+                    color: '#DC2626',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    marginBottom: '18px'
+                  }}>
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                  {/* Name */}
+                  <div className="smartnest-input-group">
+                    <label className="smartnest-label">Full Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Johan orindo"
+                      className="smartnest-input"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Email */}
+                  <div className="smartnest-input-group">
+                    <label className="smartnest-label">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="joedoe75@gmail.com"
+                      className="smartnest-input"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div className="smartnest-input-group" style={{ position: 'relative' }}>
+                    <label className="smartnest-label">Password</label>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="smartnest-input"
+                        style={{ paddingRight: '44px' }}
+                        disabled={loading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '14px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: '#94A3B8',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Terms Checkbox */}
               <div style={{ margin: '8px 0 20px 0', fontSize: '13px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', cursor: 'pointer' }}>
                   <input
@@ -318,6 +337,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
                 </button>
               </div>
             </div>
+          </>
+        )}
           </div>
         </div>
       </div>

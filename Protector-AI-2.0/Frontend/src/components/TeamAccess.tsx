@@ -72,6 +72,50 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   // Prune Test Operators State
   const [isPruning, setIsPruning] = useState(false);
 
+  // Filter Tabs & Authorization State
+  const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'operator' | 'admin'>('all');
+  const [authorizingUserId, setAuthorizingUserId] = useState<number | null>(null);
+
+  const handleAuthorizeUser = async (user: User) => {
+    setAuthorizingUserId(user.id);
+    try {
+      const res = await api.authorizeUser(user.id);
+      if (res?.success) {
+        showSuccess(`Authorized operator ${user.name}! Unique Token: ${res.token || 'Issued'}`);
+        if (onRefreshTeam) onRefreshTeam();
+      }
+    } catch (err: any) {
+      alert(`Failed to authorize operator: ${err.message}`);
+    } finally {
+      setAuthorizingUserId(null);
+    }
+  };
+
+  const handleRegenerateToken = async (user: User) => {
+    try {
+      const res = await api.regenerateUserToken(user.id);
+      if (res?.success) {
+        showSuccess(`Generated new unique token for ${user.name}: ${res.token}`);
+        if (onRefreshTeam) onRefreshTeam();
+      }
+    } catch (err: any) {
+      alert(`Failed to regenerate token: ${err.message}`);
+    }
+  };
+
+  const handleRevokeUser = async (user: User) => {
+    if (!confirm(`Revoke operator authorization and access token for ${user.name}? This operator will be blocked from logging in.`)) return;
+    try {
+      const res = await api.revokeUserAuthorization(user.id);
+      if (res?.success) {
+        showSuccess(`Revoked authorization for ${user.name}. Status set to Pending.`);
+        if (onRefreshTeam) onRefreshTeam();
+      }
+    } catch (err: any) {
+      alert(`Failed to revoke operator: ${err.message}`);
+    }
+  };
+
   const showSuccess = (msg: string) => {
     setSuccessToast(msg);
     setTimeout(() => setSuccessToast(''), 4500);
@@ -356,7 +400,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
         </div>
       </div>
 
-      {/* Users Roster Table */}
+      {/* Users Roster Table with Authorization Filter Tabs */}
       <div className="precision-surface" style={{ overflow: 'hidden' }}>
         <div style={{
           padding: '12px 18px',
@@ -367,9 +411,92 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
           flexWrap: 'wrap',
           gap: '10px'
         }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
-            SECURITY CREDENTIAL ROSTER ({users.length} REGISTERED IDENTITIES)
-          </span>
+          {/* Filter Navigation Tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={() => setFilterTab('all')}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: filterTab === 'all' ? 'var(--bg-app)' : 'transparent',
+                color: filterTab === 'all' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                boxShadow: filterTab === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              ALL MEMBERS ({users.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('pending')}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: filterTab === 'pending' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                color: filterTab === 'pending' ? '#D97706' : users.filter(u => u.status === 'Pending').length > 0 ? '#F59E0B' : 'var(--text-tertiary)'
+              }}
+            >
+              <span>PENDING APPROVAL</span>
+              <span style={{
+                backgroundColor: users.filter(u => u.status === 'Pending').length > 0 ? '#F59E0B' : 'var(--border-subtle)',
+                color: users.filter(u => u.status === 'Pending').length > 0 ? '#000000' : 'var(--text-tertiary)',
+                borderRadius: '100px',
+                fontSize: '10px',
+                padding: '1px 6px',
+                fontWeight: 800
+              }}>
+                {users.filter(u => u.status === 'Pending').length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('operator')}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: filterTab === 'operator' ? 'var(--bg-app)' : 'transparent',
+                color: filterTab === 'operator' ? 'var(--text-primary)' : 'var(--text-tertiary)'
+              }}
+            >
+              OPERATORS ({users.filter(u => u.role === 'Operator').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('admin')}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                fontWeight: 700,
+                backgroundColor: filterTab === 'admin' ? 'var(--bg-app)' : 'transparent',
+                color: filterTab === 'admin' ? 'var(--text-primary)' : 'var(--text-tertiary)'
+              }}
+            >
+              ADMINISTRATORS
+            </button>
+          </div>
+
           <div style={{ display: 'flex', gap: '8px' }}>
             <span className="status-pill status-pill-safe">MFA ENFORCED</span>
             <span className="status-pill status-pill-safe" style={{ color: 'var(--accent-citron)', borderColor: 'rgba(215, 255, 100, 0.4)' }}>
@@ -385,19 +512,32 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                 <th style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Member Identity</th>
                 <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Security Role</th>
                 <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Account Status</th>
+                <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Unique Security Token</th>
                 <th style={{ padding: '10px 14px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase' }}>Last Active</th>
                 <th style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-tertiary)', fontSize: '10px', textTransform: 'uppercase', textAlign: 'right' }}>Admin Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
+              {users
+                .filter(u => {
+                  if (filterTab === 'pending') return u.status === 'Pending';
+                  if (filterTab === 'operator') return u.role === 'Operator';
+                  if (filterTab === 'admin') return u.role === 'Administrator' || (u as any).role === 'Admin';
+                  return true;
+                })
+                .map((user) => {
                 const isRootAdmin = user.email === 'admin@protector.ai' && (user.role === 'Administrator' || (user as any).role === 'Admin');
                 const isCurrent = currentUser?.id === user.id || currentUser?.email === user.email;
+                const isPending = user.status === 'Pending';
 
                 return (
                   <tr
                     key={user.id}
-                    style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background-color 0.15s' }}
+                    style={{
+                      borderBottom: '1px solid var(--border-subtle)',
+                      transition: 'background-color 0.15s',
+                      backgroundColor: isPending ? 'rgba(245, 158, 11, 0.04)' : 'transparent'
+                    }}
                   >
                     {/* Identity */}
                     <td style={{ padding: '12px 16px' }}>
@@ -407,14 +547,14 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                           height: '32px',
                           borderRadius: '6px',
                           backgroundColor: 'var(--bg-surface-elevated)',
-                          border: '1px solid var(--border-charcoal)',
+                          border: isPending ? '1.5px solid #F59E0B' : '1px solid var(--border-charcoal)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontSize: '11px',
                           fontFamily: 'var(--font-mono)',
                           fontWeight: 700,
-                          color: user.role === 'Administrator' || (user as any).role === 'Admin' ? 'var(--accent-citron)' : 'var(--text-primary)'
+                          color: isPending ? '#D97706' : user.role === 'Administrator' || (user as any).role === 'Admin' ? 'var(--accent-citron)' : 'var(--text-primary)'
                         }}>
                           {user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                         </div>
@@ -477,22 +617,80 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                       </select>
                     </td>
 
-                    {/* Status Toggle */}
+                    {/* Status Display */}
                     <td style={{ padding: '12px 14px' }}>
-                      <button
-                        onClick={() => handleStatusToggle(user.id, user.status)}
-                        title="Click to toggle account status"
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        <span className={`status-pill ${user.status === 'Active' ? 'status-pill-safe' : 'status-pill-warning'}`} style={{ cursor: 'pointer' }}>
-                          {user.status}
+                      {isPending ? (
+                        <span
+                          className="status-pill"
+                          style={{
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            color: '#D97706',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            fontWeight: 700,
+                            fontSize: '10px'
+                          }}
+                        >
+                          ⏳ PENDING APPROVAL
                         </span>
-                      </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStatusToggle(user.id, user.status)}
+                          title="Click to toggle account status"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: 0
+                          }}
+                        >
+                          <span className={`status-pill ${user.status === 'Active' ? 'status-pill-safe' : 'status-pill-warning'}`} style={{ cursor: 'pointer' }}>
+                            ✓ {user.status}
+                          </span>
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Unique Security Token */}
+                    <td style={{ padding: '12px 14px' }}>
+                      {user.role === 'Operator' ? (
+                        user.operator_auth_token ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <code style={{
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#0284C7',
+                              backgroundColor: 'var(--bg-app)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-subtle)',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {user.operator_auth_token}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(user.operator_auth_token!);
+                                showSuccess(`Copied unique token for ${user.name} (${user.operator_auth_token})`);
+                              }}
+                              className="btn-secondary"
+                              style={{ padding: '2px 6px', fontSize: '10px' }}
+                              title="Copy Token"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                            {isPending ? 'Pending Issuance' : 'OP-AUTH-2026 (Default)'}
+                          </span>
+                        )
+                      ) : (
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                          Master Administrator
+                        </span>
+                      )}
                     </td>
 
                     {/* Last Active */}
@@ -507,28 +705,80 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                           Protected Root
                         </span>
                       ) : (
-                        <button
-                          onClick={() => setUserToDelete(user)}
-                          style={{
-                            fontSize: '11px',
-                            padding: '5px 10px',
-                            color: 'var(--safety-violation)',
-                            backgroundColor: 'rgba(255, 90, 82, 0.08)',
-                            border: '1px solid rgba(255, 90, 82, 0.25)',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontFamily: 'var(--font-mono)'
-                          }}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                          Remove
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          {isPending ? (
+                            <button
+                              type="button"
+                              disabled={authorizingUserId === user.id}
+                              onClick={() => handleAuthorizeUser(user)}
+                              className="btn-citron"
+                              style={{
+                                fontSize: '11px',
+                                padding: '4px 10px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontWeight: 700
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                              {authorizingUserId === user.id ? 'Authorizing...' : 'Authorize & Issue Token'}
+                            </button>
+                          ) : user.role === 'Operator' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleRegenerateToken(user)}
+                                className="btn-secondary"
+                                style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                                title="Regenerate a brand new unique security passkey"
+                              >
+                                ↻ New Token
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeUser(user)}
+                                style={{
+                                  fontSize: '10.5px',
+                                  padding: '3px 8px',
+                                  color: '#EF4444',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer'
+                                }}
+                                title="Revoke authorization"
+                              >
+                                Revoke
+                              </button>
+                            </>
+                          ) : null}
+
+                          <button
+                            onClick={() => setUserToDelete(user)}
+                            style={{
+                              fontSize: '11px',
+                              padding: '4px 8px',
+                              color: 'var(--safety-violation)',
+                              backgroundColor: 'rgba(255, 90, 82, 0.08)',
+                              border: '1px solid rgba(255, 90, 82, 0.25)',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontFamily: 'var(--font-mono)'
+                            }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
