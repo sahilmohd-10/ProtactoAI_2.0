@@ -678,23 +678,57 @@ def send_email_otp(to_email: str, otp_code: str) -> bool:
         try:
             import urllib.request
             import json
-            req = urllib.request.Request(
-                "https://api.resend.com/emails",
-                data=json.dumps({
-                    "from": os.getenv("RESEND_FROM", "Protector AI <onboarding@resend.dev>"),
-                    "to": [to_email],
-                    "subject": f"Protector AI — Password Reset Verification Code: {otp_code}",
-                    "html": f"<div style='font-family: sans-serif; padding: 20px;'><h2>Protector AI Security</h2><p>Your 6-digit verification code is:</p><h1 style='color: #0284C7; letter-spacing: 6px;'>{otp_code}</h1><p>Expires in 10 minutes.</p></div>"
-                }).encode("utf-8"),
-                headers={
-                    "Authorization": f"Bearer {resend_api_key}",
-                    "Content-Type": "application/json"
-                }
-            )
-            with urllib.request.urlopen(req, timeout=6) as resp:
-                if resp.status in (200, 201):
-                    logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {to_email} via Resend HTTPS API")
+
+            def _dispatch_resend(recipient_email: str) -> bool:
+                html_body = f"""
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 28px; background-color: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h2 style="color: #0F172A; margin: 0; font-size: 22px; font-weight: 800;">🛡️ Protector AI Security</h2>
+                        <p style="color: #64748B; font-size: 13px; margin: 4px 0 0 0;">Password Reset Verification Code</p>
+                    </div>
+                    <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+                        A password reset was requested for Protector AI Administrator (<strong>{to_email}</strong>). Use the one-time verification code below:
+                    </p>
+                    <div style="background-color: #F8FAFC; border: 1.5px dashed #2563EB; border-radius: 12px; padding: 18px; text-align: center; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #2563EB; font-family: 'Courier New', monospace;">{otp_code}</span>
+                    </div>
+                    <p style="color: #64748B; font-size: 12px; line-height: 1.5; margin: 0;">
+                        ⏱️ <strong>Expires in 10 minutes.</strong> Never share this code with anyone.
+                    </p>
+                </div>
+                """
+                req = urllib.request.Request(
+                    "https://api.resend.com/emails",
+                    data=json.dumps({
+                        "from": os.getenv("RESEND_FROM", "Protector AI <onboarding@resend.dev>"),
+                        "to": [recipient_email],
+                        "subject": f"Protector AI — Password Reset Verification Code: {otp_code}",
+                        "html": html_body
+                    }).encode("utf-8"),
+                    headers={
+                        "Authorization": f"Bearer {resend_api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "Protector-AI-Client/2.0"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    if resp.status in (200, 201):
+                        logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP email to {recipient_email} via Resend HTTPS API")
+                        return True
+                return False
+
+            try:
+                if _dispatch_resend(to_email):
                     return True
+            except urllib.error.HTTPError as http_err:
+                err_text = http_err.read().decode("utf-8", errors="ignore")
+                # If Resend test sandbox requires sending to the account owner email
+                if "protectoaismvdu@gmail.com" in err_text or "only send testing emails to your own email address" in err_text:
+                    logger.info("ℹ️ Resend sandbox mode detected: forwarding OTP to registered Resend owner (protectoaismvdu@gmail.com)")
+                    if _dispatch_resend("protectoaismvdu@gmail.com"):
+                        return True
+                else:
+                    logger.warning(f"⚠️ Resend HTTP {http_err.code}: {err_text}")
         except Exception as err:
             logger.warning(f"⚠️ Could not dispatch via Resend: {err}")
 
