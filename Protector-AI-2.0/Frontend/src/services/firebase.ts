@@ -1,22 +1,22 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
 import {
   getAuth,
-  sendPasswordResetEmail,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
   sendEmailVerification,
+  sendPasswordResetEmail,
   updateProfile,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
-  type ApplicationVerifier,
+  onAuthStateChanged,
   type User
 } from "firebase/auth";
 
+/**
+ * Firebase Web SDK Configuration using Vite environment variables
+ * Project: ProtectoAI (protectoai-8a951)
+ */
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "protectoai-8a951.firebaseapp.com",
@@ -27,26 +27,15 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-FJVDTRMMLZ"
 };
 
-// Initialize Firebase App (singleton guard)
+// Initialize Firebase App only once (singleton guard)
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Analytics if supported in this environment
-export let analytics: any = null;
-if (typeof window !== "undefined") {
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  }).catch(() => {
-    // Analytics not supported in test / SSR environments
-  });
-}
-
-// Initialize Auth
+// Export the Firebase Auth instance
 export const auth = getAuth(app);
 
 /**
- * Register user with Firebase Auth and dispatch an official Email Verification
+ * 1. Register with Firebase Email & Password
+ * Automatically dispatches official Email Verification to the user's inbox
  */
 export async function registerWithFirebase(
   email: string,
@@ -71,7 +60,7 @@ export async function registerWithFirebase(
     }
   }
 
-  // Send email verification link/message via Firebase
+  // Dispatch official Email Verification
   try {
     await sendEmailVerification(user);
     console.info("✅ Firebase verification email dispatched to:", email);
@@ -84,18 +73,7 @@ export async function registerWithFirebase(
 }
 
 /**
- * Dispatch Firebase Email Verification to current authenticated user
- */
-export async function sendFirebaseEmailVerification(): Promise<boolean> {
-  if (!auth.currentUser) {
-    throw new Error("No active Firebase session found to verify.");
-  }
-  await sendEmailVerification(auth.currentUser);
-  return true;
-}
-
-/**
- * Log in with Firebase email & password
+ * 2. Log in with Firebase Email & Password
  */
 export async function loginWithFirebase(
   email: string,
@@ -111,7 +89,7 @@ export async function loginWithFirebase(
 }
 
 /**
- * 1-Click Google Sign-In with Firebase Popup
+ * 3. 1-Click Google Sign-In with Firebase Popup
  */
 export async function loginWithGooglePopup(): Promise<{ user: User; idToken: string }> {
   const provider = new GoogleAuthProvider();
@@ -124,18 +102,18 @@ export async function loginWithGooglePopup(): Promise<{ user: User; idToken: str
 }
 
 /**
- * Log out of Firebase Auth
+ * 4. Send Email Verification to current authenticated user
  */
-export async function logoutFirebase(): Promise<void> {
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.warn("Firebase sign out notice:", e);
+export async function sendFirebaseEmailVerification(): Promise<boolean> {
+  if (!auth.currentUser) {
+    throw new Error("No active Firebase session found to verify.");
   }
+  await sendEmailVerification(auth.currentUser);
+  return true;
 }
 
 /**
- * Send real Password Reset Email directly via Firebase Auth
+ * 5. Send Password Reset Email directly via Firebase Auth
  */
 export async function sendFirebasePasswordReset(email: string): Promise<boolean> {
   if (!email || !email.includes("@")) {
@@ -146,44 +124,21 @@ export async function sendFirebasePasswordReset(email: string): Promise<boolean>
 }
 
 /**
- * Set up reCAPTCHA verifier for phone OTP
+ * 6. Log out of Firebase Auth
  */
-export function setupRecaptcha(containerId: string = "recaptcha-container"): RecaptchaVerifier {
-  if (typeof window === "undefined") {
-    throw new Error("Window object is required for reCAPTCHA.");
+export async function logoutFirebase(): Promise<void> {
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.warn("Firebase sign out notice:", e);
   }
-  return new RecaptchaVerifier(auth, containerId, {
-    size: "invisible",
-    callback: () => {
-      // reCAPTCHA solved - will proceed with submit function
-    }
-  });
 }
 
 /**
- * Send SMS OTP to phone number using Firebase Auth
+ * 7. Listen for Firebase Auth state changes
  */
-export async function sendPhoneOtp(
-  phoneNumber: string,
-  verifier: ApplicationVerifier
-): Promise<ConfirmationResult> {
-  if (!phoneNumber) {
-    throw new Error("Please provide a valid phone number with country code (e.g. +91XXXXXXXXXX).");
-  }
-  return await signInWithPhoneNumber(auth, phoneNumber.trim(), verifier);
-}
-
-/**
- * Confirm / Verify Phone OTP code
- */
-export async function confirmPhoneOtp(
-  confirmationResult: ConfirmationResult,
-  code: string
-) {
-  if (!code || code.trim().length < 6) {
-    throw new Error("Please enter a valid 6-digit OTP code.");
-  }
-  return await confirmationResult.confirm(code.trim());
+export function onFirebaseAuthStateChanged(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
 }
 
 export default app;
