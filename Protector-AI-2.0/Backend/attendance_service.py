@@ -34,7 +34,10 @@ UNRELEVANT_NAMES = {
 
 class AttendanceService:
     def __init__(self, excel_path: Optional[Path] = None):
-        self.excel_path = Path(excel_path or getattr(config, "PRIMARY_ATTENDANCE_PATH", Path(r"D:\Downloads\Attendance.xlsx")))
+        default_target = Path(getattr(config, "PRIMARY_ATTENDANCE_PATH", Path(r"D:\Downloads\Attendance.xlsx")))
+        if not default_target.parent.exists() and not os.path.exists("D:\\"):
+            default_target = getattr(config, "DATA_DIR", Path("data")) / "attendance.xlsx"
+        self.excel_path = Path(excel_path or default_target)
         self._lock = threading.RLock()
         self._last_excel_sync_time: float = 0.0
         self._sync_cooldown_seconds: float = 5.0
@@ -774,6 +777,10 @@ class AttendanceService:
                 os.close(temp_fd)
                 temp_path = Path(temp_path_str)
                 wb.save(str(temp_path))
+                try:
+                    wb.close()
+                except Exception:
+                    pass
 
                 # Candidate synchronization targets (Live OneDrive, D:\Downloads, C:\Downloads, and Backend data)
                 candidate_paths = [
@@ -823,6 +830,12 @@ class AttendanceService:
                             logger.debug(f"Could not copy to companion destination {companion_dest}: {comp_err}")
                     except Exception as err:
                         logger.warning(f"Could not copy attendance workbook to {dest}: {err}")
+
+                if saved_count > 0 and not self.excel_path.exists():
+                    for dest in targets:
+                        if dest.exists():
+                            self.excel_path = dest
+                            break
 
                 try:
                     temp_path.unlink(missing_ok=True)

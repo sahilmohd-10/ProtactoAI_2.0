@@ -2812,14 +2812,31 @@ def open_attendance_excel_locally():
         attendance_service.sync_to_excel()
         target = attendance_service.excel_path
         if not target.exists():
-            target = Path(r"D:\Downloads\Attendance.xlsx")
+            for cand in [
+                Path(r"D:\Downloads\Attendance.xlsx"),
+                Path(r"D:\Downloads\Attendance_Live.xlsx"),
+                Path(r"C:\Users\sahil\Downloads\Attendance.xlsx"),
+                getattr(config, "DATA_DIR", Path("data")) / "attendance.xlsx",
+            ]:
+                if cand.exists():
+                    target = cand
+                    break
+
         if target.exists():
-            os.startfile(str(target))
-            return jsonify({
-                "success": True,
-                "message": f"Opened {target.name} in Microsoft Excel.",
-                "excel_path": str(target)
-            })
+            if hasattr(os, "startfile"):
+                os.startfile(str(target))
+                return jsonify({
+                    "success": True,
+                    "message": f"Opened {target.name} in Microsoft Excel.",
+                    "excel_path": str(target)
+                })
+            else:
+                return jsonify({
+                    "success": True,
+                    "message": "Workbook synchronized. Cloud deployment active; use Download Excel to view.",
+                    "excel_path": str(target),
+                    "download_url": "/api/attendance/export"
+                })
         return jsonify({"success": False, "error": "Excel workbook file not found on disk"}), 404
     except Exception as ex:
         logger.exception("Failed to launch Microsoft Excel.")
@@ -2827,15 +2844,30 @@ def open_attendance_excel_locally():
 
 
 @app.route("/api/attendance/export", methods=["GET"])
+@app.route("/api/attendance/export-excel", methods=["GET"])
 def export_attendance_excel():
     """Download the current Excel workbook."""
     try:
         from attendance_service import attendance_service
         attendance_service.sync_to_excel()
-        if not attendance_service.excel_path.exists():
+        target = attendance_service.excel_path
+        if not target.exists():
+            for cand in [
+                Path(r"D:\Downloads\Attendance.xlsx"),
+                Path(r"D:\Downloads\Attendance_Live.xlsx"),
+                Path(r"C:\Users\sahil\Downloads\Attendance.xlsx"),
+                getattr(config, "DATA_DIR", Path("data")) / "attendance.xlsx",
+                Path("Backend/data/attendance.xlsx"),
+                Path("data/attendance.xlsx")
+            ]:
+                if cand.exists():
+                    target = cand
+                    break
+
+        if not target or not target.exists():
             return jsonify({"error": "Attendance spreadsheet not found."}), 404
         return send_file(
-            str(attendance_service.excel_path),
+            str(target),
             as_attachment=True,
             download_name="Attendance.xlsx",
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
