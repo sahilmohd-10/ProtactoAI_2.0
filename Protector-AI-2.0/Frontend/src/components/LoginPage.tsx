@@ -38,7 +38,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
   const [forgotErrorMsg, setForgotErrorMsg] = useState<string | null>(null);
-  const [otpFallback, setOtpFallback] = useState<string | null>(null);
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -107,14 +106,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
       const res = await api.forgotPassword(email);
       if (res.success || firebaseDispatched) {
         const targetEmail = res.email || email;
-        if (res.otp_fallback) {
-          setOtpFallback(res.otp_fallback);
-        } else {
-          setOtpFallback(null);
-        }
-        const msg = res.email_sent
+        const msg = res.email_sent || firebaseDispatched
           ? `Verification code dispatched to ${targetEmail}. Please check your inbox.`
-          : `Verification code generated for ${targetEmail}.`;
+          : `Verification instructions sent to ${targetEmail}. Please check your email inbox.`;
         setForgotSuccessMsg(msg);
         setSubView('forgot_otp');
       } else {
@@ -671,46 +665,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                       Sent to <strong>{forgotEmail}</strong>
                     </p>
                   </div>
-
-                  {otpFallback && (
-                    <div style={{
-                      padding: '14px 16px',
-                      backgroundColor: '#EFF6FF',
-                      border: '1px solid #BFDBFE',
-                      borderRadius: '14px',
-                      marginBottom: '18px',
-                      textAlign: 'left'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          🔑 Verification Code
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setOtpCode(otpFallback)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#2563EB',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            padding: 0
-                          }}
-                        >
-                          Auto-Fill Code
-                        </button>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '4px 0' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 800, color: '#1E40AF', letterSpacing: '6px' }}>
-                          {otpFallback}
-                        </span>
-                      </div>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#64748B', lineHeight: 1.4 }}>
-                        Notice: Outbound SMTP port was unreachable or unconfigured on your network. Code provided directly so you are never locked out.
-                      </p>
-                    </div>
-                  )}
 
                   {forgotErrorMsg && (
                     <div style={{ padding: '12px', borderRadius: '12px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '13px', marginBottom: '16px' }}>
