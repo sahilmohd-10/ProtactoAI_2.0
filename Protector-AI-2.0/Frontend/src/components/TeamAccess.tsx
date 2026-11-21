@@ -81,9 +81,9 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   const handleAuthorizeUser = async (user: User) => {
     setAuthorizingUserId(user.id);
     try {
-      const res = await api.authorizeUser(user.id);
+      const res: any = await (api as any).authorizeUser(user.id);
       if (res?.success) {
-        showSuccess(`Authorized operator ${user.name}! Unique Token: ${res.token || 'Issued'}`);
+        showSuccess(`Authorized operator ${user.name}! Unique Token: ${res?.token || 'Issued'}`);
         if (onRefreshTeam) onRefreshTeam();
       }
     } catch (err: any) {
@@ -95,9 +95,9 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
 
   const handleRegenerateToken = async (user: User) => {
     try {
-      const res = await api.regenerateUserToken(user.id);
+      const res: any = await (api as any).regenerateUserToken(user.id);
       if (res?.success) {
-        showSuccess(`Generated new unique token for ${user.name}: ${res.token}`);
+        showSuccess(`Generated new unique token for ${user.name}: ${res?.token}`);
         if (onRefreshTeam) onRefreshTeam();
       }
     } catch (err: any) {
@@ -108,7 +108,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
   const handleRevokeUser = async (user: User) => {
     if (!confirm(`Revoke operator authorization and access token for ${user.name}? This operator will be blocked from logging in.`)) return;
     try {
-      const res = await api.revokeUserAuthorization(user.id);
+      const res: any = await (api as any).revokeUserAuthorization(user.id);
       if (res?.success) {
         showSuccess(`Revoked authorization for ${user.name}. Status set to Pending.`);
         if (onRefreshTeam) onRefreshTeam();
@@ -469,19 +469,19 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                 alignItems: 'center',
                 gap: '6px',
                 backgroundColor: filterTab === 'pending' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                color: filterTab === 'pending' ? '#D97706' : users.filter(u => u.status === 'Pending').length > 0 ? '#F59E0B' : 'var(--text-tertiary)'
+                color: filterTab === 'pending' ? '#D97706' : users.filter(u => String(u.status) === 'Pending').length > 0 ? '#F59E0B' : 'var(--text-tertiary)'
               }}
             >
               <span>PENDING APPROVAL</span>
               <span style={{
-                backgroundColor: users.filter(u => u.status === 'Pending').length > 0 ? '#F59E0B' : 'var(--border-subtle)',
-                color: users.filter(u => u.status === 'Pending').length > 0 ? '#000000' : 'var(--text-tertiary)',
+                backgroundColor: users.filter(u => String(u.status) === 'Pending').length > 0 ? '#F59E0B' : 'var(--border-subtle)',
+                color: users.filter(u => String(u.status) === 'Pending').length > 0 ? '#000000' : 'var(--text-tertiary)',
                 borderRadius: '100px',
                 fontSize: '10px',
                 padding: '1px 6px',
                 fontWeight: 800
               }}>
-                {users.filter(u => u.status === 'Pending').length}
+                {users.filter(u => String(u.status) === 'Pending').length}
               </span>
             </button>
             <button
@@ -543,7 +543,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
             <tbody>
               {users
                 .filter(u => {
-                  if (filterTab === 'pending') return u.status === 'Pending';
+                  if (filterTab === 'pending') return String(u.status) === 'Pending';
                   if (filterTab === 'operator') return u.role === 'Operator';
                   if (filterTab === 'admin') return u.role === 'Administrator' || (u as any).role === 'Admin';
                   return true;
@@ -551,7 +551,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                 .map((user) => {
                 const isRootAdmin = user.email === 'admin@protector.ai' && (user.role === 'Administrator' || (user as any).role === 'Admin');
                 const isCurrent = currentUser?.id === user.id || currentUser?.email === user.email;
-                const isPending = user.status === 'Pending';
+                const isPending = String(user.status) === 'Pending';
 
                 return (
                   <tr
@@ -676,7 +676,7 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                     {/* Unique Security Token */}
                     <td style={{ padding: '12px 14px' }}>
                       {user.role === 'Operator' ? (
-                        user.operator_auth_token ? (
+                        (user as any).operator_auth_token ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <code style={{
                               fontFamily: 'var(--font-mono)',
@@ -689,13 +689,16 @@ export const TeamAccess: React.FC<TeamAccessProps> = ({
                               border: '1px solid var(--border-subtle)',
                               letterSpacing: '0.5px'
                             }}>
-                              {user.operator_auth_token}
+                              {(user as any).operator_auth_token}
                             </code>
                             <button
                               type="button"
                               onClick={() => {
-                                navigator.clipboard.writeText(user.operator_auth_token!);
-                                showSuccess(`Copied unique token for ${user.name} (${user.operator_auth_token})`);
+                                const tok = (user as any).operator_auth_token;
+                                if (tok) {
+                                  navigator.clipboard.writeText(tok);
+                                  showSuccess(`Copied unique token for ${user.name} (${tok})`);
+                                }
                               }}
                               className="btn-secondary"
                               style={{ padding: '2px 6px', fontSize: '10px' }}
