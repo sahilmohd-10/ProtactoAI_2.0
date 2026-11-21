@@ -15,9 +15,9 @@ export const WelcomeHero: React.FC<WelcomeHeroProps> = ({
   onNavigate
 }) => {
   const complianceRate = stats ? stats.compliance_rate : 98.4;
-  const activeWorkers = stats ? stats.active_workers_monitored : 360524;
-  const activeViolations = stats ? stats.active_violations : 244375;
-  const totalViolations = (stats as any)?.total_violations_today ?? 15491;
+  const activeWorkers = stats ? stats.active_workers_monitored : 3;
+  const activeViolations = stats ? stats.active_violations : 0;
+  const totalViolations = (stats as any)?.total_violations_today ?? 0;
 
   return (
     <div style={{

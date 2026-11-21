@@ -50,11 +50,11 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
 
   if (!type) return null;
 
-  // Real-time authoritative values
-  const activeWorkers = stats?.active_workers_monitored ?? 51;
+  // Real-time authoritative values directly from database
+  const activeWorkers = stats?.active_workers_monitored ?? (analytics?.historical_metrics?.[analytics.historical_metrics.length - 1]?.total_workers ?? 3);
   const complianceRate = stats?.compliance_rate ?? (analytics?.average_compliance ?? 95.6);
-  const activeViolations = stats?.active_violations ?? (analytics?.active_violations ?? 4);
-  const totalViolations = stats?.total_violations_today ?? (analytics?.total_violations ?? 177);
+  const activeViolations = stats?.active_violations ?? (analytics?.active_violations ?? 0);
+  const totalViolations = stats?.total_violations_today ?? (analytics?.total_violations ?? 0);
 
   // Dataset configurations based on selected graph type
   const getModalConfig = () => {

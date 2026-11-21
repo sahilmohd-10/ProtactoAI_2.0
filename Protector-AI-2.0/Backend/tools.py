@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 from database import SessionLocal
-from models import Incident, Camera, Zone, User, DailyMetric, AuditLog
+from models import Incident, Camera, Zone, User, DailyMetric, AuditLog, AttendanceRecord, FaceProfile
 from engine import engine_instance
 
 logger = logging.getLogger("ProtectorAI.Tools")
@@ -225,16 +225,40 @@ class ToolRegistry:
     def _tool_get_ppe_statistics(db, args, user_email):
         period = args.get("period", "realtime")
         now = datetime.now(timezone.utc)
+        today_str = datetime.now().astimezone().strftime("%Y-%m-%d")
 
-        # Retrieve today's metrics
-        today_metric = db.query(DailyMetric).order_by(DailyMetric.id.desc()).first()
-        base_rate = today_metric.compliance_rate if today_metric else 95.6
-        total_workers = today_metric.total_workers if today_metric else 51
+        # 1. Authoritative active workforce monitored on site shift from database
+        today_attendance = db.query(AttendanceRecord).filter(AttendanceRecord.date == today_str).all()
+        today_workers_count = len(today_attendance)
+        enrolled_count = db.query(FaceProfile).count()
+        distinct_workers = db.query(AttendanceRecord.person_name).distinct().count()
 
-        # Real-time incident breakdown
+        # Check live workers currently detected by active optical camera stream
+        live_cam_workers = 0
+        try:
+            from camera_manager import camera_manager_instance
+            worker = camera_manager_instance.workers.get("cam_01")
+            if worker and worker.latest_metrics:
+                live_cam_workers = int(worker.latest_metrics.get("workers", 0))
+        except Exception:
+            pass
+
+        # Authoritative active monitored workforce
+        if today_workers_count > 0:
+            total_workers = max(today_workers_count, live_cam_workers)
+        else:
+            total_workers = max(live_cam_workers, enrolled_count, distinct_workers, 1)
+
+        # 2. Real-time incident breakdown directly from SQLite Incident table
         recent_incidents = db.query(Incident).filter(Incident.status.in_(["Open", "In Review"])).all()
         total_violations_all = db.query(Incident).count()
         total_violations = len(recent_incidents)
+
+        # 3. Dynamic compliance rate based on real database infractions
+        if total_violations_all == 0:
+            compliance_rate = 100.0
+        else:
+            compliance_rate = round(max(75.0, min(100.0, 100.0 - (total_violations * 1.5))), 1)
 
         breakdown = {
             "missing_hardhat": 0,
@@ -258,7 +282,7 @@ class ToolRegistry:
 
         return {
             "period": period,
-            "compliance_rate": base_rate,
+            "compliance_rate": compliance_rate,
             "active_workers_monitored": total_workers,
             "active_violations": total_violations,
             "total_violations_today": total_violations_all,
@@ -374,37 +398,66 @@ class ToolRegistry:
     @staticmethod
     def _tool_get_analytics(db, args, user_email):
         days = args.get("days", 7)
-        metrics = db.query(DailyMetric).order_by(DailyMetric.date.asc()).limit(days).all()
 
         # Query real incident category counts from database
         cat_rows = db.query(Incident.category, func.count(Incident.id)).group_by(Incident.category).all()
         category_counts = {cat: count for cat, count in cat_rows} if cat_rows else {
-            "Missing Hardhat": 14,
-            "Missing Safety Vest": 9,
-            "Missing Mask": 5
+            "Missing Hardhat": 0,
+            "Missing Safety Vest": 0,
+            "Missing Mask": 0
         }
 
         total_violations_all = db.query(Incident).count()
         active_violations_all = db.query(Incident).filter(Incident.status.in_(["Open", "In Review"])).count()
 
-        hourly_distribution = [
-            {"hour": "06:00", "count": 1},
-            {"hour": "08:00", "count": 4},
-            {"hour": "10:00", "count": 6},
-            {"hour": "12:00", "count": 3},
-            {"hour": "14:00", "count": 7},
-            {"hour": "16:00", "count": 5},
-            {"hour": "18:00", "count": 2},
-            {"hour": "20:00", "count": 0}
-        ]
+        # Build real dynamic historical metrics from AttendanceRecord and Incident data
+        att_rows = db.query(AttendanceRecord.date, func.count(AttendanceRecord.id)).group_by(AttendanceRecord.date).all()
+        att_dict = {d: cnt for d, cnt in att_rows}
+
+        inc_rows = db.query(func.date(Incident.timestamp), func.count(Incident.id)).group_by(func.date(Incident.timestamp)).all()
+        inc_dict = {str(d): cnt for d, cnt in inc_rows}
+
+        today = datetime.now().astimezone().date()
+        date_list = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days - 1, -1, -1)]
+
+        historical_metrics = []
+        for idx, d_str in enumerate(date_list, 1):
+            w_count = att_dict.get(d_str, 0)
+            if w_count == 0 and d_str == date_list[-1]:
+                # Today fallback to active attendance or enrolled profiles
+                w_count = db.query(AttendanceRecord).filter(AttendanceRecord.date == d_str).count() or db.query(FaceProfile).count() or 1
+            v_count = inc_dict.get(d_str, 0)
+            c_rate = round(max(75.0, min(100.0, 100.0 - (v_count * 1.5))), 1) if v_count > 0 else 100.0
+            short_date = d_str[5:] if len(d_str) >= 10 else d_str
+            historical_metrics.append({
+                "id": idx,
+                "date": short_date,
+                "full_date": d_str,
+                "compliance_rate": c_rate,
+                "total_workers": w_count,
+                "total_violations": v_count,
+                "critical_count": 0,
+                "high_count": v_count,
+                "medium_count": 0
+            })
+
+        # Calculate actual hourly distribution from Incident.timestamp
+        hour_counts = {f"{h:02d}:00": 0 for h in [6, 8, 10, 12, 14, 16, 18, 20]}
+        for inc in db.query(Incident).all():
+            if inc.timestamp:
+                h = inc.timestamp.hour
+                bucket_h = min([6, 8, 10, 12, 14, 16, 18, 20], key=lambda x: abs(x - h))
+                hour_counts[f"{bucket_h:02d}:00"] += 1
+
+        hourly_distribution = [{"hour": h, "count": cnt} for h, cnt in hour_counts.items()]
 
         return {
-            "historical_metrics": [m.to_dict() for m in metrics],
+            "historical_metrics": historical_metrics,
             "category_distribution": category_counts,
             "hourly_distribution": hourly_distribution,
             "total_violations": total_violations_all,
             "active_violations": active_violations_all,
-            "average_compliance": round(sum(m.compliance_rate for m in metrics) / len(metrics), 1) if metrics else 95.0
+            "average_compliance": round(sum(m["compliance_rate"] for m in historical_metrics) / len(historical_metrics), 1) if historical_metrics else 98.0
         }
 
     @staticmethod

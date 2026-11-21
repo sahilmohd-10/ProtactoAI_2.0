@@ -510,7 +510,7 @@ class CommandEngine:
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             st = status_res.get("data", {}) if status_res.get("success") else {}
             rate = st.get("compliance_rate", 95.6)
-            workers = st.get("active_workers_monitored", 42)
+            workers = st.get("active_workers_monitored", 3)
             open_v = st.get("active_violations", 0)
 
             msg = (
@@ -537,7 +537,7 @@ class CommandEngine:
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             st = status_res.get("data", {}) if status_res.get("success") else {}
             rate = st.get("compliance_rate", 95.6)
-            workers = st.get("active_workers_monitored", 42)
+            workers = st.get("active_workers_monitored", 3)
 
             msg = (
                 f"### 🛡️ Mandatory Industrial Site PPE Protocol (OSHA 29 CFR 1910 / 1926)\n\n"
@@ -573,7 +573,7 @@ class CommandEngine:
             stats_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             stats = stats_res.get("data", {}) if stats_res.get("success") else {}
             rate = stats.get("compliance_rate", 95.6)
-            workers = stats.get("active_workers_monitored", 42)
+            workers = stats.get("active_workers_monitored", 3)
             violations = stats.get("active_violations", 0)
             breakdown = stats.get("open_incidents_breakdown", {})
             missing_hh = breakdown.get("missing_hardhat", 0)
@@ -652,7 +652,7 @@ class CommandEngine:
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             st = status_res.get("data", {}) if status_res.get("success") else {}
             rate = st.get("compliance_rate", 95.6)
-            workers = st.get("active_workers_monitored", 42)
+            workers = st.get("active_workers_monitored", 3)
 
             msg = (
                 f"### 🛡️ Protector AI 2.0 · Industrial Safety Advisory\n\n"

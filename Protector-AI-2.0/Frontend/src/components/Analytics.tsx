@@ -16,9 +16,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
   const [expandedGraph, setExpandedGraph] = useState<GraphModalType>(null);
 
   const complianceRate = stats?.compliance_rate ?? (analytics?.average_compliance ?? 95.6);
-  const activeWorkers = stats?.active_workers_monitored ?? 51;
-  const activeViolations = stats?.active_violations ?? (analytics?.active_violations ?? 4);
-  const totalViolations = stats?.total_violations_today ?? (analytics?.total_violations ?? 177);
+  const activeWorkers = stats?.active_workers_monitored ?? (analytics?.historical_metrics?.[analytics.historical_metrics.length - 1]?.total_workers ?? 3);
+  const activeViolations = stats?.active_violations ?? (analytics?.active_violations ?? 0);
+  const totalViolations = stats?.total_violations_today ?? (analytics?.total_violations ?? 0);
   const violationRate = Number(Math.max(0, 100 - complianceRate).toFixed(1));
 
   const handleExport = () => {

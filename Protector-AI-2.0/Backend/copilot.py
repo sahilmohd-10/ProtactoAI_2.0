@@ -141,7 +141,7 @@ class AICopilot:
 
         if tool_name == "get_ppe_statistics":
             rate = data.get("compliance_rate", 95.6)
-            workers = data.get("active_workers_monitored", 42)
+            workers = data.get("active_workers_monitored", 3)
             violations = data.get("active_violations", 4)
             breakdown = data.get("open_incidents_breakdown", {})
 
