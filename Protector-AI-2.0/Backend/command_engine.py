@@ -1,5 +1,6 @@
 import re
 import shlex
+import json
 from tools import ToolRegistry
 from openrouter_service import openrouter_service
 
