@@ -36,10 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isOperator = currentUser?.role === 'Operator';
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'console', label: 'Tasks / Camera', icon: Camera },
-    { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     {
       id: 'team',
       label: 'Team & Auth',
@@ -48,6 +44,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: pendingOperatorsCount > 0 ? `${pendingOperatorsCount} Pending` : undefined,
       isPendingBadge: true
     },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'console', label: 'Tasks / Camera', icon: Camera },
+    { id: 'incidents', label: 'Incidents', icon: AlertTriangle, badge: openIncidentsCount > 0 ? `${openIncidentsCount}` : undefined },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     {
       id: 'people',
       label: 'Face Training',

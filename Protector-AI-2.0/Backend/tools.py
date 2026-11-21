@@ -479,7 +479,15 @@ class ToolRegistry:
 
     @staticmethod
     def _tool_get_user_permissions(db, args, user_email):
-        users = db.query(User).all()
+        all_users = db.query(User).all()
+        # Filter out internal test harness and mock users from live Team & Auth display
+        clean_users = [
+            u for u in all_users
+            if not (u.username and u.username.startswith("worker_"))
+            and not (u.email and u.email.startswith("worker_"))
+            and not (u.email and "test" in u.email.lower() and u.email.endswith("@protecto.ai"))
+            and not (u.username and "sectest" in u.username.lower())
+        ]
         matrix = {
             "Admin": ["view_console", "acknowledge_incidents", "resolve_incidents", "delete_incidents", "manage_zones", "manage_team", "terminal_exec", "export_reports"],
             "Safety Manager": ["view_console", "acknowledge_incidents", "resolve_incidents", "manage_zones", "export_reports"],
@@ -487,7 +495,7 @@ class ToolRegistry:
             "Auditor": ["view_console", "view_incidents", "view_analytics", "export_reports"]
         }
         return {
-            "users": [u.to_dict() for u in users],
+            "users": [u.to_dict() for u in clean_users],
             "permission_matrix": matrix
         }
 

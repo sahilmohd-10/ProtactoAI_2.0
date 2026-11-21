@@ -326,6 +326,17 @@ class ProtectorAITestSuite(unittest.TestCase):
         # Public registrations strictly receive the Operator role
         self.assertEqual(data["user"]["role"], "Operator")
 
+        # Clean up test user immediately so it does not pollute the live database
+        from database import SessionLocal
+        from models import User, UserSession
+        _clean_db = SessionLocal()
+        _test_user = _clean_db.query(User).filter(User.username == unique_user).first()
+        if _test_user:
+            _clean_db.query(UserSession).filter(UserSession.user_id == _test_user.id).delete()
+            _clean_db.delete(_test_user)
+            _clean_db.commit()
+        _clean_db.close()
+
     def test_15_auth_duplicate_username_email_phone_rejections(self):
         rnd = int(time.time())
         # 1. Duplicate username
