@@ -185,6 +185,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
         <div className="auth-hero-full-container">
           {/* Left Hero Details */}
           <div className="auth-hero-full-left">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              <img src="/logo.png" alt="ProtectoAI" style={{ width: '44px', height: '44px', objectFit: 'contain' }} />
+              <span style={{ fontSize: '22px', fontWeight: 800, color: '#0F5132', letterSpacing: '-0.02em' }}>
+                ProtectoAI
+              </span>
+            </div>
             <h1 className="auth-hero-full-title">
               Control<br />Everything in<br />One Place.
             </h1>
@@ -218,21 +224,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
         <div className="auth-split-viewport">
           {/* Left Desktop Brand & 3D Hardware Display */}
           <div className="auth-split-left">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                color: '#60A5FA',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <ShieldCheck size={20} />
-              </div>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
-                Protector AI
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img src="/logo.png" alt="ProtectoAI" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+                ProtectoAI
               </span>
             </div>
 
@@ -275,12 +270,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                 </button>
               </div>
 
-              <div style={{ fontSize: '20px', fontWeight: 800, color: '#2563EB', marginBottom: '8px' }}>
-                Protector AI
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <img src="/logo.png" alt="ProtectoAI" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                <span style={{ fontSize: '18px', fontWeight: 800, color: '#0F5132', letterSpacing: '-0.01em' }}>
+                  ProtectoAI
+                </span>
               </div>
 
               <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0', lineHeight: 1.25 }}>
-                Welcome to Protector AI<br />login now!
+                Welcome to ProtectoAI<br />login now!
               </h2>
 
               <p style={{ fontSize: '13.5px', color: '#64748B', margin: '0 0 20px 0' }}>
@@ -487,21 +485,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
       {(subView === 'forgot_email' || subView === 'forgot_otp' || subView === 'forgot_reset') && (
         <div className="auth-split-viewport">
           <div className="auth-split-left">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                color: '#60A5FA',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <ShieldCheck size={20} />
-              </div>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
-                Protector AI
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img src="/logo.png" alt="ProtectoAI" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+                ProtectoAI
               </span>
             </div>
 

@@ -78,21 +78,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
       <div className="auth-split-viewport">
         {/* Left Side 3D Showcase */}
         <div className="auth-split-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: 'rgba(37, 99, 235, 0.2)',
-              color: '#60A5FA',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <ShieldCheck size={20} />
-            </div>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF' }}>
-              Protector AI
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src="/logo.png" alt="ProtectoAI" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.01em' }}>
+              ProtectoAI
             </span>
           </div>
 
@@ -140,8 +129,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onRegisterSuccess, o
               </button>
             </div>
 
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#2563EB', marginBottom: '8px' }}>
-              Protector AI
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <img src="/logo.png" alt="ProtectoAI" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#0F5132', letterSpacing: '-0.01em' }}>
+                ProtectoAI
+              </span>
             </div>
 
             <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0', lineHeight: 1.25 }}>

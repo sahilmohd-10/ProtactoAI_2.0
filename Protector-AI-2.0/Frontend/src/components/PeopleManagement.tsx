@@ -332,7 +332,7 @@ export const PeopleManagement: React.FC = () => {
 
       {/* Main 2-Column Responsive Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 480px), 1fr))', gap: '22px' }}>
-        
+
         {/* Left Column: 5-Second Biometric Training Studio */}
         <section style={{
           backgroundColor: '#FFFFFF',
@@ -362,283 +362,283 @@ export const PeopleManagement: React.FC = () => {
 
           {/* Visual Input / Viewport Area */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {/* 5-Direction Progress Pills with 5s Timer per Option */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
-                {SCAN_DIRECTIONS.map((dir, idx) => {
-                  const isActive = isScanning && currentPhaseIndex === idx;
-                  const isDone = isScanning && currentPhaseIndex > idx;
-                  return (
-                    <div
-                      key={dir.id}
-                      style={{
-                        padding: '8px 4px',
-                        borderRadius: '10px',
-                        textAlign: 'center',
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        backgroundColor: isActive ? dir.color : (isDone ? '#DCFCE7' : '#F8FAFC'),
-                        color: isActive ? '#FFFFFF' : (isDone ? '#15803D' : '#64748B'),
-                        transition: 'all 0.25s ease',
-                        boxShadow: isActive ? `0 4px 14px ${dir.color}50` : 'none',
-                        border: isActive ? '1.5px solid rgba(255,255,255,0.7)' : (isDone ? '1px solid #BBF7D0' : '1px solid #E2E8F0'),
+            {/* 5-Direction Progress Pills with 5s Timer per Option */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+              {SCAN_DIRECTIONS.map((dir, idx) => {
+                const isActive = isScanning && currentPhaseIndex === idx;
+                const isDone = isScanning && currentPhaseIndex > idx;
+                return (
+                  <div
+                    key={dir.id}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '10px',
+                      textAlign: 'center',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      backgroundColor: isActive ? dir.color : (isDone ? '#DCFCE7' : '#F8FAFC'),
+                      color: isActive ? '#FFFFFF' : (isDone ? '#15803D' : '#64748B'),
+                      transition: 'all 0.25s ease',
+                      boxShadow: isActive ? `0 4px 14px ${dir.color}50` : 'none',
+                      border: isActive ? '1.5px solid rgba(255,255,255,0.7)' : (isDone ? '1px solid #BBF7D0' : '1px solid #E2E8F0'),
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <span style={{ fontSize: '10px', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{dir.order}</span>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      fontVariantNumeric: 'tabular-nums',
+                      color: isActive ? '#FFFFFF' : (isDone ? '#15803D' : '#94A3B8')
+                    }}>
+                      {isActive
+                        ? `⏱ ${scanTimeRemaining.toFixed(1)}s`
+                        : (isDone ? '✓ 5.0s' : '5.0s')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Video Camera Container with Live 5-Second HUD Overlay */}
+            <div style={{
+              background: '#04060A',
+              border: isScanning ? '2.5px solid #10B981' : '1px solid #CBD5E1',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              aspectRatio: '16 / 10',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              transition: 'border-color 0.2s ease'
+            }}>
+              {stream ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    muted
+                    autoPlay
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+
+                  {/* Biometric Head Silhouette Frame Overlay */}
+                  <div style={{
+                    position: 'absolute',
+                    width: '210px',
+                    height: '270px',
+                    border: isScanning ? '3px dashed #10B981' : '2px dashed rgba(255, 255, 255, 0.4)',
+                    borderRadius: '50% 50% 45% 45%',
+                    pointerEvents: 'none',
+                    animation: isScanning ? 'pulse 1s infinite' : 'none'
+                  }} />
+
+                  {/* Crosshair Center Reference */}
+                  <div style={{
+                    position: 'absolute',
+                    width: '24px',
+                    height: '24px',
+                    borderLeft: '1.5px solid rgba(255,255,255,0.5)',
+                    borderRight: '1.5px solid rgba(255,255,255,0.5)',
+                    pointerEvents: 'none'
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    width: '24px',
+                    height: '24px',
+                    borderTop: '1.5px solid rgba(255,255,255,0.5)',
+                    borderBottom: '1.5px solid rgba(255,255,255,0.5)',
+                    pointerEvents: 'none'
+                  }} />
+
+                  {/* Active Scanning Live Order Banner with Countdown Timer */}
+                  {isScanning && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '16px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                      backdropFilter: 'blur(10px)',
+                      padding: '10px 22px',
+                      borderRadius: '100px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      color: '#FFFFFF',
+                      border: `2px solid ${activeDirection.color}`,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                      zIndex: 10
+                    }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: activeDirection.color,
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '2px'
-                      }}
-                    >
-                      <span style={{ fontSize: '10px', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{dir.order}</span>
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        fontVariantNumeric: 'tabular-nums',
-                        color: isActive ? '#FFFFFF' : (isDone ? '#15803D' : '#94A3B8')
-                      }}>
-                        {isActive
-                          ? `⏱ ${scanTimeRemaining.toFixed(1)}s`
-                          : (isDone ? '✓ 5.0s' : '5.0s')}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Video Camera Container with Live 5-Second HUD Overlay */}
-              <div style={{
-                background: '#04060A',
-                border: isScanning ? '2.5px solid #10B981' : '1px solid #CBD5E1',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                aspectRatio: '16 / 10',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                transition: 'border-color 0.2s ease'
-              }}>
-                {stream ? (
-                  <>
-                    <video
-                      ref={videoRef}
-                      muted
-                      autoPlay
-                      playsInline
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-
-                    {/* Biometric Head Silhouette Frame Overlay */}
-                    <div style={{
-                      position: 'absolute',
-                      width: '210px',
-                      height: '270px',
-                      border: isScanning ? '3px dashed #10B981' : '2px dashed rgba(255, 255, 255, 0.4)',
-                      borderRadius: '50% 50% 45% 45%',
-                      pointerEvents: 'none',
-                      animation: isScanning ? 'pulse 1s infinite' : 'none'
-                    }} />
-
-                    {/* Crosshair Center Reference */}
-                    <div style={{
-                      position: 'absolute',
-                      width: '24px',
-                      height: '24px',
-                      borderLeft: '1.5px solid rgba(255,255,255,0.5)',
-                      borderRight: '1.5px solid rgba(255,255,255,0.5)',
-                      pointerEvents: 'none'
-                    }} />
-                    <div style={{
-                      position: 'absolute',
-                      width: '24px',
-                      height: '24px',
-                      borderTop: '1.5px solid rgba(255,255,255,0.5)',
-                      borderBottom: '1.5px solid rgba(255,255,255,0.5)',
-                      pointerEvents: 'none'
-                    }} />
-
-                    {/* Active Scanning Live Order Banner with Countdown Timer */}
-                    {isScanning && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '16px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                        backdropFilter: 'blur(10px)',
-                        padding: '10px 22px',
-                        borderRadius: '100px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
                         color: '#FFFFFF',
-                        border: `2px solid ${activeDirection.color}`,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                        zIndex: 10
+                        boxShadow: `0 0 12px ${activeDirection.color}`
                       }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          backgroundColor: activeDirection.color,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#FFFFFF',
-                          boxShadow: `0 0 12px ${activeDirection.color}`
-                        }}>
-                          <ActiveIcon size={18} strokeWidth={2.8} />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.02em' }}>
-                            {activeDirection.order}: {activeDirection.title}
-                          </span>
-                          <span style={{ fontSize: '11px', color: '#CBD5E1', fontWeight: 600 }}>
-                            Hold position for 5 seconds ({currentPhaseIndex + 1}/5)
-                          </span>
-                        </div>
-                        <div style={{
-                          marginLeft: '8px',
-                          padding: '4px 12px',
-                          borderRadius: '100px',
-                          backgroundColor: activeDirection.color,
-                          color: '#FFFFFF',
-                          fontSize: '13px',
-                          fontWeight: 900,
-                          fontVariantNumeric: 'tabular-nums'
-                        }}>
-                          ⏱ {scanTimeRemaining.toFixed(1)}s
-                        </div>
+                        <ActiveIcon size={18} strokeWidth={2.8} />
                       </div>
-                    )}
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.02em' }}>
+                          {activeDirection.order}: {activeDirection.title}
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#CBD5E1', fontWeight: 600 }}>
+                          Hold position for 5 seconds ({currentPhaseIndex + 1}/5)
+                        </span>
+                      </div>
+                      <div style={{
+                        marginLeft: '8px',
+                        padding: '4px 12px',
+                        borderRadius: '100px',
+                        backgroundColor: activeDirection.color,
+                        color: '#FFFFFF',
+                        fontSize: '13px',
+                        fontWeight: 900,
+                        fontVariantNumeric: 'tabular-nums'
+                      }}>
+                        ⏱ {scanTimeRemaining.toFixed(1)}s
+                      </div>
+                    </div>
+                  )}
 
-                    {/* Timer & Samples Badge */}
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '12px',
-                      left: '14px',
-                      right: '14px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      pointerEvents: 'none'
+                  {/* Timer & Samples Badge */}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    left: '14px',
+                    right: '14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    pointerEvents: 'none'
+                  }}>
+                    <span style={{
+                      padding: '5px 12px',
+                      borderRadius: '100px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                      color: '#FFFFFF',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      backdropFilter: 'blur(6px)',
+                      border: '1px solid rgba(255,255,255,0.15)'
                     }}>
+                      {isScanning
+                        ? `⏱ Option ${currentPhaseIndex + 1}/5: ${scanTimeRemaining.toFixed(1)}s Remaining`
+                        : 'Camera Active'}
+                    </span>
+
+                    {isScanning && (
                       <span style={{
                         padding: '5px 12px',
                         borderRadius: '100px',
-                        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                        backgroundColor: '#10B981',
                         color: '#FFFFFF',
                         fontSize: '11.5px',
                         fontWeight: 700,
-                        backdropFilter: 'blur(6px)',
-                        border: '1px solid rgba(255,255,255,0.15)'
+                        backdropFilter: 'blur(6px)'
                       }}>
-                        {isScanning
-                          ? `⏱ Option ${currentPhaseIndex + 1}/5: ${scanTimeRemaining.toFixed(1)}s Remaining`
-                          : 'Camera Active'}
+                        {capturedCount} Samples Collected
                       </span>
-
-                      {isScanning && (
-                        <span style={{
-                          padding: '5px 12px',
-                          borderRadius: '100px',
-                          backgroundColor: '#10B981',
-                          color: '#FFFFFF',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          backdropFilter: 'blur(6px)'
-                        }}>
-                          {capturedCount} Samples Collected
-                        </span>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '24px', color: '#94A3B8' }}>
-                    <Camera size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>Camera Hardware Standby</div>
-                    <div style={{ fontSize: '11px', marginTop: '4px', color: '#64748B' }}>
-                      Click "Start Camera" to launch optical preview for 5-second multi-angle scan
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-              {/* Camera Start / Stop Controls */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                {!stream ? (
-                  <button
-                    type="button"
-                    onClick={startCamera}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 16px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1.5px solid #CBD5E1',
-                      color: '#0F172A',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Camera size={14} />
-                    <span>Start Camera</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={stopCamera}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 16px',
-                      borderRadius: '8px',
-                      backgroundColor: '#FFFFFF',
-                      border: '1.5px solid #FCA5A5',
-                      color: '#DC2626',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <CameraOff size={14} />
-                    <span>Pause Camera</span>
-                  </button>
-                )}
-
-                <span style={{ fontSize: '11px', color: '#94A3B8' }}>
-                  Covers: Centre, Right, Left, Top, Down (5 sec)
-                </span>
-              </div>
-
-              {/* Live Captured Thumbnails Strip */}
-              {collectedSampleThumbs.length > 0 && (
-                <div style={{
-                  display: 'flex',
-                  gap: '8px',
-                  overflowX: 'auto',
-                  padding: '8px 0',
-                  borderTop: '1px solid #F1F5F9'
-                }}>
-                  {collectedSampleThumbs.map((thumb, idx) => (
-                    <div key={idx} style={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      border: '2px solid #10B981',
-                      flexShrink: 0
-                    }}>
-                      <img src={thumb} alt="sample" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  ))}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#94A3B8' }}>
+                  <Camera size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>Camera Hardware Standby</div>
+                  <div style={{ fontSize: '11px', marginTop: '4px', color: '#64748B' }}>
+                    Click "Start Camera" to launch optical preview for 5-second multi-angle scan
+                  </div>
                 </div>
               )}
             </div>
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+            {/* Camera Start / Stop Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {!stream ? (
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1.5px solid #CBD5E1',
+                    color: '#0F172A',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Camera size={14} />
+                  <span>Start Camera</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: '#FFFFFF',
+                    border: '1.5px solid #FCA5A5',
+                    color: '#DC2626',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <CameraOff size={14} />
+                  <span>Pause Camera</span>
+                </button>
+              )}
+
+              <span style={{ fontSize: '11px', color: '#94A3B8' }}>
+                Covers: Centre, Right, Left, Top, Down (5 sec)
+              </span>
+            </div>
+
+            {/* Live Captured Thumbnails Strip */}
+            {collectedSampleThumbs.length > 0 && (
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                overflowX: 'auto',
+                padding: '8px 0',
+                borderTop: '1px solid #F1F5F9'
+              }}>
+                {collectedSampleThumbs.map((thumb, idx) => (
+                  <div key={idx} style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '6px',
+                    overflow: 'hidden',
+                    border: '2px solid #10B981',
+                    flexShrink: 0
+                  }}>
+                    <img src={thumb} alt="sample" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Form Controls */}
           <form

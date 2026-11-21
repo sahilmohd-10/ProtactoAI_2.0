@@ -50,9 +50,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div>
         {/* Top Brand Logo */}
         <div className="donezo-brand">
-          <div className="donezo-brand-icon">
-            <ShieldCheck size={22} color="#0F5132" strokeWidth={2.4} />
-          </div>
+          <img
+            src="/logo.png"
+            alt="ProtectoAI"
+            style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '8px' }}
+          />
           <span className="donezo-brand-text">ProtectoAI</span>
         </div>
 
