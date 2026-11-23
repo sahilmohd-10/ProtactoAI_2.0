@@ -87,8 +87,10 @@ export const PeopleManagement: React.FC<PeopleManagementProps> = ({ onSwitchToAu
     try {
       const profiles = await api.getPeople();
       setPeople(profiles);
+      setError(null);
     } catch (err: any) {
       console.error('Failed to refresh people:', err);
+      setError(err instanceof Error ? err.message : 'Unable to load people profiles.');
     }
   }, []);
 
@@ -246,8 +248,9 @@ export const PeopleManagement: React.FC<PeopleManagementProps> = ({ onSwitchToAu
       setStatusMessage(`Captured ${capturedFrames.length} multi-angle biometric samples (5 seconds per direction). Training encrypted model...`);
       setIsEnrolling(true);
 
+      const enrolledName = name.trim();
       await api.enrollPerson({
-        name: name.trim(),
+        name: enrolledName,
         consent_recorded: true,
         images: capturedFrames
       });
@@ -255,7 +258,7 @@ export const PeopleManagement: React.FC<PeopleManagementProps> = ({ onSwitchToAu
       setName('');
       setConsentRecorded(false);
       setCollectedSampleThumbs([]);
-      setStatusMessage(`Successfully trained and enrolled "${name.trim()}" across all 5 face directions (5s each)!`);
+      setStatusMessage(`Successfully trained and enrolled "${enrolledName}" across all 5 face directions (5s each)!`);
       await refreshPeople();
     } catch (enrollError: any) {
       setError(enrollError instanceof Error ? enrollError.message : 'Unable to complete biometric enrollment.');

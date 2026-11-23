@@ -347,8 +347,10 @@ class ProtectorAITestSuite(unittest.TestCase):
         from database import SessionLocal
         from models import FaceProfile, FaceVisitLog
         _db_init = SessionLocal()
-        _db_init.query(FaceVisitLog).delete()
-        _db_init.query(FaceProfile).delete()
+        existing_test = _db_init.query(FaceProfile).filter(FaceProfile.name == "Consenting Person").all()
+        for et in existing_test:
+            _db_init.query(FaceVisitLog).filter(FaceVisitLog.profile_id == et.id).delete()
+            _db_init.delete(et)
         _db_init.commit()
         _db_init.close()
 
@@ -375,7 +377,7 @@ class ProtectorAITestSuite(unittest.TestCase):
                 }, headers=headers)
             self.assertEqual(enrolled.status_code, 201)
             profile_id = enrolled.get_json()["id"]
-            profile_data = self.client.get("/api/people", headers=headers).get_json()[0]
+            profile_data = [p for p in self.client.get("/api/people", headers=headers).get_json() if p["id"] == profile_id][0]
             self.assertNotIn("encrypted_templates", profile_data)
 
             recognized_match = {
@@ -605,14 +607,15 @@ class ProtectorAITestSuite(unittest.TestCase):
         }]
 
         from database import SessionLocal
-        from models import FaceProfile
+        from models import FaceProfile, FaceVisitLog
         from datetime import datetime, timezone
         db_s = SessionLocal()
-        p = db_s.query(FaceProfile).filter(FaceProfile.id == 1).first()
+        test_pid = 999999
+        p = db_s.query(FaceProfile).filter(FaceProfile.id == test_pid).first()
         if not p:
             p = FaceProfile(
-                id=1,
-                name="Mohd Sahil",
+                id=test_pid,
+                name="AutoTest_Face_Attendance",
                 consent_recorded=True,
                 consented_at=datetime.now(timezone.utc),
                 enrolled_by_user_id=1,
@@ -638,11 +641,10 @@ class ProtectorAITestSuite(unittest.TestCase):
             self.assertEqual(rec["person_name"], "Mohd Sahil")
             self.assertIn(rec["status"], ["Present", "Half Day", "Full Day", "Overtime"])
 
-            # Clean up test face profile and visit logs so database remains clean
-            from models import FaceVisitLog
+            # Clean up only test face profile and visit logs
             db_clean = SessionLocal()
-            db_clean.query(FaceVisitLog).filter(FaceVisitLog.profile_id == 1).delete()
-            db_clean.query(FaceProfile).filter(FaceProfile.id == 1).delete()
+            db_clean.query(FaceVisitLog).filter(FaceVisitLog.profile_id == test_pid).delete()
+            db_clean.query(FaceProfile).filter(FaceProfile.id == test_pid).delete()
             db_clean.commit()
             db_clean.close()
 
