@@ -344,6 +344,14 @@ class ProtectorAITestSuite(unittest.TestCase):
         self.assertEqual(chat.call_args.kwargs["history"], prior_turns)
 
     def test_face_profiles_require_admin_and_record_consented_visits(self):
+        from database import SessionLocal
+        from models import FaceProfile, FaceVisitLog
+        _db_init = SessionLocal()
+        _db_init.query(FaceVisitLog).delete()
+        _db_init.query(FaceProfile).delete()
+        _db_init.commit()
+        _db_init.close()
+
         operator = {"id": 987656, "email": "people-operator@protector.ai", "role": "Operator"}
         admin = {"id": 987657, "email": "people-admin@protector.ai", "role": "Administrator"}
         headers = {"Authorization": "Bearer people-test-token"}
@@ -629,6 +637,14 @@ class ProtectorAITestSuite(unittest.TestCase):
             rec = data["records"][0]
             self.assertEqual(rec["person_name"], "Mohd Sahil")
             self.assertIn(rec["status"], ["Present", "Half Day", "Full Day", "Overtime"])
+
+            # Clean up test face profile and visit logs so database remains clean
+            from models import FaceVisitLog
+            db_clean = SessionLocal()
+            db_clean.query(FaceVisitLog).filter(FaceVisitLog.profile_id == 1).delete()
+            db_clean.query(FaceProfile).filter(FaceProfile.id == 1).delete()
+            db_clean.commit()
+            db_clean.close()
 
     def test_23_oauth_config_and_login(self):
         # 1. Config endpoint

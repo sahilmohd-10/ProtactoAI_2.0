@@ -380,22 +380,36 @@ class CommandEngine:
             "who is enrolled", "list workers", "enrolled workers", "enrolled personnel",
             "who are the enrolled", "registered workers", "enrolled people", "show workers", "list of workers"
         ]):
-            res = ToolRegistry.execute("get_attendance", {}, user_email)
-            att_data = res.get("data", {}) if res.get("success") else {}
-            present = att_data.get("present_today", 2)
-            total = att_data.get("total_enrolled", 3)
+            from database import SessionLocal
+            from models import FaceProfile
+            _db = SessionLocal()
+            try:
+                enrolled_list = _db.query(FaceProfile).order_by(FaceProfile.id.asc()).all()
+                total = len(enrolled_list)
+                res = ToolRegistry.execute("get_attendance", {}, user_email)
+                att_data = res.get("data", {}) if res.get("success") else {}
+                present = att_data.get("present_today", 0)
+
+                if total == 0:
+                    roster_text = "Currently **no personnel** are enrolled in the biometric facial registry.\n\nTo enroll personnel, navigate to **People Management** (`app open people`) to perform a 5-second multi-angle camera scan."
+                else:
+                    items = "\n".join(f"{idx+1}. **{p.name}** (EMP-{str(p.id).zfill(3)}) — Biometric Active" for idx, p in enumerate(enrolled_list))
+                    roster_text = (
+                        f"Currently **{total}** verified personnel are enrolled in the biometric facial template database:\n\n"
+                        f"{items}\n\n"
+                        f"• **Present Today**: **{present}/{total}** personnel checked in.\n"
+                        f"• **Live Excel Mirror**: Auto-synchronized to `D:\\Downloads\\Attendance.xlsx`."
+                    )
+            finally:
+                _db.close()
+
             return {
                 "type": "ai_response",
                 "title": "Biometric Personnel Registry",
                 "output": (
                     f"### 👥 Enrolled Personnel Registry (Protector AI 2.0)\n\n"
-                    f"Currently **{total}** verified personnel are enrolled in the biometric facial template database with continuous 24-hour attendance tracking:\n\n"
-                    f"1. **Mohd Sahil** (EMP-001) — Primary Developer & Administrator (General Shift)\n"
-                    f"2. **Alok** (EMP-002) — Biometric Enrolled Specialist (Morning Shift)\n"
-                    f"3. **Faisal** (EMP-003) — Biometric Enrolled Supervisor (Morning Shift)\n\n"
-                    f"• **Present Today**: **{present}/{total}** personnel checked in.\n"
-                    f"• **Live Excel Mirror**: Auto-synchronized to `D:\\Downloads\\Attendance.xlsx`.\n"
-                    f"• **Enroll New Personnel**: Go to **People Management** (`app open people`) for 5-second multi-angle camera enrollment."
+                    f"{roster_text}\n\n"
+                    f"• **Manage Profiles**: Go to **People Management** (`app open people`) to enroll or remove personnel."
                 ),
                 "data": {"provider": "Protector AI Personnel Registry"}
             }

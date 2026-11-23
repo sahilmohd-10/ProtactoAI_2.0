@@ -98,14 +98,7 @@ def seed_all():
         db.add_all(zones)
         db.commit()
 
-    # 4. Seed enrolled personnel biometric profiles
-    now = datetime.now(timezone.utc)
-    existing_profiles = {p.name.lower(): p for p in db.query(FaceProfile).all()}
-    standard_profiles = ["Mohd Sahil", "Alok", "Faisal"]
-    for p_name in standard_profiles:
-        if p_name.lower() not in existing_profiles:
-            db.add(FaceProfile(name=p_name, consent_recorded=True, consented_at=now, enrolled_by_user_id=1, encrypted_templates=b''))
-    db.commit()
+    # 4. Enrolled personnel biometric profiles: managed dynamically via People Management Studio
 
     # 5. Initial audit log if empty
     if db.query(AuditLog).count() == 0:

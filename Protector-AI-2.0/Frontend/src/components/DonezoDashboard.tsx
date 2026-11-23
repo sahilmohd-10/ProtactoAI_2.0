@@ -124,19 +124,13 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
   const recentIncidentsList = incidents.slice(0, 5);
 
   // Real enrolled active site personnel from SQLite Attendance database
-  const onShiftPersonnel = liveAttendance.length > 0
-    ? liveAttendance.slice(0, 5).map(r => ({
-        name: r.person_name,
-        role: r.person_name === 'Mohd Sahil' ? 'Primary Developer & Admin' : (r.person_name === 'Alok' ? 'Biometric Enrolled Specialist' : (r.person_name === 'Faisal' ? 'Biometric Enrolled Supervisor' : 'On-Site Specialist')),
-        shift: r.status === 'Full Day' ? 'General Shift' : (r.status === 'Half Day' ? 'Morning Shift' : 'On Shift'),
-        status: r.status || 'Present',
-        punctuality: 'Verified'
-      }))
-    : [
-        { name: 'Mohd Sahil', role: 'Primary Developer & Admin', shift: 'General Shift', status: 'Present', punctuality: 'On Time' },
-        { name: 'Alok', role: 'Biometric Enrolled Specialist', shift: 'Morning Shift', status: 'Present', punctuality: 'On Time' },
-        { name: 'Faisal', role: 'Biometric Enrolled Supervisor', shift: 'Morning Shift', status: 'Present', punctuality: 'On Time' },
-      ];
+  const onShiftPersonnel = liveAttendance.slice(0, 5).map(r => ({
+    name: r.person_name,
+    role: r.person_name === 'Mohd Sahil' ? 'Primary Developer & Admin' : 'On-Site Specialist',
+    shift: r.status === 'Full Day' ? 'General Shift' : (r.status === 'Half Day' ? 'Morning Shift' : 'On Shift'),
+    status: r.status || 'Present',
+    punctuality: 'Verified'
+  }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
@@ -487,42 +481,48 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {onShiftPersonnel.map((p, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                  <div style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '50%',
-                    backgroundColor: '#E2E8F0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+            {onShiftPersonnel.length > 0 ? (
+              onShiftPersonnel.map((p, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                    <div style={{
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      backgroundColor: '#E2E8F0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      flexShrink: 0
+                    }}>
+                      {p.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{p.name}</span>
+                      <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>{p.role} • {p.shift}</span>
+                    </div>
+                  </div>
+
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: '100px',
+                    backgroundColor: '#EBF8F2',
+                    color: '#0F5132',
+                    fontSize: '10.5px',
                     fontWeight: 700,
-                    fontSize: '12px',
                     flexShrink: 0
                   }}>
-                    {p.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0F172A' }}>{p.name}</span>
-                    <span style={{ fontSize: '10.5px', color: '#94A3B8' }}>{p.role} • {p.shift}</span>
-                  </div>
+                    {p.status}
+                  </span>
                 </div>
-
-                <span style={{
-                  padding: '3px 10px',
-                  borderRadius: '100px',
-                  backgroundColor: '#EBF8F2',
-                  color: '#0F5132',
-                  fontSize: '10.5px',
-                  fontWeight: 700,
-                  flexShrink: 0
-                }}>
-                  {p.status}
-                </span>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '24px 12px', color: '#94A3B8', fontSize: '12.5px', fontWeight: 500 }}>
+                No active personnel checked in on site today.
               </div>
-            ))}
+            )}
           </div>
         </div>
 

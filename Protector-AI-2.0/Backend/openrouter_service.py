@@ -20,9 +20,7 @@ APPLICATION PROFILE & ARCHITECTURE:
 - Automated Attendance & Excel: Continuous optical biometric identity recognition with strict 24-hour unique person de-duplication, shift duration tracking, punctuality grading (On-Time, Late, Present, Half Day, Full Day, Overtime), automatically synchronized to local Excel at D:\\Downloads\\Attendance.xlsx.
 - Telegram Bot: @ProtectoAIbot for real-time security alerts and two-factor authentication (2FA) OTP verification.
 - Enrolled Personnel Biometric Registry:
-  1. Mohd Sahil (EMP-001, Primary Developer & Administrator, General Shift)
-  2. Alok (EMP-002, Biometric Enrolled Specialist, Morning Shift)
-  3. Faisal (EMP-003, Biometric Enrolled Supervisor, Morning Shift)
+  • Managed dynamically via Face Training Studio (/people). Personnel enrolled with 5-point facial geometry and SFace 128D embeddings are verified and logged in the 24-hour attendance register.
 - Workspace Navigation Modules:
   • /dashboard -> Industrial Safety Surveillance Dashboard (Donezo KPI cards, PPE compliance rate, hazard bars).
   • /console -> Live Optical Surveillance Console with real-time video feed (cam_01 / Device 0 hardware camera) and incident snapshots.
@@ -140,7 +138,7 @@ class OpenRouterService:
                 f"- Monitored Workers: {context.get('workers', context.get('active_workers_monitored', 3))}\n"
                 f"- Compliance Rate: {context.get('compliance_rate', 98.4)}%\n"
                 f"- Active Infractions: {context.get('violations', context.get('active_violations', 0))}\n"
-                f"- Enrolled Personnel: Mohd Sahil (ID 1), Alok (ID 2), Faisal (ID 3)\n"
+                f"- Enrolled Personnel: {context.get('enrolled_personnel', 'Configured dynamically in Face Training Studio')}\n"
                 f"- Live Excel Mirror: D:\\Downloads\\Attendance.xlsx (Auto-Synchronized)\n"
             )
             messages.append({"role": "system", "content": ctx_summary})
