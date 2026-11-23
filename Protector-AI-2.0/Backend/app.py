@@ -43,9 +43,21 @@ from copilot import copilot_instance
 from openrouter_service import openrouter_service
 
 try:
-    from telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers, start_telegram_polling
+    from telegram_service import (
+        PASSWORD_RESET_OTPS,
+        send_telegram_otp,
+        sync_telegram_updates,
+        load_subscribers,
+        start_telegram_polling
+    )
 except ImportError:
-    from Backend.telegram_service import send_telegram_otp, sync_telegram_updates, load_subscribers, start_telegram_polling
+    from Backend.telegram_service import (
+        PASSWORD_RESET_OTPS,
+        send_telegram_otp,
+        sync_telegram_updates,
+        load_subscribers,
+        start_telegram_polling
+    )
 
 try:
     start_telegram_polling()
@@ -695,9 +707,10 @@ def telegram_sync():
         "bot_url": "https://t.me/ProtectoAIbot"
     })
 
-# In-memory OTP storage for password resets
+# Shared in-memory OTP storage for password resets (synchronized with Telegram Bot)
 # Format: { email: { "otp": "123456", "expires_at": float(timestamp), "verified": bool } }
-PASSWORD_RESET_OTPS = {}
+if "PASSWORD_RESET_OTPS" not in globals() or not isinstance(PASSWORD_RESET_OTPS, dict):
+    PASSWORD_RESET_OTPS = {}
 
 def send_email_otp(to_email: str, otp_code: str) -> bool:
     """Attempt sending OTP via HTTPS API (Resend/Brevo/Mailercloud) or SMTP if configured, and always log to console."""

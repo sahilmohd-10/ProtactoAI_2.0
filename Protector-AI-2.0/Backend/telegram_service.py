@@ -1,8 +1,14 @@
 """
-Protector AI 2.0 — Telegram Notification, Biometric & Incident Bot Service
-Delivers instant, 100% free security OTPs, biometric attendance updates, and industrial safety alerts.
-Provides full interactive onboarding: gathers email and phone number, registers the user in SQLite database (users table),
-and features a real-world bot UI with quick-action reply keyboards and live status telemetry.
+Protector AI 2.0 — Telegram Password Recovery & Security OTP Bot Service
+Bot Username: @ProtectoAIbot
+
+Dedicated specifically for password reset and security verification:
+1. When a user starts the bot, it asks for their registered Email Address and Phone Number.
+2. Checks if the Email Address exists in the database (users table):
+   - If NOT in database: Prompts the user that no account exists and to create/register an account first on the web portal.
+   - If FOUND in database: Connects the phone number and Telegram chat ID to that user account in the database.
+3. Automatically generates and sends the 6-digit Password Reset OTP directly to this Telegram chat.
+4. Allows requesting new OTPs on-demand or updating credentials with interactive native Telegram keyboards.
 """
 
 import os
@@ -10,7 +16,7 @@ import sys
 import re
 import json
 import time
-import random
+import secrets
 import logging
 import threading
 import urllib.request
@@ -33,35 +39,46 @@ DATA_DIR = os.path.join(backend_dir, "data")
 CHATS_FILE = os.path.join(DATA_DIR, "telegram_subscribers.json")
 OFFSET_FILE = os.path.join(DATA_DIR, "telegram_offset.json")
 
+# In-memory unified OTP cache for password resets:
+# Format: { email.lower(): { "otp": "123456", "expires_at": float(timestamp), "verified": bool, "user_id": int } }
+PASSWORD_RESET_OTPS: Dict[str, dict] = {}
+
 _polling_thread: Optional[threading.Thread] = None
 _polling_active = False
 
 EMAIL_REGEX = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 PHONE_REGEX = re.compile(r"(\+?[0-9]{10,15})")
 
-# Native Telegram Reply Keyboards for Real-World Bot Experience
-MAIN_MENU_KEYBOARD = {
+# Native Telegram Reply Keyboards for Forgot Password & OTP Flow
+KEYBOARD_CONNECTED = {
     "keyboard": [
-        [{"text": "📊 Safety Pulse"}, {"text": "👥 Attendance"}],
-        [{"text": "🛡️ Recent Incidents"}, {"text": "🔐 My OTP"}],
-        [{"text": "👤 My Profile"}, {"text": "❓ Help & Commands"}]
+        [{"text": "🔐 Send New Reset OTP"}, {"text": "👤 My Account"}],
+        [{"text": "🔄 Switch Account / Re-verify"}, {"text": "❓ Web Portal Help"}]
     ],
     "resize_keyboard": True,
     "one_time_keyboard": False
 }
 
-PHONE_REQUEST_KEYBOARD = {
+KEYBOARD_SHARE_PHONE = {
     "keyboard": [
-        [{"text": "📱 Share Contact Number", "request_contact": True}],
-        [{"text": "🔄 Restart Setup"}]
+        [{"text": "📱 Share Phone Number", "request_contact": True}],
+        [{"text": "🔄 Start Over"}]
     ],
     "resize_keyboard": True,
     "one_time_keyboard": True
 }
 
-SETUP_START_KEYBOARD = {
+KEYBOARD_START = {
     "keyboard": [
-        [{"text": "❓ Help & Info"}, {"text": "🔄 Restart Setup"}]
+        [{"text": "🔄 Start Over"}, {"text": "❓ Help & Registration Info"}]
+    ],
+    "resize_keyboard": True,
+    "one_time_keyboard": False
+}
+
+KEYBOARD_NOT_FOUND = {
+    "keyboard": [
+        [{"text": "🔄 Try Another Email"}, {"text": "🌐 How to Register"}]
     ],
     "resize_keyboard": True,
     "one_time_keyboard": False
@@ -155,242 +172,91 @@ def send_telegram_raw_message(chat_id: str, text: str, reply_markup: Optional[di
         return False
 
 
-def register_or_link_user_in_db(email: str, phone: str, first_name: str, last_name: str, username: str) -> Tuple[bool, dict]:
-    """
-    Registers a new user or updates an existing user record in the SQLite database (users table).
-    Returns (success, user_dict).
-    """
+def find_user_in_database(email: str) -> Optional[dict]:
+    """Queries the SQLite database (users table) for an account matching the email address."""
     try:
         from database import SessionLocal
         from models import User
-        from auth import hash_password
-    except Exception as e:
-        logger.error(f"Cannot import DB models for Telegram user registration: {e}")
-        return False, {}
-
-    db = SessionLocal()
-    try:
+        db = SessionLocal()
         clean_email = email.strip().lower()
-        clean_phone = phone.strip() if phone else None
-
-        # Check by email first, or phone
         user = db.query(User).filter(User.email.ilike(clean_email)).first()
-        if not user and clean_phone:
-            user = db.query(User).filter(User.phone_number == clean_phone).first()
+        result = user.to_dict() if user else None
+        db.close()
+        return result
+    except Exception as err:
+        logger.error(f"Error querying SQLite database for user {email}: {err}")
+        return None
 
+
+def link_phone_to_database_user(email: str, phone: str) -> bool:
+    """Updates the user's phone number in the SQLite database and marks account as active."""
+    try:
+        from database import SessionLocal
+        from models import User
+        db = SessionLocal()
+        clean_email = email.strip().lower()
+        user = db.query(User).filter(User.email.ilike(clean_email)).first()
         if user:
-            # Update existing user's phone if missing, ensure active status
-            if clean_phone and not user.phone_number:
-                user.phone_number = clean_phone
+            if phone:
+                user.phone_number = phone.strip()
             user.status = "Active"
             user.last_active = datetime.now(timezone.utc)
             db.commit()
-            db.refresh(user)
-            logger.info(f"✅ Linked Telegram subscriber to existing DB user: {user.username} ({user.email})")
-            return True, user.to_dict()
-        else:
-            # Create a brand new Operator in database
-            base_un = (username or first_name or "operator").strip().lower().replace(" ", "_")
-            base_un = re.sub(r"[^a-zA-Z0-9_]", "", base_un) or "worker"
-            candidate_un = base_un
-            counter = 1
-            while db.query(User).filter(User.username == candidate_un).first():
-                candidate_un = f"{base_un}_{counter}"
-                counter += 1
-
-            fn = (first_name or "Site").strip()
-            ln = (last_name or "Operator").strip()
-            full_name = f"{fn} {ln}".strip()
-
-            new_user = User(
-                username=candidate_un,
-                first_name=fn,
-                last_name=ln,
-                name=full_name,
-                email=clean_email,
-                phone_number=clean_phone,
-                password_hash=hash_password("Protecto@2026"),
-                role="Operator",
-                status="Active",
-                created_at=datetime.now(timezone.utc),
-                last_active=datetime.now(timezone.utc)
-            )
-            db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
-            logger.info(f"🎉 Created new Operator in SQLite DB via Telegram: {new_user.username} ({new_user.email}, {new_user.phone_number})")
-            return True, new_user.to_dict()
+            db.close()
+            logger.info(f"✅ Connected phone number {phone} to user {user.username} ({user.email}) in SQLite database")
+            return True
+        db.close()
+        return False
     except Exception as err:
-        db.rollback()
-        logger.exception(f"Error registering Telegram user in SQLite database: {err}")
-        return False, {}
-    finally:
-        db.close()
+        logger.error(f"Error updating phone number in SQLite database for {email}: {err}")
+        return False
 
 
-def get_safety_pulse_report() -> str:
-    """Queries live industrial safety telemetry and returns a formatted Markdown report."""
-    try:
-        from database import SessionLocal
-        from models import Incident, FaceProfile
-        db = SessionLocal()
-        total_enrolled = db.query(FaceProfile).count()
-        recent_incidents = db.query(Incident).order_by(Incident.timestamp.desc()).limit(10).all()
-        open_count = sum(1 for inc in recent_incidents if inc.status in ("Open", "In Review"))
-        db.close()
-    except Exception:
-        total_enrolled = 3
-        open_count = 0
+def generate_and_store_otp(email: str, user_id: int = 1) -> str:
+    """Generates a cryptographic 6-digit numeric OTP and stores it in PASSWORD_RESET_OTPS for 10 minutes."""
+    otp_code = str(secrets.randbelow(900000) + 100000)
+    expires_at = time.time() + 600  # 10 minutes
 
-    now_str = datetime.now().strftime("%I:%M %p, %d %b %Y")
-    return (
-        f"📊 *PROTECTOR AI 2.0 • LIVE SAFETY PULSE*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"⏱️ *Telemetry Synced:* `{now_str}`\n\n"
-        f"🤖 *Computer Vision:* `YOLOv8 Active` (25 Industrial Classes)\n"
-        f"👤 *Biometric Engine:* `YuNet CNN + SFace 128D`\n"
-        f"📹 *Cameras Monitored:* `cam_01 (Optical Scanner)`\n"
-        f"👥 *Enrolled Personnel:* `{total_enrolled} authorized workers`\n"
-        f"⚠️ *Active Open Incidents:* `{open_count} violations`\n"
-        f"🛡️ *Site PPE Compliance:* `98.2% (Healthy)`\n\n"
-        f"🟢 *All surveillance nodes operational.*"
-    )
+    PASSWORD_RESET_OTPS[email.strip().lower()] = {
+        "otp": otp_code,
+        "expires_at": expires_at,
+        "verified": False,
+        "user_id": user_id
+    }
+    logger.info(f"🔑 [PROTECTOR AI] Generated Password Reset OTP for {email}: [{otp_code}] (valid 10 mins)")
+    return otp_code
 
 
-def get_attendance_report() -> str:
-    """Queries today's biometric attendance records and returns a summary."""
-    try:
-        from database import SessionLocal
-        from models import AttendanceRecord, FaceProfile
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        db = SessionLocal()
-        records = db.query(AttendanceRecord).filter(AttendanceRecord.date == today_str).all()
-        total_enrolled = db.query(FaceProfile).count()
-        db.close()
+def send_otp_to_chat(chat_id: str, email: str, user_name: str, phone: str = "") -> bool:
+    """Generates a new OTP and dispatches a formatted message with action buttons to the chat."""
+    otp_code = generate_and_store_otp(email)
 
-        present_names = [r.person_name for r in records]
-        present_count = len(records)
-        rate = round((present_count / max(1, total_enrolled)) * 100, 1)
-
-        names_text = "\n".join([f"  • *{name}* (Present)" for name in present_names[:8]]) if present_names else "  _No workers checked in yet today._"
-
-        return (
-            f"👥 *BIOMETRIC ATTENDANCE REGISTER*\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📅 *Date:* `{today_str}`\n"
-            f"✅ *Present Today:* `{present_count}` / `{total_enrolled}` workers ({rate}%)\n"
-            f"📑 *Live Excel Status:* `Auto-Synchronized` (Attendance.xlsx)\n\n"
-            f"*Active Personnel on Site:*\n"
-            f"{names_text}\n\n"
-            f"🕒 Shift: `General Industrial Shift`"
-        )
-    except Exception as err:
-        logger.warning(f"Error fetching attendance for Telegram: {err}")
-        return "⚠️ Attendance register is currently synchronizing with camera streams. Please try again shortly."
-
-
-def get_recent_incidents_report() -> str:
-    """Queries the most recent industrial hazard incidents."""
-    try:
-        from database import SessionLocal
-        from models import Incident
-        db = SessionLocal()
-        incidents = db.query(Incident).order_by(Incident.timestamp.desc()).limit(4).all()
-        db.close()
-
-        if not incidents:
-            return "🛡️ *Incident Log:* No safety violations recorded today. Workplace is 100% compliant!"
-
-        lines = ["🛡️ *RECENT INDUSTRIAL SAFETY ALERTS*", "━━━━━━━━━━━━━━━━━━━━━━"]
-        for inc in incidents:
-            time_str = inc.timestamp.strftime("%I:%M %p") if inc.timestamp else "Recent"
-            lines.append(
-                f"🚨 *[{inc.severity.upper()}]* {inc.category or inc.title}\n"
-                f"   📍 Camera: `{inc.camera_id}` | Time: `{time_str}`\n"
-                f"   Status: `{inc.status}` | ID: `{inc.id}`\n"
-            )
-        lines.append("Tap *Safety Pulse* to refresh live telemetry.")
-        return "\n".join(lines)
-    except Exception as err:
-        logger.warning(f"Error fetching incidents for Telegram: {err}")
-        return "⚠️ Incident telemetry database is momentarily busy. Please try again shortly."
-
-
-def get_user_profile_report(chat_id: str, subs: dict) -> str:
-    """Displays registered user credentials and role from the database."""
-    sub = subs.get(chat_id, {})
-    email = sub.get("email", "")
-    phone = sub.get("phone", "")
-
-    # Query DB for latest info
-    try:
-        from database import SessionLocal
-        from models import User
-        db = SessionLocal()
-        user = None
-        if email:
-            user = db.query(User).filter(User.email.ilike(email.strip().lower())).first()
-        if not user and phone:
-            user = db.query(User).filter(User.phone_number == phone.strip()).first()
-        db.close()
-    except Exception:
-        user = None
-
-    name = user.name if user else (sub.get("first_name") or "Operator")
-    role = user.role if user else "Operator"
-    status = user.status if user else "Active"
-    db_id = f"#{user.id}" if user else "Linked"
-
-    return (
-        f"👤 *YOUR REGISTERED PROFILE*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📛 *Full Name:* {name}\n"
-        f"📧 *Email Address:* `{email or 'Not recorded'}`\n"
-        f"📱 *Phone Number:* `{phone or 'Not recorded'}`\n"
-        f"💼 *Platform Role:* `{role}`\n"
-        f"🆔 *Database ID:* `{db_id}`\n"
-        f"💬 *Telegram Chat ID:* `{chat_id}`\n"
-        f"🛡️ *Access Status:* `Verified ({status})`\n\n"
-        f"To change your details at any time, tap *Update Registration* or type `/reset`."
-    )
-
-
-def generate_and_dispatch_otp(chat_id: str, sub: dict) -> Tuple[bool, str]:
-    """Generates a fresh 6-digit verification code and registers it for login / password recovery."""
-    email = sub.get("email") or "operator@protector.ai"
-    otp_code = f"{random.randint(100000, 999999)}"
-
-    # Store in app's in-memory OTP cache if available
-    try:
-        import app
-        if hasattr(app, "PASSWORD_RESET_OTPS"):
-            app.PASSWORD_RESET_OTPS[email.lower()] = {
-                "otp": otp_code,
-                "expires_at": time.time() + 600,
-                "verified": False
-            }
-    except Exception:
-        pass
-
+    phone_line = f"📱 *Phone:* `{phone}`\n" if phone else ""
     msg = (
-        f"🛡️ *PROTECTOR AI 2.0 SECURITY*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🔐 *One-Time Security Verification Code:*\n\n"
-        f"         👉 `{otp_code}` 👈\n\n"
-        f"⏱️ *Valid for 10 minutes.*\n"
-        f"👤 Linked Account: `{email}`\n\n"
+        f"🔐 *PASSWORD RESET VERIFICATION CODE*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 *Account Name:* {user_name or 'User'}\n"
+        f"📧 *Registered Email:* `{email}`\n"
+        f"{phone_line}"
+        f"🛡️ *Verification Status:* `Connected & Verified`\n\n"
+        f"Your one-time security code is:\n\n"
+        f"          👉   `{otp_code}`   👈\n\n"
+        f"⏱️ *Expires in 10 minutes.*\n"
+        f"Enter this 6-digit code on the web portal to reset your password.\n\n"
         f"⚠️ _Never share this verification code with anyone._\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
-    ok = send_telegram_raw_message(chat_id, msg, reply_markup=MAIN_MENU_KEYBOARD)
-    return ok, otp_code
+    return send_telegram_raw_message(chat_id, msg, reply_markup=KEYBOARD_CONNECTED)
 
 
 def sync_telegram_updates() -> int:
     """
-    Polls getUpdates from Telegram Bot API with a state machine for multi-step registration.
-    Ensures every new user is asked for email and phone number, saves them into the SQLite database,
-    and provides a conversational real-world bot experience.
+    Polls getUpdates from Telegram Bot API for the Forgot Password flow:
+    - Asks for Email ID and Phone Number (matching account creation credentials).
+    - Checks SQLite database:
+      * If email is NOT found in database: Instructs user that account was not found and to create/register account first.
+      * If account IS found: Connects the phone number to the account and sends the OTP to this chat.
+    - If user is already connected: Allows requesting fresh OTPs instantly.
     """
     token = _get_bot_token()
     if not token:
@@ -429,7 +295,7 @@ def sync_telegram_updates() -> int:
                 text = (msg.get("text") or "").strip()
                 contact = msg.get("contact") or {}
                 username = chat.get("username") or ""
-                first_name = chat.get("first_name") or "Operator"
+                first_name = chat.get("first_name") or "User"
                 last_name = chat.get("last_name") or ""
 
                 is_brand_new = chat_id not in subs
@@ -447,103 +313,110 @@ def sync_telegram_updates() -> int:
                     updated_count += 1
 
                 sub = subs[chat_id]
-                sub["first_name"] = first_name or sub.get("first_name", "Operator")
+                sub["first_name"] = first_name or sub.get("first_name", "User")
                 if username:
                     sub["username"] = username
                 if last_name:
                     sub["last_name"] = last_name
 
-                state = sub.get("state")
-                existing_email = sub.get("email", "").strip()
-                existing_phone = sub.get("phone", "").strip()
-
-                # If both email and phone already exist, mark as REGISTERED
-                if existing_email and existing_phone and state != "REGISTERED":
-                    sub["state"] = "REGISTERED"
-                    state = "REGISTERED"
-
-                text_lower = text.lower()
+                state = sub.get("state", "AWAITING_EMAIL")
+                current_email = sub.get("email", "").strip()
+                current_phone = sub.get("phone", "").strip()
 
                 # ==========================================
-                # COMMAND: RESTART / RESET SETUP
+                # ACTION: START OVER / RE-VERIFY ACCOUNT
                 # ==========================================
-                if text in ("/reset", "/register", "🔄 Restart Setup", "🔄 Update Registration"):
+                if text in ("/reset", "/start_over", "🔄 Start Over", "🔄 Try Another Email", "🔄 Switch Account / Re-verify"):
                     sub["state"] = "AWAITING_EMAIL"
                     sub["email"] = ""
                     sub["phone"] = ""
                     save_subscribers(subs)
                     send_telegram_raw_message(
                         chat_id,
-                        f"🔄 *Protector AI Registration Setup*\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"Let's configure your authorized personnel profile in the system database.\n\n"
-                        f"👉 *Step 1 of 2: Please reply with your Email Address:*\n"
-                        f"_(e.g. `yourname@company.com`)_",
-                        reply_markup=SETUP_START_KEYBOARD
+                        f"🔐 *PROTECTOR AI 2.0 • FORGOT PASSWORD*\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"To reset your password and receive a verification OTP, please provide your account details:\n\n"
+                        f"👉 *Step 1 of 2: Please enter your registered Email Address:*\n"
+                        f"_(The email you used when creating your Protector AI account)_",
+                        reply_markup=KEYBOARD_START
                     )
                     continue
 
                 # ==========================================
-                # STATE 1: AWAITING EMAIL
+                # ACTION: HELP & REGISTRATION GUIDANCE
                 # ==========================================
-                if state == "AWAITING_EMAIL" or (not existing_email and text in ("/start", "/help", "hi", "hello", "hey")):
-                    # Check if text contains a valid email
+                if text in ("❓ Help & Registration Info", "🌐 How to Register", "❓ Web Portal Help"):
+                    send_telegram_raw_message(
+                        chat_id,
+                        f"📖 *HOW TO REGISTER & RESET YOUR PASSWORD*\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"1. *Create an Account:*\n"
+                        f"   Open the Protector AI Web Portal (`http://localhost:5173`) in your browser and click *Register*.\n\n"
+                        f"2. *Connect this Telegram Bot:*\n"
+                        f"   Enter the same *Email Address* and *Phone Number* you used on the web.\n\n"
+                        f"3. *Receive Verification OTP:*\n"
+                        f"   Once verified, this bot immediately delivers your 6-digit OTP code.\n\n"
+                        f"4. *Reset Password:*\n"
+                        f"   Enter the 6-digit code on the web portal to set your new password!",
+                        reply_markup=KEYBOARD_START if state != "CONNECTED" else KEYBOARD_CONNECTED
+                    )
+                    continue
+
+                # ==========================================
+                # STATE 1: AWAITING EMAIL ADDRESS
+                # ==========================================
+                if state == "AWAITING_EMAIL" or (not current_email and text in ("/start", "/help", "hi", "hello", "hey", "help")):
                     email_match = EMAIL_REGEX.search(text)
                     if email_match:
-                        found_email = email_match.group(0).lower().strip()
-                        sub["email"] = found_email
-                        sub["updated_at"] = int(time.time())
+                        entered_email = email_match.group(0).lower().strip()
 
-                        # Check if user already exists in SQLite DB with this email and has a phone number
-                        try:
-                            from database import SessionLocal
-                            from models import User
-                            db = SessionLocal()
-                            db_user = db.query(User).filter(User.email.ilike(found_email)).first()
-                            db.close()
-                        except Exception:
-                            db_user = None
+                        # Check if this email exists in the database
+                        db_user = find_user_in_database(entered_email)
 
-                        if db_user and db_user.phone_number:
-                            # User already has complete profile in DB! Link immediately.
-                            sub["phone"] = db_user.phone_number
-                            sub["state"] = "REGISTERED"
-                            save_subscribers(subs)
-                            updated_count += 1
+                        if not db_user:
+                            # ❌ EMAIL NOT FOUND IN DATABASE -> ASK USER TO CREATE ACCOUNT FIRST
                             send_telegram_raw_message(
                                 chat_id,
-                                f"✅ *Welcome Back, {db_user.name}!* \n\n"
-                                f"🛡️ Your account is recognized in the database.\n"
-                                f"📧 *Email:* `{db_user.email}`\n"
-                                f"📱 *Phone:* `{db_user.phone_number}`\n"
-                                f"💼 *Role:* `{db_user.role}`\n\n"
-                                f"You are connected to Protector AI 2.0. Tap a button below to explore:",
-                                reply_markup=MAIN_MENU_KEYBOARD
+                                f"❌ *Account Not Found in Database!*\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"No registered Protector AI account was found for:\n"
+                                f"📧 `{entered_email}`\n\n"
+                                f"👉 *Please create an account first on our web portal:*\n"
+                                f"🌐 Web Portal: `http://localhost:5173`\n\n"
+                                f"Click *Register* on the portal using this email address. Once registered, come back here and enter your email again to receive your OTP!",
+                                reply_markup=KEYBOARD_NOT_FOUND
                             )
                         else:
-                            # Move to Step 2: Ask for Phone Number
+                            # ✅ EMAIL FOUND IN DATABASE -> PROCEED TO ASK PHONE NUMBER
+                            sub["email"] = entered_email
+                            sub["user_name"] = db_user.get("name") or first_name
                             sub["state"] = "AWAITING_PHONE"
+                            sub["updated_at"] = int(time.time())
                             save_subscribers(subs)
                             updated_count += 1
+
                             send_telegram_raw_message(
                                 chat_id,
-                                f"✅ *Email Saved:* `{found_email}`\n"
-                                f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                                f"👉 *Step 2 of 2: Please provide your Phone Number:*\n\n"
-                                f"Tap the *Share Contact Number* button below, or type it manually (e.g. `+919876543210`):",
-                                reply_markup=PHONE_REQUEST_KEYBOARD
+                                f"✅ *Account Found: {db_user.get('name')}!*\n"
+                                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"Now verify your phone number to connect and receive your reset code:\n\n"
+                                f"👉 *Step 2 of 2: Please enter your Phone Number:*\n"
+                                f"_(The phone number you used during account creation)_\n\n"
+                                f"You can tap the *Share Phone Number* button below, or type it manually (e.g. `+919876543210`):",
+                                reply_markup=KEYBOARD_SHARE_PHONE
                             )
                     else:
-                        # User clicked /start or sent a greeting without an email
+                        # Initial /start or greeting message without email
                         send_telegram_raw_message(
                             chat_id,
                             f"👋 *Hello {first_name}! Welcome to Protector AI 2.0*\n"
-                            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🛡️ *Industrial Safety, Biometrics & Surveillance Hub*\n\n"
-                            f"To register your profile in the system database and activate instant security alerts & OTPs, please complete a quick 2-step setup:\n\n"
-                            f"👉 *Step 1 of 2: Please reply with your Email Address:*\n"
-                            f"_(e.g. `yourname@company.com`)_",
-                            reply_markup=SETUP_START_KEYBOARD
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"🔐 *Password Recovery & Verification Bot*\n\n"
+                            f"Need to reset your password? Please enter your account credentials:\n\n"
+                            f"👉 *Step 1 of 2: Please enter your registered Email Address:*\n"
+                            f"_(e.g. `yourname@company.com`)_\n\n"
+                            f"⚠️ _If you don't have an account yet, please create one first on the web portal (http://localhost:5173)._",
+                            reply_markup=KEYBOARD_START
                         )
                     continue
 
@@ -562,98 +435,84 @@ def sync_telegram_updates() -> int:
                             found_phone = phone_match.group(0).strip()
 
                     if found_phone:
+                        # Connect this phone number to the account in database
                         sub["phone"] = found_phone
-                        sub["state"] = "REGISTERED"
+                        sub["state"] = "CONNECTED"
                         sub["updated_at"] = int(time.time())
 
-                        # Register or link user directly in SQLite database (users table)
                         email_to_link = sub.get("email", "")
-                        ok, user_info = register_or_link_user_in_db(
-                            email=email_to_link,
-                            phone=found_phone,
-                            first_name=first_name,
-                            last_name=last_name,
-                            username=username
-                        )
+                        user_name = sub.get("user_name", first_name)
+
+                        # Update SQLite database users table with this phone number
+                        link_phone_to_database_user(email_to_link, found_phone)
 
                         save_subscribers(subs)
                         updated_count += 1
 
-                        assigned_role = user_info.get("role", "Operator")
-                        display_name = user_info.get("name") or first_name
-
-                        send_telegram_raw_message(
-                            chat_id,
-                            f"🎉 *Registration Complete & Saved to Database!*\n"
-                            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                            f"👤 *Name:* {display_name}\n"
-                            f"📧 *Email:* `{email_to_link}`\n"
-                            f"📱 *Phone:* `{found_phone}`\n"
-                            f"💼 *Role:* `{assigned_role}`\n"
-                            f"🛡️ *Status:* `Active & Authorized`\n\n"
-                            f"✅ *Protector AI 2.0 is fully connected.* You will now receive security OTPs, biometric attendance logs, and real-time incident alerts right here!\n\n"
-                            f"What would you like to check?",
-                            reply_markup=MAIN_MENU_KEYBOARD
+                        # Immediately generate and send OTP to the user!
+                        send_otp_to_chat(
+                            chat_id=chat_id,
+                            email=email_to_link,
+                            user_name=user_name,
+                            phone=found_phone
                         )
                     else:
                         send_telegram_raw_message(
                             chat_id,
                             f"⚠️ *Phone Number Required*\n\n"
-                            f"Please tap the *Share Contact Number* button below, or type your mobile number with country code (e.g. `+919876543210`):",
-                            reply_markup=PHONE_REQUEST_KEYBOARD
+                            f"Please tap the *Share Phone Number* button below, or type your mobile number (e.g. `+919876543210`) to connect your account and receive your OTP code:",
+                            reply_markup=KEYBOARD_SHARE_PHONE
                         )
                     continue
 
                 # ==========================================
-                # STATE 3: FULLY REGISTERED (REAL-WORLD BOT COMMANDS)
+                # STATE 3: CONNECTED (ON-DEMAND OTP & ACCOUNT INFO)
                 # ==========================================
-                if text in ("/start", "/menu", "menu", "hi", "hello"):
-                    send_telegram_raw_message(
-                        chat_id,
-                        f"👋 *Hello {first_name}!*\n\n"
-                        f"🛡️ *Protector AI 2.0 Industrial Safety Hub*\n"
-                        f"Status: `🟢 All Systems Online`\n\n"
-                        f"Tap any button below to monitor site safety, check attendance, or request security OTPs:",
-                        reply_markup=MAIN_MENU_KEYBOARD
+                if text in ("🔐 Send New Reset OTP", "/otp", "otp", "code", "new otp"):
+                    user_name = sub.get("user_name", first_name)
+                    send_otp_to_chat(
+                        chat_id=chat_id,
+                        email=current_email,
+                        user_name=user_name,
+                        phone=current_phone
                     )
-                elif text in ("📊 Safety Pulse", "/status", "status", "pulse"):
-                    report = get_safety_pulse_report()
-                    send_telegram_raw_message(chat_id, report, reply_markup=MAIN_MENU_KEYBOARD)
-                elif text in ("👥 Attendance", "/attendance", "attendance"):
-                    report = get_attendance_report()
-                    send_telegram_raw_message(chat_id, report, reply_markup=MAIN_MENU_KEYBOARD)
-                elif text in ("🛡️ Recent Incidents", "/incidents", "incidents", "alerts"):
-                    report = get_recent_incidents_report()
-                    send_telegram_raw_message(chat_id, report, reply_markup=MAIN_MENU_KEYBOARD)
-                elif text in ("🔐 My OTP", "/otp", "otp", "code"):
-                    ok, otp_code = generate_and_dispatch_otp(chat_id, sub)
-                    logger.info(f"Dispatched Telegram OTP to {chat_id}: {otp_code}")
-                elif text in ("👤 My Profile", "/profile", "/me", "profile"):
-                    report = get_user_profile_report(chat_id, subs)
-                    send_telegram_raw_message(chat_id, report, reply_markup=MAIN_MENU_KEYBOARD)
-                elif text in ("❓ Help & Commands", "❓ Help & Info", "/help", "help"):
+                elif text in ("👤 My Account", "/account", "/profile", "profile"):
+                    db_user = find_user_in_database(current_email)
+                    name = db_user.get("name") if db_user else (sub.get("user_name") or first_name)
+                    role = db_user.get("role") if db_user else "Operator"
+                    status = db_user.get("status") if db_user else "Active"
+                    user_id = db_user.get("id") if db_user else "Linked"
+
                     send_telegram_raw_message(
                         chat_id,
-                        f"📖 *PROTECTOR AI 2.0 BOT • USER GUIDE*\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"This bot provides instant industrial safety intelligence and secure OTP delivery.\n\n"
-                        f"*Available Commands:*\n"
-                        f"  • *📊 Safety Pulse* (`/status`) — Real-time PPE compliance, YOLO vision & camera telemetry.\n"
-                        f"  • *👥 Attendance* (`/attendance`) — Today's biometric attendance register & live Excel sync.\n"
-                        f"  • *🛡️ Incidents* (`/incidents`) — Latest workplace hazard & safety violation alerts.\n"
-                        f"  • *🔐 My OTP* (`/otp`) — Request a 6-digit security code for system login / password recovery.\n"
-                        f"  • *👤 My Profile* (`/profile`) — View your linked database credentials.\n"
-                        f"  • *🔄 Update Registration* (`/reset`) — Update your email or phone number.\n\n"
-                        f"💬 You can tap any button on your keyboard at any time!",
-                        reply_markup=MAIN_MENU_KEYBOARD
+                        f"👤 *CONNECTED ACCOUNT DETAILS*\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"📛 *Name:* {name}\n"
+                        f"📧 *Email:* `{current_email}`\n"
+                        f"📱 *Phone:* `{current_phone or 'Connected'}`\n"
+                        f"💼 *Role:* `{role}`\n"
+                        f"🆔 *Database ID:* `#{user_id}`\n"
+                        f"🛡️ *Telegram Status:* `Connected & Verified`\n\n"
+                        f"Tap *Send New Reset OTP* below if you need a password reset code.",
+                        reply_markup=KEYBOARD_CONNECTED
+                    )
+                elif text in ("/start", "hi", "hello", "help", "/help"):
+                    send_telegram_raw_message(
+                        chat_id,
+                        f"👋 *Welcome back, {sub.get('user_name', first_name)}!*\n\n"
+                        f"Your Telegram is connected to Protector AI account:\n"
+                        f"📧 `{current_email}`\n\n"
+                        f"Tap *🔐 Send New Reset OTP* below to generate and receive a fresh password reset code.",
+                        reply_markup=KEYBOARD_CONNECTED
                     )
                 else:
-                    # Never leave the user on read: provide friendly intelligent guidance
+                    # Helpful guidance prompt
                     send_telegram_raw_message(
                         chat_id,
-                        f"👋 *Hello {first_name}!*\n\n"
-                        f"I am your *Protector AI 2.0 Security Assistant*. You can use the quick menu buttons below or type `/help` to see what I can do for you!",
-                        reply_markup=MAIN_MENU_KEYBOARD
+                        f"👋 *Hello {sub.get('user_name', first_name)}!*\n\n"
+                        f"Your account is connected (`{current_email}`).\n"
+                        f"Tap *🔐 Send New Reset OTP* below if you need a password verification code, or *🔄 Switch Account* to change credentials.",
+                        reply_markup=KEYBOARD_CONNECTED
                     )
 
             if max_update_id > last_offset:
@@ -736,13 +595,13 @@ def send_telegram_otp(recipient_identifier: str, otp_code: str) -> Tuple[bool, s
                 matched_chats.append((chat_id, data))
 
     if not matched_chats:
-        return False, f"No Telegram chat linked for '{recipient_identifier}'. Please send your email to @ProtectoAIbot on Telegram."
+        return False, f"No Telegram chat linked for '{recipient_identifier}'. Please open @ProtectoAIbot on Telegram and enter your email & phone."
 
     message_text = (
         f"🛡️ *PROTECTOR AI 2.0 SECURITY*\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🔐 *Password Reset Verification Code:*\n\n"
-        f"      `{otp_code}`\n\n"
+        f"         👉 `{otp_code}` 👈\n\n"
         f"⏱️ *Expires in 10 minutes.*\n"
         f"👤 Account: `{recipient_identifier}`\n\n"
         f"⚠️ _Never share this verification code with anyone._\n"
@@ -751,7 +610,7 @@ def send_telegram_otp(recipient_identifier: str, otp_code: str) -> Tuple[bool, s
 
     delivered = False
     for chat_id, data in matched_chats:
-        ok = send_telegram_raw_message(chat_id, message_text, reply_markup=MAIN_MENU_KEYBOARD)
+        ok = send_telegram_raw_message(chat_id, message_text, reply_markup=KEYBOARD_CONNECTED)
         if ok:
             delivered = True
             logger.info(f"✅ [PROTECTOR AI] Successfully delivered OTP code to Telegram chat {chat_id} ({data.get('first_name') or 'User'})")
@@ -759,24 +618,3 @@ def send_telegram_otp(recipient_identifier: str, otp_code: str) -> Tuple[bool, s
     if delivered:
         return True, "Delivered instantly to your Telegram (@ProtectoAIbot)."
     return False, "Failed to deliver message to Telegram chat."
-
-
-def send_telegram_broadcast(text: str, severity: str = "warning") -> int:
-    """Dispatches a real-time safety alert to all registered subscribers."""
-    subs = load_subscribers()
-    if not subs:
-        return 0
-
-    icon = "🚨" if severity == "critical" else "⚠️"
-    msg = (
-        f"{icon} *PROTECTOR AI 2.0 • SAFETY ALERT*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"{text}\n\n"
-        f"⏱️ {datetime.now().strftime('%I:%M %p, %d %b %Y')}"
-    )
-
-    sent = 0
-    for chat_id in subs.keys():
-        if send_telegram_raw_message(chat_id, msg, reply_markup=MAIN_MENU_KEYBOARD):
-            sent += 1
-    return sent
