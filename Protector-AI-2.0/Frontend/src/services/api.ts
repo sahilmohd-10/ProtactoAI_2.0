@@ -501,6 +501,31 @@ export const api = {
     });
   },
 
+  async importAttendanceExcel(file: File): Promise<{
+    success: boolean;
+    message: string;
+    imported_count: number;
+    excel_path?: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = authStorage.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE}/api/attendance/import-excel`, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok || data.success === false) {
+      throw new Error(data.error || data.message || 'Failed to import Excel file');
+    }
+    return data;
+  },
+
   getAttendanceExportUrl(): string {
     return `${API_BASE}/api/attendance/export`;
   },

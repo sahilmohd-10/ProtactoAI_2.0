@@ -2823,6 +2823,40 @@ def mark_attendance_by_image():
         db.close()
 
 
+@app.route("/api/attendance/import-excel", methods=["POST"])
+@app.route("/api/attendance/import_excel", methods=["POST"])
+def import_attendance_excel():
+    """
+    Import an Attendance Excel workbook from client (e.g. laptop D:\Downloads\Attendance.xlsx)
+    and synchronize to the database and cloud storage.
+    """
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "No file uploaded. Please select an Excel workbook (.xlsx)."}), 400
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"success": False, "error": "Empty filename provided."}), 400
+    
+    db = SessionLocal()
+    try:
+        from attendance_service import attendance_service
+        success, count, message = attendance_service.import_from_excel(file.stream, db)
+        if success:
+            return jsonify({
+                "success": True,
+                "message": message,
+                "imported_count": count,
+                "excel_path": str(attendance_service.excel_path),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        else:
+            return jsonify({"success": False, "error": message}), 500
+    except Exception as ex:
+        logger.exception("Failed to import Excel.")
+        return jsonify({"success": False, "error": str(ex)}), 500
+    finally:
+        db.close()
+
+
 @app.route("/api/attendance/sync-excel", methods=["POST"])
 @app.route("/api/attendance/sync_excel", methods=["POST"])
 def sync_attendance_excel():

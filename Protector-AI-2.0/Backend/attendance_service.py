@@ -930,6 +930,131 @@ class AttendanceService:
 
         return output.getvalue()
 
+    def import_from_excel(self, file_source, db) -> Tuple[bool, int, str]:
+        """
+        Import attendance records from an uploaded Excel workbook (.xlsx or .xls).
+        Upserts records into SQLite AttendanceRecord table and triggers synchronization.
+        """
+        try:
+            wb = openpyxl.load_workbook(file_source, data_only=True)
+            imported_count = 0
+            updated_count = 0
+
+            # Scan all sheets, prioritize "Historical Log" or "Today's Register", or the first active sheet
+            target_sheets = []
+            for sheetname in ["Historical Log", "Today's Register", "Attendance"]:
+                if sheetname in wb.sheetnames:
+                    target_sheets.append(wb[sheetname])
+            if not target_sheets:
+                target_sheets = [wb.active]
+
+            for ws in target_sheets:
+                if ws is None:
+                    continue
+                # Find header row
+                header_row_idx = None
+                headers = {}
+                for r_idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
+                    row_strs = [str(c).strip().lower() for c in row if c is not None]
+                    if any("personnel" in s or "name" in s or "worker" in s for s in row_strs):
+                        header_row_idx = r_idx
+                        for c_idx, val in enumerate(row):
+                            if val:
+                                headers[str(val).strip().lower()] = c_idx
+                        break
+
+                if header_row_idx is None:
+                    continue
+
+                # Locate key column indices
+                name_col = None
+                date_col = None
+                status_col = None
+                hours_col = None
+
+                for k, idx in headers.items():
+                    if any(term in k for term in ["personnel", "worker", "employee", "name"]) and "shift" not in k:
+                        if name_col is None:
+                            name_col = idx
+                    elif "date" in k:
+                        if date_col is None:
+                            date_col = idx
+                    elif "status" in k:
+                        if status_col is None:
+                            status_col = idx
+                    elif any(term in k for term in ["duration", "total hours", "hours"]):
+                        hours_col = idx
+
+                if name_col is None:
+                    continue
+
+                # Iterate through data rows
+                rows = list(ws.iter_rows(min_row=header_row_idx + 1, values_only=True))
+                for row in rows:
+                    if not row or len(row) <= name_col:
+                        continue
+                    name_val = row[name_col]
+                    if not name_val:
+                        continue
+                    name_str = str(name_val).strip()
+                    if name_str.lower() in UNRELEVANT_NAMES or len(name_str) < 2:
+                        continue
+
+                    # Parse date
+                    date_val = row[date_col] if date_col is not None and len(row) > date_col else None
+                    if isinstance(date_val, datetime):
+                        record_date = date_val.strftime("%Y-%m-%d")
+                    elif isinstance(date_val, str) and date_val.strip():
+                        record_date = date_val.strip()[:10]
+                    else:
+                        record_date = self.get_current_date_str()
+
+                    # Parse status
+                    status_val = str(row[status_col]).strip() if status_col is not None and len(row) > status_col and row[status_col] else "Present"
+
+                    # Parse hours
+                    total_hrs = 0.0
+                    if hours_col is not None and len(row) > hours_col and row[hours_col] is not None:
+                        try:
+                            total_hrs = float(row[hours_col])
+                        except (ValueError, TypeError):
+                            total_hrs = 0.0
+
+                    # Check existing record
+                    existing = db.query(AttendanceRecord).filter(
+                        AttendanceRecord.date == record_date,
+                        AttendanceRecord.person_name.ilike(name_str)
+                    ).first()
+
+                    if existing:
+                        existing.status = status_val
+                        if total_hrs > 0 and existing.total_hours == 0:
+                            existing.total_hours = total_hrs
+                        updated_count += 1
+                    else:
+                        now_utc = datetime.now(timezone.utc)
+                        new_rec = AttendanceRecord(
+                            date=record_date,
+                            person_name=name_str,
+                            status=status_val,
+                            first_in=now_utc,
+                            last_out=now_utc,
+                            total_hours=total_hrs,
+                            check_in_count=1,
+                            camera_source="Excel Import (Laptop Sync)",
+                            verification_mode="Excel / Manual Sync"
+                        )
+                        db.add(new_rec)
+                        imported_count += 1
+
+            db.commit()
+            # Resync to disk / cloud excel
+            self.sync_to_excel()
+            return True, imported_count + updated_count, f"Successfully imported {imported_count + updated_count} records ({imported_count} new, {updated_count} updated)."
+        except Exception as e:
+            logger.exception("Failed to import Excel workbook.")
+            return False, 0, f"Import failed: {str(e)}"
+
     def get_summary(self, db) -> dict:
         """Get comprehensive executive analytics for the Attendance Dashboard."""
         today_str = self.get_current_date_str()

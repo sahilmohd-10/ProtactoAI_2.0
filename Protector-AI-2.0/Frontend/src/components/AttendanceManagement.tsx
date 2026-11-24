@@ -22,7 +22,11 @@ import {
   CheckSquare,
   Sparkles,
   ShieldCheck,
-  ArrowUpRight
+  ArrowUpRight,
+  Paperclip,
+  UploadCloud,
+  Laptop,
+  X
 } from 'lucide-react';
 import type { AttendanceRecord, AttendanceSummary, FaceProfile, WeeklyAttendanceTrend } from '../types';
 import { api } from '../services/api';
@@ -46,6 +50,11 @@ export const AttendanceManagement: React.FC = () => {
   const [manualStatus, setManualStatus] = useState('Present');
   const [manualNotes, setManualNotes] = useState('Manual Dashboard Entry');
   const [isSubmittingCheckIn, setIsSubmittingCheckIn] = useState(false);
+
+  // Laptop Excel Attachment & Sync State
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
+  const [showLaptopSyncModal, setShowLaptopSyncModal] = useState(false);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -117,6 +126,23 @@ export const AttendanceManagement: React.FC = () => {
       }
     } catch (err: any) {
       showNotification('error', err.message || 'Could not launch Microsoft Excel.');
+    }
+  };
+
+  // Attach and import Excel from laptop
+  const handleAttachExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingExcel(true);
+    try {
+      const res = await api.importAttendanceExcel(file);
+      showNotification('success', res.message || 'Laptop Excel attached and synchronized to cloud successfully!');
+      loadAttendanceData(false);
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to import Excel workbook');
+    } finally {
+      setIsUploadingExcel(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -223,6 +249,42 @@ export const AttendanceManagement: React.FC = () => {
 
         {/* Global Action Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Hidden file input for attaching laptop Excel */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleAttachExcel}
+            accept=".xlsx,.xls,.csv"
+            style={{ display: 'none' }}
+          />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingExcel}
+            className="donezo-btn-outline"
+            style={{
+              backgroundColor: '#EFF6FF',
+              borderColor: '#BFDBFE',
+              color: '#1D4ED8',
+              fontWeight: 700
+            }}
+            title="Attach and import Attendance.xlsx from this laptop"
+          >
+            <Paperclip size={15} color="#1D4ED8" />
+            <span>{isUploadingExcel ? 'Attaching Excel...' : 'Attach Laptop Excel'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowLaptopSyncModal(true)}
+            className="donezo-btn-outline"
+            title="How to auto-sync D:\Downloads\Attendance.xlsx in background"
+          >
+            <Laptop size={15} color="#0F5132" />
+            <span>Laptop Sync</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsCheckInModalOpen(true)}
@@ -1078,6 +1140,124 @@ export const AttendanceManagement: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Laptop Excel Two-Way Sync Modal */}
+      {showLaptopSyncModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '24px',
+            maxWidth: '560px',
+            width: '100%',
+            padding: '28px',
+            boxShadow: '0 20px 50px rgba(15, 23, 42, 0.15)',
+            border: '1px solid #E2E8F0',
+            position: 'relative'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '12px',
+                  backgroundColor: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#2563EB'
+                }}>
+                  <Laptop size={22} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+                    Attach & Sync Laptop Excel
+                  </h3>
+                  <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0 0' }}>
+                    Connect D:\Downloads\Attendance.xlsx to the cloud application
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLaptopSyncModal(false)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '13.5px', color: '#334155', lineHeight: 1.6 }}>
+              <div style={{
+                padding: '14px 16px',
+                borderRadius: '14px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0'
+              }}>
+                <div style={{ fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
+                  Method 1: Direct File Attachment (In-App)
+                </div>
+                <p style={{ margin: 0, color: '#64748B', fontSize: '12.5px' }}>
+                  Click the <strong>"Attach Laptop Excel"</strong> button on the toolbar anytime you want to upload and synchronize your local <code>D:\Downloads\Attendance.xlsx</code> file directly into this cloud deployment.
+                </p>
+              </div>
+
+              <div style={{
+                padding: '14px 16px',
+                borderRadius: '14px',
+                backgroundColor: '#F0FDF4',
+                border: '1px solid #DCFCE7'
+              }}>
+                <div style={{ fontWeight: 700, color: '#166534', marginBottom: '4px' }}>
+                  Method 2: Automatic Real-Time Laptop Background Sync
+                </div>
+                <p style={{ margin: 0, color: '#166534', fontSize: '12.5px' }}>
+                  A double-clickable sync script is pre-installed on your laptop at:
+                  <br />
+                  <code style={{ fontWeight: 700, display: 'inline-block', marginTop: '4px', backgroundColor: '#DCFCE7', padding: '2px 6px', borderRadius: '4px' }}>
+                    D:\Downloads\ProtectoAI\sync_laptop_excel.bat
+                  </code>
+                  <br />
+                  Double-click it once to automatically keep your local <code>D:\Downloads\Attendance.xlsx</code> synchronized in real time with the cloud camera and attendance records!
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLaptopSyncModal(false);
+                  fileInputRef.current?.click();
+                }}
+                className="donezo-btn-green"
+              >
+                <Paperclip size={16} />
+                <span>Choose & Attach Excel Now</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLaptopSyncModal(false)}
+                className="donezo-btn-outline"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

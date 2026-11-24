@@ -257,11 +257,7 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
       </div>
 
       {/* Middle Row: Industrial Hazard Analytics, Live Feed Preview, Recent Incidents */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(300px, 360px) minmax(280px, 340px) 1fr',
-        gap: '20px'
-      }}>
+      <div className="donezo-middle-grid">
         {/* Widget 1: Hazard Distribution Bar Chart */}
         <div style={{
           backgroundColor: '#FFFFFF',
@@ -439,11 +435,7 @@ export const DonezoDashboard: React.FC<DonezoDashboardProps> = ({
       </div>
 
       {/* Bottom Row: On-Shift Personnel, PPE Progress Gauge, Shift Timer */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(320px, 420px) minmax(260px, 320px) 1fr',
-        gap: '20px'
-      }}>
+      <div className="donezo-bottom-grid">
         {/* Widget 1: On-Shift Personnel & Attendance */}
         <div style={{
           backgroundColor: '#FFFFFF',
