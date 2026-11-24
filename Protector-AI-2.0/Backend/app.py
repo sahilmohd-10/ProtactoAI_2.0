@@ -1,4 +1,6 @@
 try:
+    import os
+    os.environ["GRADIO_SSR_MODE"] = "false"
     import spaces
 except ImportError:
     class spaces:
@@ -8,7 +10,6 @@ except ImportError:
                 return lambda f: f
             return fn
 
-import os
 import io
 import time
 import json
@@ -3033,7 +3034,7 @@ def openrouter_analyze_scene():
 # ==========================================
 
 def create_asgi_server():
-    """Build unified ASGI application serving Gradio (ZeroGPU) and Flask REST API."""
+    """Build unified Gradio (ZeroGPU) and Flask REST API application."""
     import gradio as gr
     from fastapi import FastAPI
     from starlette.middleware.wsgi import WSGIMiddleware
@@ -3078,7 +3079,7 @@ if __name__ == "__main__":
             asgi_app = create_asgi_server()
             uvicorn.run(asgi_app, host="0.0.0.0", port=config.PORT)
         except Exception as e:
-            logger.warning(f"Could not start ASGI/Gradio server ({e}); falling back to standard Flask...")
+            logger.warning(f"Could not start ASGI server ({e}); falling back to standard Flask...")
             app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
     else:
         app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
