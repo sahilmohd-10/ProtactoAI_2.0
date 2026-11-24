@@ -16,11 +16,14 @@ import {
 } from '../types';
 
 const getApiBase = (): string => {
-  if (import.meta.env.VITE_API_BASE) {
+  if (import.meta.env.VITE_API_BASE && !import.meta.env.VITE_API_BASE.includes('onrender.com')) {
     return import.meta.env.VITE_API_BASE;
   }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
+    if (host.includes('vercel.app')) {
+      return 'https://sahilmohammad512-protecto-ai-backend.hf.space';
+    }
     // When accessed via a tunnel or external IP (phone, pinggy, etc.), use relative URLs so Vite proxy forwards requests
     if (host !== 'localhost' && host !== '127.0.0.1') {
       return '';

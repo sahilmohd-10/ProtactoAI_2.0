@@ -140,34 +140,62 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
     ];
   }, [incidents, analytics]);
 
-  // Dynamically compute authentic 7-day compliance history from real metrics
+  // Dynamically compute authentic 7-day compliance history from real metrics & live incidents
   const complianceHistory = useMemo(() => {
-    if (analytics?.historical_metrics && analytics.historical_metrics.length > 0) {
-      return analytics.historical_metrics.slice(-7).map((m) => {
-        let dayName = m.date;
-        if (m.full_date) {
-          const d = new Date(m.full_date);
-          if (!isNaN(d.getTime())) {
-            dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-          }
+    const days: { day: string; fullDate: string; compliance: number; workers: number; violations: number }[] = [];
+    const now = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const isoDate = d.toISOString().split('T')[0];
+      const dayShort = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+      // 1. Check if backend returned real metrics for this date
+      const backendMetric = analytics?.historical_metrics?.find(
+        (m) => m.full_date === isoDate || m.date === isoDate || m.date === isoDate.slice(5)
+      );
+
+      // 2. Count real infractions recorded on this date in incidents array
+      const dayIncidents = (incidents || []).filter((inc) => {
+        if (!inc.timestamp) return false;
+        const incDate = typeof inc.timestamp === 'string' ? inc.timestamp.split('T')[0] : '';
+        return incDate === isoDate;
+      });
+
+      const dayViolations = Math.max(dayIncidents.length, backendMetric?.total_violations ?? 0);
+
+      // 3. Compute real compliance
+      let dayCompliance = 100;
+      if (backendMetric?.compliance_rate !== undefined && backendMetric.compliance_rate !== 100) {
+        dayCompliance = backendMetric.compliance_rate;
+      } else if (dayViolations > 0) {
+        dayCompliance = Math.max(65, Math.round(100 - dayViolations * 4.5));
+      } else if (i === 0 && stats?.compliance_rate !== undefined) {
+        dayCompliance = stats.compliance_rate;
+      }
+
+      // 4. Compute real workers monitored on this date
+      let dayWorkers = backendMetric?.total_workers ?? 0;
+      if (dayWorkers === 0) {
+        if (i === 0) {
+          dayWorkers = stats?.active_workers_monitored ?? 1;
+        } else if (dayIncidents.length > 0) {
+          dayWorkers = 1;
         }
-        return {
-          day: dayName,
-          compliance: m.compliance_rate,
-          workers: m.total_workers
-        };
+      }
+
+      days.push({
+        day: dayShort,
+        fullDate: isoDate,
+        compliance: dayCompliance,
+        workers: dayWorkers,
+        violations: dayViolations
       });
     }
 
-    const currentRate = stats?.compliance_rate ?? 100;
-    const currentWorkers = stats?.active_workers_monitored ?? 1;
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return dayNames.map((d) => ({
-      day: d,
-      compliance: currentRate,
-      workers: currentWorkers
-    }));
-  }, [analytics, stats]);
+    return days;
+  }, [analytics, stats, incidents]);
 
   // Camera angles
   const sphericalRef = useRef({
@@ -310,22 +338,25 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
     ribbonGroup.visible = false;
     scene.add(ribbonGroup);
 
-    // Create 3D curve from compliance trajectory
+    // Create 3D curve from real compliance trajectory
     const curvePoints: THREE.Vector3[] = [];
     const ribbonStartX = -8;
-    const ribbonSpacing = 16 / (complianceHistory.length - 1);
+    const ribbonSpacing = 16 / Math.max(1, complianceHistory.length - 1);
 
     complianceHistory.forEach((pt, i) => {
       const x = ribbonStartX + i * ribbonSpacing;
-      // map compliance 90-100% to height 1-7
-      const y = Math.max(1, ((pt.compliance - 88) / 12) * 7);
-      const z = Math.sin(i * 0.8) * 1.5;
+      // map compliance 60-100% to height (Y axis: 0.8 to 6.8)
+      const y = Math.max(0.8, ((pt.compliance - 60) / 40) * 5.8 + 0.8);
+      // Map depth (Z axis): real violations displacement into safety corridor
+      const z = pt.violations > 0 ? Math.min(3.5, pt.violations * 0.7) : 0;
       curvePoints.push(new THREE.Vector3(x, y, z));
 
-      // Node Sphere
-      const sphereGeo = new THREE.SphereGeometry(0.35, 32, 32);
+      // Node Sphere Color: Green if >= 95%, Amber if 85-94%, Red if < 85%
+      const nodeColor = pt.compliance >= 95 ? 0x22C55E : pt.compliance >= 85 ? 0xF59E0B : 0xEF4444;
+
+      const sphereGeo = new THREE.SphereGeometry(pt.violations > 0 ? 0.42 : 0.32, 32, 32);
       const sphereMat = new THREE.MeshStandardMaterial({
-        color: 0x16A34A,
+        color: nodeColor,
         roughness: 0.2,
         metalness: 0.4,
       });
@@ -337,10 +368,27 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
 
       // Vertical Stilt down to grid
       const stiltGeo = new THREE.CylinderGeometry(0.04, 0.04, y, 16);
-      const stiltMat = new THREE.MeshBasicMaterial({ color: 0xCBD5E1 });
+      const stiltMat = new THREE.MeshBasicMaterial({
+        color: pt.violations > 0 ? 0xFCA5A5 : 0xCBD5E1,
+        transparent: true,
+        opacity: 0.8
+      });
       const stilt = new THREE.Mesh(stiltGeo, stiltMat);
       stilt.position.set(x, y / 2, z);
       ribbonGroup.add(stilt);
+
+      // Floor marker disc
+      const floorDiscGeo = new THREE.CircleGeometry(0.35, 16);
+      const floorDiscMat = new THREE.MeshBasicMaterial({
+        color: nodeColor,
+        transparent: true,
+        opacity: 0.4,
+        side: THREE.DoubleSide
+      });
+      const floorDisc = new THREE.Mesh(floorDiscGeo, floorDiscMat);
+      floorDisc.rotation.x = -Math.PI / 2;
+      floorDisc.position.set(x, 0.01, z);
+      ribbonGroup.add(floorDisc);
     });
 
     const curve = new THREE.CatmullRomCurve3(curvePoints);
@@ -701,36 +749,72 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
             </div>
           ) : (
             <div>
-              <div style={{ fontWeight: 800, color: '#4ADE80' }}>
-                {hoveredItem.data.day} • {hoveredItem.data.compliance}% Compliance
+              <div style={{ fontWeight: 800, color: hoveredItem.data.compliance >= 95 ? '#4ADE80' : hoveredItem.data.compliance >= 85 ? '#FBBF24' : '#F87171' }}>
+                {hoveredItem.data.day} • {Math.round(hoveredItem.data.compliance)}% Compliance
               </div>
-              <div style={{ color: '#E2E8F0', marginTop: '2px' }}>
-                {hoveredItem.data.workers} Monitored Personnel
+              <div style={{ color: '#E2E8F0', marginTop: '2px', display: 'flex', gap: '8px' }}>
+                <span>{('violations' in hoveredItem.data ? (hoveredItem.data as any).violations : 0)} Infractions</span>
+                <span>•</span>
+                <span>{hoveredItem.data.workers} Monitored Workers</span>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Bottom Category Legend Bar */}
+      {/* Bottom Context Legend Bar (Dynamic per view mode) */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '16px',
+        gap: viewMode === 'ribbon' ? '10px' : '16px',
         padding: '10px 18px',
         borderTop: '1px solid #F1F5F9',
         backgroundColor: '#F8FAFC',
         overflowX: 'auto'
       }}>
-        {hazardData.map(item => (
-          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-            <span style={{ width: '9px', height: '9px', borderRadius: '3px', backgroundColor: item.color }} />
-            <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155' }}>
-              {item.name} ({item.count})
-            </span>
-          </div>
-        ))}
+        {viewMode === 'ribbon' ? (
+          complianceHistory.map((pt, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                backgroundColor: pt.violations > 0 ? '#FEF2F2' : '#F0FDF4',
+                border: '1px solid',
+                borderColor: pt.violations > 0 ? '#FECACA' : '#BBF7D0',
+                flexShrink: 0
+              }}
+            >
+              <span style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                backgroundColor: pt.compliance >= 95 ? '#22C55E' : pt.compliance >= 85 ? '#F59E0B' : '#EF4444'
+              }} />
+              <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#1E293B' }}>
+                {pt.day}: {Math.round(pt.compliance)}%
+              </span>
+              {pt.violations > 0 && (
+                <span style={{ fontSize: '10.5px', color: '#DC2626', fontWeight: 700 }}>
+                  ({pt.violations} {pt.violations === 1 ? 'infraction' : 'infractions'})
+                </span>
+              )}
+            </div>
+          ))
+        ) : (
+          hazardData.map(item => (
+            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+              <span style={{ width: '9px', height: '9px', borderRadius: '3px', backgroundColor: item.color }} />
+              <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155' }}>
+                {item.name} ({item.count})
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -243,17 +243,22 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
             ? analytics.historical_metrics.map(m => ({
                 label: m.date.length > 5 ? m.date.slice(5) : m.date,
                 value: m.compliance_rate,
-                secondary: `Safe: ${m.total_workers - m.total_violations} / Inf: ${m.total_violations}`
+                secondary: `Safe: ${Math.max(0, m.total_workers - m.total_violations)} / Inf: ${m.total_violations}`
               }))
-            : [
-                { label: 'Day 1', value: 96.5, secondary: 'Safe: 42 / Inf: 3' },
-                { label: 'Day 2', value: 94.2, secondary: 'Safe: 42 / Inf: 6' },
-                { label: 'Day 3', value: 97.8, secondary: 'Safe: 48 / Inf: 2' },
-                { label: 'Day 4', value: 91.4, secondary: 'Safe: 44 / Inf: 8' },
-                { label: 'Day 5', value: 95.1, secondary: 'Safe: 42 / Inf: 4' },
-                { label: 'Day 6', value: 93.8, secondary: 'Safe: 44 / Inf: 5' },
-                { label: 'Day 7', value: complianceRate, secondary: `Safe: ${activeWorkers - activeViolations} / Inf: ${activeViolations}` },
-              ],
+            : Array.from({ length: 7 }, (_, idx) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (6 - idx));
+                const iso = d.toISOString().split('T')[0];
+                const dayIncidents = (incidents || []).filter(inc => inc.timestamp && String(inc.timestamp).startsWith(iso));
+                const vCount = dayIncidents.length;
+                const cVal = vCount > 0 ? Math.max(65, 100 - vCount * 5) : (idx === 6 ? complianceRate : 100);
+                const wCount = idx === 6 ? activeWorkers : (vCount > 0 ? 1 : 0);
+                return {
+                  label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' }),
+                  value: cVal,
+                  secondary: `Safe: ${Math.max(0, wCount - vCount)} / Inf: ${vCount}`
+                };
+              }),
           breakdowns: [
             { name: 'Primary Assembly Line', count: '98.9% Safe Index', pct: 98.9 },
             { name: 'Heavy Machinery Fleet', count: '96.2% Safe Index', pct: 96.2 },
