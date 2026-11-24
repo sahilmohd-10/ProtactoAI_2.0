@@ -122,7 +122,7 @@ class PPEInferenceEngine:
         # Synthetic fallback frame
         img = np.zeros((720, 1280, 3), dtype=np.uint8)
         img[:] = (20, 24, 33)  # Apple dark slate
-        cv2.putText(img, f"PROTECTOR AI 2.0 — {camera_id.upper()} FEED ACTIVE", (80, 120),
+        cv2.putText(img, f"PROTECTOR AI 2.0 - {camera_id.upper()} FEED ACTIVE", (80, 120),
                     cv2.FONT_HERSHEY_DUPLEX, 1.2, (255, 255, 255), 2)
         cv2.putText(img, "YOLOv8 Real-Time PPE Inference Online", (80, 180),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 120, 0), 2)
