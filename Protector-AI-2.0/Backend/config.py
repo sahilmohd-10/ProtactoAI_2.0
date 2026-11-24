@@ -53,8 +53,8 @@ ONEDRIVE_LIVE_URL = "https://d.docs.live.net/13FB1DC024CF6090/Documents/Attendan
 
 
 # Server Config
-HOST = os.getenv("HOST", "127.0.0.1")
-PORT = int(os.getenv("PORT", 5000))
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", 7860 if os.getenv("SPACE_ID") else 5000))
 DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1")
 
 # Secret keys

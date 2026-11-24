@@ -10,6 +10,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from app import app
+from database import SessionLocal
+from models import User
 from tools import ToolRegistry
 from command_engine import CommandEngine
 from copilot import copilot_instance
@@ -461,12 +463,20 @@ class ProtectorAITestSuite(unittest.TestCase):
         self.assertEqual(res_email.get_json()["error"], "An account with this email address already exists.")
 
         # 3. Duplicate phone
+        db_session = SessionLocal()
+        admin_user = db_session.query(User).filter(User.username == "admin").first()
+        admin_phone = admin_user.phone_number if admin_user and admin_user.phone_number else "+1 555-010-0001"
+        # Clean up any transient test phone user
+        db_session.query(User).filter(User.username.like("unique_phone_user_%")).delete(synchronize_session=False)
+        db_session.commit()
+        db_session.close()
+
         res_phone = self.client.post("/api/auth/register", json={
             "first_name": "Dupe",
             "last_name": "Phone",
             "username": f"unique_phone_user_{rnd}",
             "email": f"unique_phone_email_{rnd}@protector.ai",
-            "phone_number": "+1 555-010-0001",
+            "phone_number": admin_phone,
             "password": "ValidPassword2026!",
             "confirm_password": "ValidPassword2026!"
         })

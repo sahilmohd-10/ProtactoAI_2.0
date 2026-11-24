@@ -3016,9 +3016,78 @@ def openrouter_analyze_scene():
     return jsonify(result)
 
 # ==========================================
-# ENTRYPOINT
+# ENTRYPOINT & HUGGING FACE ZEROGPU DISPATCHER
 # ==========================================
 
+try:
+    import spaces
+except ImportError:
+    class spaces:
+        @staticmethod
+        def GPU(fn=None, **kwargs):
+            if fn is None:
+                return lambda f: f
+            return fn
+
+
+def create_asgi_server():
+    """Build unified ASGI application serving Gradio (ZeroGPU) and Flask REST API."""
+    import gradio as gr
+    from fastapi import FastAPI
+    from starlette.middleware.wsgi import WSGIMiddleware
+
+    @spaces.GPU
+    def predict_ppe_zerogpu(image):
+        """ZeroGPU-compatible inference function scanned by Hugging Face during startup."""
+        if image is None:
+            return "Please select or upload an image to analyze."
+        try:
+            result = engine_instance.detect(image)
+            return json.dumps(result, indent=2, default=str)
+        except Exception as e:
+            return f"Inference error: {e}"
+
+    with gr.Blocks(title="Protector AI 2.0 API Server") as demo:
+        gr.Markdown(
+            "# 🛡️ Protector AI 2.0 — Live Backend & ZeroGPU Inference Server\n"
+            "This Hugging Face Space powers the AI vision and safety engine for Protector AI 2.0.\n\n"
+            "🌐 **Frontend Web Application**: [https://protacto-ai-2-0.vercel.app](https://protacto-ai-2-0.vercel.app)\n\n"
+            "All REST API endpoints (`/api/...`), streaming feeds, and biometric verification are active."
+        )
+        with gr.Row():
+            img_in = gr.Image(label="Test Frame for PPE Detection")
+            txt_out = gr.Textbox(label="YOLO Detection JSON", lines=10)
+        btn = gr.Button("🔍 Run ZeroGPU PPE Detection", variant="primary")
+        btn.click(fn=predict_ppe_zerogpu, inputs=img_in, outputs=txt_out)
+
+    class PathPreservingWSGI:
+        def __init__(self, wsgi_app, prefix="/api"):
+            self.wsgi_app = wsgi_app
+            self.prefix = prefix
+
+        def __call__(self, environ, start_response):
+            environ["PATH_INFO"] = self.prefix + environ.get("PATH_INFO", "")
+            return self.wsgi_app(environ, start_response)
+
+    fastapi_app = FastAPI()
+    fastapi_app.mount("/api", WSGIMiddleware(PathPreservingWSGI(app, "/api")))
+    fastapi_app.mount("/static", WSGIMiddleware(PathPreservingWSGI(app, "/static")))
+    fastapi_app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+    return fastapi_app
+
+
 if __name__ == "__main__":
-    logger.info(f"Starting Protector AI 2.0 Backend on http://{config.HOST}:{config.PORT}")
-    app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
+    is_huggingface = bool(os.getenv("SPACE_ID")) or config.PORT == 7860
+    logger.info(f"Starting Protector AI 2.0 Backend (HF Space: {is_huggingface}) on {config.HOST}:{config.PORT}")
+
+    if is_huggingface:
+        try:
+            import uvicorn
+            asgi_app = create_asgi_server()
+            uvicorn.run(asgi_app, host="0.0.0.0", port=config.PORT)
+        except Exception as e:
+            logger.warning(f"Could not start ASGI/Gradio server ({e}); falling back to standard Flask...")
+            app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
+    else:
+        app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
+
