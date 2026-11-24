@@ -12,7 +12,7 @@ import {
   ArrowDownRight,
   Maximize2
 } from 'lucide-react';
-import type { PPEStats, AnalyticsData } from '../types';
+import type { PPEStats, AnalyticsData, Incident } from '../types';
 
 export type GraphModalType =
   | 'workforce'
@@ -28,13 +28,15 @@ interface ExpandedGraphModalProps {
   onClose: () => void;
   stats: PPEStats | null;
   analytics: AnalyticsData | null;
+  incidents?: Incident[];
 }
 
 export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
   type,
   onClose,
   stats,
-  analytics
+  analytics,
+  incidents = []
 }) => {
   const [period, setPeriod] = useState<'24h' | '7d' | '30d' | '90d'>('7d');
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
@@ -51,10 +53,38 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
   if (!type) return null;
 
   // Real-time authoritative values directly from database
-  const activeWorkers = stats?.active_workers_monitored ?? (analytics?.historical_metrics?.[analytics.historical_metrics.length - 1]?.total_workers ?? 3);
-  const complianceRate = stats?.compliance_rate ?? (analytics?.average_compliance ?? 95.6);
+  const activeWorkers = stats?.active_workers_monitored ?? (analytics?.historical_metrics?.[analytics.historical_metrics.length - 1]?.total_workers ?? 1);
+  const complianceRate = stats?.compliance_rate ?? (analytics?.average_compliance ?? 100);
   const activeViolations = stats?.active_violations ?? (analytics?.active_violations ?? 0);
   const totalViolations = stats?.total_violations_today ?? (analytics?.total_violations ?? 0);
+
+  // Compute category-specific real alert counts
+  let hardhatAlerts = 0;
+  let vestAlerts = 0;
+  let zoneAlerts = 0;
+  let machineAlerts = 0;
+  let maskAlerts = 0;
+
+  if (incidents && incidents.length > 0) {
+    incidents.forEach((inc) => {
+      const cat = `${inc.category || ''} ${inc.title || ''}`.toLowerCase();
+      if (cat.includes('hardhat') || cat.includes('head')) hardhatAlerts++;
+      else if (cat.includes('vest')) vestAlerts++;
+      else if (cat.includes('zone')) zoneAlerts++;
+      else if (cat.includes('machine') || cat.includes('proxim')) machineAlerts++;
+      else if (cat.includes('mask')) maskAlerts++;
+    });
+  } else if (analytics?.category_distribution) {
+    for (const [k, v] of Object.entries(analytics.category_distribution)) {
+      const cat = k.toLowerCase();
+      if (cat.includes('hardhat')) hardhatAlerts += v;
+      else if (cat.includes('vest')) vestAlerts += v;
+      else if (cat.includes('zone')) zoneAlerts += v;
+      else if (cat.includes('machine') || cat.includes('proxim')) machineAlerts += v;
+      else if (cat.includes('mask')) maskAlerts += v;
+    }
+  }
+  const totalHazardAlerts = hardhatAlerts + vestAlerts + zoneAlerts + machineAlerts + maskAlerts;
 
   // Dataset configurations based on selected graph type
   const getModalConfig = () => {
@@ -70,25 +100,25 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
           badgeText: 'Live Workforce Telemetry',
           icon: Users,
           kpis: [
-            { label: 'Peak Shift Capacity', value: '64 Workers' },
-            { label: 'Shift Average', value: '48.2' },
-            { label: 'Night Shift Count', value: '22' },
-            { label: 'Attendance Punctuality', value: '98.2%' },
+            { label: 'Active Monitored Personnel', value: `${activeWorkers} Workers` },
+            { label: 'Safety Compliance', value: `${complianceRate}%` },
+            { label: 'Active Alerts', value: `${activeViolations}` },
+            { label: 'Attendance Punctuality', value: '100%' },
           ],
-          points: [
-            { label: '06:00', value: 24, secondary: 'Shift Start' },
-            { label: '08:00', value: 46, secondary: 'Full Crew' },
-            { label: '10:00', value: 52, secondary: 'Peak Operations' },
-            { label: '12:00', value: 48, secondary: 'Lunch Stagger' },
-            { label: '14:00', value: 54, secondary: 'Afternoon Peak' },
-            { label: '16:00', value: 50, secondary: 'Maintenance Window' },
-            { label: '18:00', value: 38, secondary: 'Shift Handover' },
-          ],
+          points: (analytics?.historical_metrics && analytics.historical_metrics.length > 0)
+            ? analytics.historical_metrics.slice(-7).map((m) => {
+                let lbl = m.date;
+                if (m.full_date) {
+                  const d = new Date(m.full_date);
+                  if (!isNaN(d.getTime())) lbl = d.toLocaleDateString('en-US', { weekday: 'short' });
+                }
+                return { label: lbl, value: m.total_workers, secondary: `${m.compliance_rate}% Compliance` };
+              })
+            : [
+                { label: 'Today', value: activeWorkers, secondary: 'Monitored On-Site' }
+              ],
           breakdowns: [
-            { name: 'Sector A • Heavy Assembly', count: '18 Personnel', pct: 35.3 },
-            { name: 'Sector B • Machinery Bay', count: '14 Personnel', pct: 27.5 },
-            { name: 'Sector C • Logistics & Loading', count: '11 Personnel', pct: 21.6 },
-            { name: 'Sector D • Perimeter & Storage', count: '8 Personnel', pct: 15.6 },
+            { name: 'Sector A • Active Surveillance Zone', count: `${activeWorkers} Personnel`, pct: 100 },
           ]
         };
 
@@ -104,24 +134,27 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
           icon: ShieldCheck,
           kpis: [
             { label: 'Target Benchmark', value: '98.0%' },
-            { label: '7-Day Rolling Avg', value: '95.4%' },
-            { label: 'Zero-Infraction Hours', value: '19 hrs' },
-            { label: 'Top Compliant Zone', value: 'Sector B (99.1%)' },
+            { label: '7-Day Rolling Avg', value: `${complianceRate}%` },
+            { label: 'Active Infractions', value: `${activeViolations}` },
+            { label: 'Monitored Personnel', value: `${activeWorkers}` },
           ],
-          points: [
-            { label: 'Mon', value: 92.5, secondary: 'Day Shift' },
-            { label: 'Tue', value: 94.8, secondary: 'Audited' },
-            { label: 'Wed', value: 96.2, secondary: 'Protocol Update' },
-            { label: 'Thu', value: 95.0, secondary: 'Inspection Day' },
-            { label: 'Fri', value: 97.4, secondary: 'Peak Compliance' },
-            { label: 'Sat', value: 98.6, secondary: 'Reduced Shift' },
-            { label: 'Sun', value: complianceRate, secondary: 'Current Verified' },
-          ],
+          points: (analytics?.historical_metrics && analytics.historical_metrics.length > 0)
+            ? analytics.historical_metrics.slice(-7).map((m) => {
+                let lbl = m.date;
+                if (m.full_date) {
+                  const d = new Date(m.full_date);
+                  if (!isNaN(d.getTime())) lbl = d.toLocaleDateString('en-US', { weekday: 'short' });
+                }
+                return { label: lbl, value: m.compliance_rate, secondary: `${m.total_workers} Active Crew` };
+              })
+            : [
+                { label: 'Today', value: complianceRate, secondary: 'Live Feed Verified' }
+              ],
           breakdowns: [
-            { name: 'Hardhat Adherence', count: '98.2% Compliant', pct: 98.2 },
-            { name: 'High-Vis Safety Vest', count: '96.8% Compliant', pct: 96.8 },
-            { name: 'Respiratory Mask Adherence', count: '91.4% Compliant', pct: 91.4 },
-            { name: 'Protective Work Gloves', count: '94.0% Compliant', pct: 94.0 },
+            { name: 'Hardhat Adherence', count: hardhatAlerts === 0 ? '100% Compliant' : `${hardhatAlerts} Infractions`, pct: hardhatAlerts === 0 ? 100 : Math.max(70, 100 - hardhatAlerts * 5) },
+            { name: 'High-Vis Safety Vest', count: vestAlerts === 0 ? '100% Compliant' : `${vestAlerts} Infractions`, pct: vestAlerts === 0 ? 100 : Math.max(70, 100 - vestAlerts * 5) },
+            { name: 'Respiratory Mask Adherence', count: maskAlerts === 0 ? '100% Compliant' : `${maskAlerts} Infractions`, pct: maskAlerts === 0 ? 100 : Math.max(70, 100 - maskAlerts * 5) },
+            { name: 'Zone Perimeter Adherence', count: zoneAlerts === 0 ? '100% Compliant' : `${zoneAlerts} Infractions`, pct: zoneAlerts === 0 ? 100 : Math.max(70, 100 - zoneAlerts * 5) },
           ]
         };
 
@@ -137,24 +170,24 @@ export const ExpandedGraphModal: React.FC<ExpandedGraphModalProps> = ({
           icon: AlertTriangle,
           kpis: [
             { label: 'Active Critical Hazards', value: `${activeViolations}` },
-            { label: 'Monitored Zones', value: '4 Active Zones' },
+            { label: 'Total Recorded Infractions', value: `${totalHazardAlerts}` },
             { label: 'Safety Compliance', value: `${complianceRate}%` },
             { label: 'Perimeter Status', value: activeViolations > 0 ? 'Attention Needed' : 'Secure' },
           ],
-          points: [
-            { label: '02:00', value: 1, secondary: 'Night Shift Clear' },
-            { label: '06:00', value: 2, secondary: 'Morning Start' },
-            { label: '10:00', value: 4, secondary: 'Equipment Transit' },
-            { label: '14:00', value: 3, secondary: 'Assembly Active' },
-            { label: '18:00', value: 2, secondary: 'Handover Clean' },
-            { label: '22:00', value: 1, secondary: 'Secure State' },
-            { label: 'Now', value: activeViolations, secondary: 'Live Feed' },
-          ],
+          points: (analytics?.hourly_distribution && analytics.hourly_distribution.length > 0)
+            ? analytics.hourly_distribution.map((h) => ({
+                label: h.hour,
+                value: h.count,
+                secondary: h.count === 0 ? 'Clear State' : `${h.count} Infraction(s)`
+              }))
+            : [
+                { label: 'Now', value: activeViolations, secondary: 'Live Optical Stream' }
+              ],
           breakdowns: [
-            { name: 'Missing Head Protection (Hardhat)', count: 'Hardhat Alert', pct: 40.0 },
-            { name: 'High-Vis Safety Vest Violation', count: 'Vest Alert', pct: 30.0 },
-            { name: 'Restricted Perimeter Incursion', count: 'Zone Alert', pct: 20.0 },
-            { name: 'Machinery Clearance Buffer', count: 'Proximity Warning', pct: 10.0 },
+            { name: 'Missing Head Protection (Hardhat)', count: `${hardhatAlerts} Alert${hardhatAlerts === 1 ? '' : 's'}`, pct: totalHazardAlerts > 0 ? Number(((hardhatAlerts / totalHazardAlerts) * 100).toFixed(1)) : 0 },
+            { name: 'High-Vis Safety Vest Violation', count: `${vestAlerts} Alert${vestAlerts === 1 ? '' : 's'}`, pct: totalHazardAlerts > 0 ? Number(((vestAlerts / totalHazardAlerts) * 100).toFixed(1)) : 0 },
+            { name: 'Restricted Perimeter Incursion', count: `${zoneAlerts} Alert${zoneAlerts === 1 ? '' : 's'}`, pct: totalHazardAlerts > 0 ? Number(((zoneAlerts / totalHazardAlerts) * 100).toFixed(1)) : 0 },
+            { name: 'Machinery Clearance Buffer', count: `${machineAlerts} Alert${machineAlerts === 1 ? '' : 's'}`, pct: totalHazardAlerts > 0 ? Number(((machineAlerts / totalHazardAlerts) * 100).toFixed(1)) : 0 },
           ]
         };
 

@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { RotateCw, ZoomIn, ZoomOut, Compass, BarChart2, TrendingUp, Info } from 'lucide-react';
-import type { AnalyticsData, PPEStats } from '../types';
+import type { AnalyticsData, PPEStats, Incident } from '../types';
 
 interface Analytics3DChartProps {
   analytics: AnalyticsData | null;
   stats: PPEStats | null;
+  incidents?: Incident[];
 }
 
 interface HazardDataPoint {
@@ -18,7 +19,7 @@ interface HazardDataPoint {
   color: string;
 }
 
-export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, stats }) => {
+export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, stats, incidents = [] }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -36,27 +37,137 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
     y: number;
   } | null>(null);
 
-  // Active industrial hazard categories with real counts
-  const hazardData: HazardDataPoint[] = [
-    { id: 'hardhat', name: 'No-Hardhat', fullName: 'Missing Head Protection', count: 18, percentage: 32.1, severity: 'Critical', color: '#EF4444' },
-    { id: 'vest', name: 'No-Vest', fullName: 'Missing High-Vis Vest', count: 14, percentage: 25.0, severity: 'Critical', color: '#F59E0B' },
-    { id: 'zone', name: 'Zone Breach', fullName: 'Restricted Perimeter Breach', count: 9, percentage: 16.1, severity: 'Critical', color: '#DC2626' },
-    { id: 'gloves', name: 'No-Gloves', fullName: 'Hand Safety Infraction', count: 6, percentage: 10.7, severity: 'Warning', color: '#10B981' },
-    { id: 'mask', name: 'No-Mask', fullName: 'Respiratory Mask Missing', count: 4, percentage: 7.1, severity: 'Warning', color: '#3B82F6' },
-    { id: 'height', name: 'Fall Hazard', fullName: 'Elevated Working Without Harness', count: 3, percentage: 5.4, severity: 'Critical', color: '#EC4899' },
-    { id: 'proximity', name: 'Machine Clear', fullName: 'Heavy Machinery Clear Zone', count: 2, percentage: 3.6, severity: 'Advisory', color: '#8B5CF6' },
-  ];
+  // Dynamically compute authentic category infractions from database incidents & telemetry
+  const hazardData = useMemo<HazardDataPoint[]>(() => {
+    let hardhat = 0;
+    let vest = 0;
+    let zone = 0;
+    let gloves = 0;
+    let mask = 0;
+    let height = 0;
+    let proximity = 0;
 
-  // 7-Day compliance history for ribbon
-  const complianceHistory = [
-    { day: 'Mon', compliance: 92.5, workers: 42 },
-    { day: 'Tue', compliance: 94.8, workers: 45 },
-    { day: 'Wed', compliance: 96.2, workers: 48 },
-    { day: 'Thu', compliance: 95.0, workers: 44 },
-    { day: 'Fri', compliance: 97.4, workers: 50 },
-    { day: 'Sat', compliance: 98.6, workers: 38 },
-    { day: 'Sun', compliance: 98.4, workers: 35 },
-  ];
+    if (incidents && incidents.length > 0) {
+      incidents.forEach((inc) => {
+        const cat = `${inc.category || ''} ${inc.title || ''}`.toLowerCase();
+        if (cat.includes('hardhat') || cat.includes('helmet') || cat.includes('head')) hardhat++;
+        else if (cat.includes('vest') || cat.includes('high-vis') || cat.includes('visibility')) vest++;
+        else if (cat.includes('zone') || cat.includes('perimeter') || cat.includes('breach')) zone++;
+        else if (cat.includes('glove') || cat.includes('hand')) gloves++;
+        else if (cat.includes('mask') || cat.includes('respirat')) mask++;
+        else if (cat.includes('height') || cat.includes('ladder') || cat.includes('fall')) height++;
+        else if (cat.includes('machine') || cat.includes('proxim')) proximity++;
+      });
+    } else if (analytics?.category_distribution) {
+      for (const [k, v] of Object.entries(analytics.category_distribution)) {
+        const cat = k.toLowerCase();
+        if (cat.includes('hardhat') || cat.includes('head') || cat.includes('helmet')) hardhat += v;
+        else if (cat.includes('vest') || cat.includes('high-vis')) vest += v;
+        else if (cat.includes('zone') || cat.includes('perimeter') || cat.includes('breach')) zone += v;
+        else if (cat.includes('glove')) gloves += v;
+        else if (cat.includes('mask')) mask += v;
+        else if (cat.includes('height') || cat.includes('fall')) height += v;
+        else if (cat.includes('machine') || cat.includes('proxim')) proximity += v;
+      }
+    }
+
+    const total = hardhat + vest + zone + gloves + mask + height + proximity;
+
+    return [
+      {
+        id: 'hardhat',
+        name: 'No-Hardhat',
+        fullName: 'Missing Head Protection',
+        count: hardhat,
+        percentage: total > 0 ? Number(((hardhat / total) * 100).toFixed(1)) : 0,
+        severity: 'Critical',
+        color: '#EF4444'
+      },
+      {
+        id: 'vest',
+        name: 'No-Vest',
+        fullName: 'Missing High-Vis Vest',
+        count: vest,
+        percentage: total > 0 ? Number(((vest / total) * 100).toFixed(1)) : 0,
+        severity: 'Critical',
+        color: '#F59E0B'
+      },
+      {
+        id: 'zone',
+        name: 'Zone Breach',
+        fullName: 'Restricted Perimeter Breach',
+        count: zone,
+        percentage: total > 0 ? Number(((zone / total) * 100).toFixed(1)) : 0,
+        severity: 'Critical',
+        color: '#DC2626'
+      },
+      {
+        id: 'gloves',
+        name: 'No-Gloves',
+        fullName: 'Hand Safety Infraction',
+        count: gloves,
+        percentage: total > 0 ? Number(((gloves / total) * 100).toFixed(1)) : 0,
+        severity: 'Warning',
+        color: '#10B981'
+      },
+      {
+        id: 'mask',
+        name: 'No-Mask',
+        fullName: 'Respiratory Mask Missing',
+        count: mask,
+        percentage: total > 0 ? Number(((mask / total) * 100).toFixed(1)) : 0,
+        severity: 'Warning',
+        color: '#3B82F6'
+      },
+      {
+        id: 'height',
+        name: 'Fall Hazard',
+        fullName: 'Elevated Working Without Harness',
+        count: height,
+        percentage: total > 0 ? Number(((height / total) * 100).toFixed(1)) : 0,
+        severity: 'Critical',
+        color: '#EC4899'
+      },
+      {
+        id: 'proximity',
+        name: 'Machine Clear',
+        fullName: 'Heavy Machinery Clear Zone',
+        count: proximity,
+        percentage: total > 0 ? Number(((proximity / total) * 100).toFixed(1)) : 0,
+        severity: 'Advisory',
+        color: '#8B5CF6'
+      },
+    ];
+  }, [incidents, analytics]);
+
+  // Dynamically compute authentic 7-day compliance history from real metrics
+  const complianceHistory = useMemo(() => {
+    if (analytics?.historical_metrics && analytics.historical_metrics.length > 0) {
+      return analytics.historical_metrics.slice(-7).map((m) => {
+        let dayName = m.date;
+        if (m.full_date) {
+          const d = new Date(m.full_date);
+          if (!isNaN(d.getTime())) {
+            dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+          }
+        }
+        return {
+          day: dayName,
+          compliance: m.compliance_rate,
+          workers: m.total_workers
+        };
+      });
+    }
+
+    const currentRate = stats?.compliance_rate ?? 100;
+    const currentWorkers = stats?.active_workers_monitored ?? 1;
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return dayNames.map((d) => ({
+      day: d,
+      compliance: currentRate,
+      workers: currentWorkers
+    }));
+  }, [analytics, stats]);
 
   // Camera angles
   const sphericalRef = useRef({
@@ -143,9 +254,13 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
     const barDepth = 1.3;
     const spacing = 2.4;
     const startX = -((hazardData.length - 1) * spacing) / 2;
+    const maxCount = Math.max(...hazardData.map((h) => h.count), 0);
 
     hazardData.forEach((item, index) => {
-      const height = Math.max(0.8, (item.count / 20) * 8);
+      // Sleek baseline pedestal tile (0.35) if count is 0, proportional bar if count > 0
+      const height = maxCount === 0 || item.count === 0
+        ? 0.35
+        : Math.max(0.7, (item.count / maxCount) * 7.5);
       const xPos = startX + index * spacing;
 
       // Rounded column box geometry
@@ -278,7 +393,7 @@ export const Analytics3DChart: React.FC<Analytics3DChartProps> = ({ analytics, s
       }
       renderer.dispose();
     };
-  }, [updateCameraPosition, isAutoRotate]);
+  }, [updateCameraPosition, isAutoRotate, hazardData, complianceHistory]);
 
   // Switch between Bars and Ribbon
   useEffect(() => {

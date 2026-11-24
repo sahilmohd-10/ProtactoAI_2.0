@@ -214,6 +214,7 @@ export interface PPEStats {
 export interface DailyMetric {
   id: number;
   date: string;
+  full_date?: string;
   compliance_rate: number;
   total_workers: number;
   total_violations: number;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { AnalyticsData, PPEStats } from '../types';
+import type { AnalyticsData, PPEStats, Incident } from '../types';
 import { api } from '../services/api';
 import { ArrowUpRight, Download, Filter, RefreshCw, Box, Maximize2 } from 'lucide-react';
 import { Analytics3DChart } from './Analytics3DChart';
@@ -8,9 +8,10 @@ import { ExpandedGraphModal, GraphModalType } from './ExpandedGraphModal';
 interface AnalyticsProps {
   analytics: AnalyticsData | null;
   stats: PPEStats | null;
+  incidents?: Incident[];
 }
 
-export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
+export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats, incidents = [] }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d'>('7d');
   const [hoveredMonth, setHoveredMonth] = useState<number>(4); // default May
   const [expandedGraph, setExpandedGraph] = useState<GraphModalType>(null);
@@ -304,7 +305,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
       </div>
 
       {/* Interactive 3D Industrial Safety Analytics Visualizer */}
-      <Analytics3DChart analytics={analytics} stats={stats} />
+      <Analytics3DChart analytics={analytics} stats={stats} incidents={incidents} />
 
       {/* Middle Section: Ratio of Compliance (Full Circular Donut Chart) + Workforce Trajectory */}
       <div style={{
@@ -661,6 +662,7 @@ export const Analytics: React.FC<AnalyticsProps> = ({ analytics, stats }) => {
         onClose={() => setExpandedGraph(null)}
         stats={stats}
         analytics={analytics}
+        incidents={incidents}
       />
     </div>
   );

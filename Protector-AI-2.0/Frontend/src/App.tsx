@@ -344,6 +344,7 @@ export function App() {
             <Analytics
               analytics={analytics}
               stats={ppeStats}
+              incidents={incidents}
             />
           )}
 
