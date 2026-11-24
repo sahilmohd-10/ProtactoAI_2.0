@@ -1,3 +1,13 @@
+try:
+    import spaces
+except ImportError:
+    class spaces:
+        @staticmethod
+        def GPU(fn=None, **kwargs):
+            if fn is None:
+                return lambda f: f
+            return fn
+
 import os
 import io
 import time
@@ -3018,17 +3028,6 @@ def openrouter_analyze_scene():
 # ==========================================
 # ENTRYPOINT & HUGGING FACE ZEROGPU DISPATCHER
 # ==========================================
-
-try:
-    import spaces
-except ImportError:
-    class spaces:
-        @staticmethod
-        def GPU(fn=None, **kwargs):
-            if fn is None:
-                return lambda f: f
-            return fn
-
 
 def create_asgi_server():
     """Build unified ASGI application serving Gradio (ZeroGPU) and Flask REST API."""
