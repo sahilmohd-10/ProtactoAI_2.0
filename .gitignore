@@ -31,6 +31,10 @@ venv/
 *.onnx
 *.engine
 
+# Hugging Face deployment working directory
+hf_deploy/
+
+
 # IDE & OS
 .vscode/
 .idea/
