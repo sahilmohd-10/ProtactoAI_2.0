@@ -135,7 +135,8 @@ class PPEInferenceEngine:
             return frame, {"workers": 0, "violations": 0, "compliant": 0, "compliance_rate": 100.0, "detections": []}
 
         h, w = frame.shape[:2]
-        results = self.model(frame, conf=conf_threshold, verbose=False)
+        device = "cpu" if os.getenv("SPACE_ID") else None
+        results = self.model(frame, conf=conf_threshold, verbose=False, device=device)
 
         detections = []
         worker_count = 0

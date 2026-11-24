@@ -95,8 +95,11 @@ except Exception as _att_init_err:
 
 # Auto-start hardware biometric camera worker for continuous real-time face identification
 try:
-    camera_manager_instance.start_camera("cam_01")
-    logger.info("Automatic live camera biometric scanner initialized on cam_01")
+    if not os.getenv("SPACE_ID"):
+        camera_manager_instance.start_camera("cam_01")
+        logger.info("Automatic live camera biometric scanner initialized on cam_01")
+    else:
+        logger.info("Cloud environment detected (Hugging Face Spaces): hardware camera auto-start skipped.")
 except Exception as _cam_init_err:
     logger.warning(f"Live camera scanner auto-start deferred: {_cam_init_err}")
 
@@ -3059,19 +3062,9 @@ def create_asgi_server():
         btn = gr.Button("🔍 Run ZeroGPU PPE Detection", variant="primary")
         btn.click(fn=predict_ppe_zerogpu, inputs=img_in, outputs=txt_out)
 
-    class PathPreservingWSGI:
-        def __init__(self, wsgi_app, prefix="/api"):
-            self.wsgi_app = wsgi_app
-            self.prefix = prefix
-
-        def __call__(self, environ, start_response):
-            environ["PATH_INFO"] = self.prefix + environ.get("PATH_INFO", "")
-            return self.wsgi_app(environ, start_response)
-
     fastapi_app = FastAPI()
-    fastapi_app.mount("/api", WSGIMiddleware(PathPreservingWSGI(app, "/api")))
-    fastapi_app.mount("/static", WSGIMiddleware(PathPreservingWSGI(app, "/static")))
-    fastapi_app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+    fastapi_app = gr.mount_gradio_app(fastapi_app, demo, path="/gradio")
+    fastapi_app.mount("/", WSGIMiddleware(app))
     return fastapi_app
 
 
