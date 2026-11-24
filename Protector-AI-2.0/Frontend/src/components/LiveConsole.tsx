@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { RefreshCw } from 'lucide-react';
 import type { Camera as CameraType, CameraWorkerStatus } from '../types';
 import { api } from '../services/api';
 
@@ -11,8 +12,12 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
   const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_01');
   const confidence = 0.45;
 
-  // Real Camera Access Modes: 'hardware' (Device 0 via OpenCV Stream) vs 'browser' (Direct getUserMedia WebRTC)
+  // Real Camera Access Modes: 'hardware' (OpenCV Stream, reversed to Laptop default) vs 'browser' (Client WebCam, reversed to Other Camera default)
   const [cameraMode, setCameraMode] = useState<'hardware' | 'browser'>('hardware');
+  const [hardwareDeviceIndex, setHardwareDeviceIndex] = useState<number>(1);
+  const [browserVideoDevices, setBrowserVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedBrowserDeviceId, setSelectedBrowserDeviceId] = useState<string>('');
+
   const [browserStream, setBrowserStream] = useState<MediaStream | null>(null);
   const [browserCamError, setBrowserCamError] = useState<string | null>(null);
   const [showPermissionGuide, setShowPermissionGuide] = useState<boolean>(false);
@@ -34,6 +39,33 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
   const [workerError, setWorkerError] = useState<string | null>(null);
   const [streamEpoch, setStreamEpoch] = useState<number>(Date.now());
 
+  // Probe available hardware & browser devices on startup
+  useEffect(() => {
+    // 1. Fetch hardware devices from backend
+    api.getHardwareCameraDevices().then((res) => {
+      if (res && typeof res.active_device_index === 'number') {
+        setHardwareDeviceIndex(res.active_device_index);
+      }
+    }).catch(() => {});
+
+    // 2. Enumerate client video devices for browser webcam
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then((devs) => {
+        const vDevs = devs.filter((d) => d.kind === 'videoinput');
+        setBrowserVideoDevices(vDevs);
+        // Reversed mapping: for browser, default to the Other / Secondary camera if multiple exist
+        if (vDevs.length > 1) {
+          const secondary = vDevs.find((d) =>
+            /usb|droid|external|obs|cam/i.test(d.label) && !/integrated|truevision|internal/i.test(d.label)
+          ) || vDevs[1];
+          if (secondary?.deviceId) {
+            setSelectedBrowserDeviceId(secondary.deviceId);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
   // Poll authoritative backend camera status
   useEffect(() => {
     let isMounted = true;
@@ -42,6 +74,9 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
         const st = await api.getCameraWorkerStatus(selectedCameraId);
         if (isMounted) {
           setWorkerStatus(st);
+          if (typeof st.device_index === 'number' && st.device_index !== hardwareDeviceIndex) {
+            setHardwareDeviceIndex(st.device_index);
+          }
         }
       } catch {
         // quiet poll
@@ -54,11 +89,12 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
       isMounted = false;
       clearInterval(interval);
     };
-  }, [selectedCameraId]);
+  }, [selectedCameraId, hardwareDeviceIndex]);
 
-  // Switch to Hardware OpenCV sensor (Device 0) seamlessly & start live monitoring
-  const switchToHardware = async () => {
+  // Switch to Hardware OpenCV sensor (Device 1 Laptop Camera by default) seamlessly & start live monitoring
+  const switchToHardware = async (overrideIndex?: number) => {
     setWorkerLoading(true);
+    const targetIdx = overrideIndex !== undefined ? overrideIndex : hardwareDeviceIndex;
 
     try {
       // 1. Release browser webcam tracks
@@ -68,7 +104,6 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
           videoRef.current.srcObject = null;
         }
         setBrowserStream(null);
-        // Give the browser time to release the device before OpenCV opens it.
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
       setBrowserCamError(null);
@@ -77,11 +112,14 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
       setSelectedCameraId('cam_01');
       setStreamEpoch(Date.now());
 
-      // 2. Start hardware camera worker on backend
+      // 2. Start hardware camera worker on backend with target index
       setWorkerError(null);
-      const res = await api.startCameraWorker('cam_01');
+      const res = await api.startCameraWorker('cam_01', targetIdx);
       if (res.status) {
         setWorkerStatus(res.status);
+        if (typeof res.status.device_index === 'number') {
+          setHardwareDeviceIndex(res.status.device_index);
+        }
       }
       setStreamEpoch(Date.now());
       onRefreshIncidents();
@@ -92,13 +130,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
     }
   };
 
-  // Handle Browser WebCam Stream Lifecycle with automatic hardware release and error categorization
-  const startBrowserCamera = async () => {
+  // Handle Browser WebCam Stream Lifecycle (defaults to Other Camera)
+  const startBrowserCamera = async (overrideDeviceId?: string) => {
     if (isConnectingCam) return;
-    if (browserStream?.getVideoTracks().some((track) => track.readyState === 'live')) {
-      setCameraMode('browser');
-      return;
-    }
+    const targetDevId = overrideDeviceId || selectedBrowserDeviceId;
 
     try {
       setIsConnectingCam(true);
@@ -112,7 +147,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
         setBrowserStream(null);
       }
 
-      // 1. Release backend OpenCV device 0 handle so Windows DirectShow unlocks the physical camera for the browser
+      // 1. Release backend OpenCV device handle so DirectShow unlocks the physical camera for the browser
       try {
         await api.releaseHardwareCamera(selectedCameraId);
         await new Promise((r) => setTimeout(r, 350));
@@ -138,9 +173,33 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
         }
       }
 
-      // 3. Request client camera media stream
+      // 3. Determine device constraints: if no target device selected yet, search for Other Camera
+      let finalDevId = targetDevId;
+      if (!finalDevId && navigator.mediaDevices?.enumerateDevices) {
+        try {
+          const allDevs = await navigator.mediaDevices.enumerateDevices();
+          const vDevs = allDevs.filter((d) => d.kind === 'videoinput');
+          if (vDevs.length > 1) {
+            const secondary = vDevs.find((d) =>
+              /usb|droid|external|obs|cam/i.test(d.label) && !/integrated|truevision|internal/i.test(d.label)
+            ) || vDevs[1];
+            if (secondary?.deviceId) {
+              finalDevId = secondary.deviceId;
+              setSelectedBrowserDeviceId(finalDevId);
+            }
+          }
+        } catch {}
+      }
+
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        ...(finalDevId ? { deviceId: { exact: finalDevId } } : {})
+      };
+
+      // 4. Request client camera media stream
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: videoConstraints,
         audio: false
       });
       setBrowserStream(stream);
@@ -150,6 +209,15 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
+      }
+
+      // Refresh device list with accurate labels now that permission is active
+      if (navigator.mediaDevices?.enumerateDevices) {
+        try {
+          const allDevs = await navigator.mediaDevices.enumerateDevices();
+          const vDevs = allDevs.filter((d) => d.kind === 'videoinput');
+          setBrowserVideoDevices(vDevs);
+        } catch {}
       }
     } catch (err: any) {
       const errMsg = err?.message || '';
@@ -183,6 +251,47 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
       setCameraMode('hardware');
     } finally {
       setIsConnectingCam(false);
+    }
+  };
+
+  // Swap / Reverse Camera between Hardware (Laptop vs Other) or Browser WebCam devices
+  const handleSwapCamera = async () => {
+    if (cameraMode === 'hardware') {
+      const newIdx = hardwareDeviceIndex === 1 ? 0 : 1;
+      setHardwareDeviceIndex(newIdx);
+      setWorkerLoading(true);
+      try {
+        const res = await api.switchCameraDevice(selectedCameraId, newIdx);
+        if (res.status) {
+          setWorkerStatus(res.status);
+        }
+        setStreamEpoch(Date.now());
+      } catch (err: any) {
+        setWorkerError(err.message || `Failed to switch to Device ${newIdx}`);
+      } finally {
+        setWorkerLoading(false);
+      }
+    } else {
+      // Browser webcam mode: flip between available video inputs
+      if (browserVideoDevices.length >= 2) {
+        const currentIdx = browserVideoDevices.findIndex((d) => d.deviceId === selectedBrowserDeviceId);
+        const nextDev = currentIdx === 0 ? browserVideoDevices[1] : browserVideoDevices[0];
+        if (nextDev) {
+          setSelectedBrowserDeviceId(nextDev.deviceId);
+          await startBrowserCamera(nextDev.deviceId);
+        }
+      } else {
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const vDevs = devs.filter((d) => d.kind === 'videoinput');
+          setBrowserVideoDevices(vDevs);
+          if (vDevs.length >= 2) {
+            const nextDev = vDevs[1];
+            setSelectedBrowserDeviceId(nextDev.deviceId);
+            await startBrowserCamera(nextDev.deviceId);
+          }
+        } catch {}
+      }
     }
   };
 
@@ -327,7 +436,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
     try {
       setWorkerLoading(true);
       setWorkerError(null);
-      const res = await api.startCameraWorker(selectedCameraId);
+      const res = await api.startCameraWorker(selectedCameraId, hardwareDeviceIndex);
       if (res.status) {
         setWorkerStatus(res.status);
       }
@@ -426,8 +535,8 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Camera Source Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Camera Source Selector (Reversed: Hardware = Laptop Camera, Browser = Other Camera) */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -439,7 +548,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
           }}>
             <button
               type="button"
-              onClick={switchToHardware}
+              onClick={() => switchToHardware()}
               disabled={workerLoading || isConnectingCam}
               style={{
                 background: cameraMode === 'hardware' ? 'var(--bg-surface)' : 'transparent',
@@ -461,12 +570,14 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 borderRadius: '50%',
                 backgroundColor: cameraMode === 'hardware' && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
               }} />
-              {workerLoading && cameraMode === 'hardware' ? 'Connecting...' : 'Device 0 (Hardware)'}
+              {workerLoading && cameraMode === 'hardware'
+                ? 'Connecting...'
+                : `Laptop Camera (Hardware Device ${hardwareDeviceIndex})`}
             </button>
 
             <button
               type="button"
-              onClick={startBrowserCamera}
+              onClick={() => startBrowserCamera()}
               disabled={isConnectingCam || workerLoading}
               style={{
                 background: cameraMode === 'browser' ? 'var(--bg-surface)' : 'transparent',
@@ -488,9 +599,57 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 borderRadius: '50%',
                 backgroundColor: cameraMode === 'browser' && browserStream ? '#22C55E' : 'var(--text-tertiary)'
               }} />
-              {isConnectingCam ? 'Connecting...' : 'Browser WebCam'}
+              {isConnectingCam ? 'Connecting...' : 'Other Camera (Browser WebCam)'}
             </button>
           </div>
+
+          {/* Quick Swap / Reverse Camera Button */}
+          <button
+            type="button"
+            onClick={handleSwapCamera}
+            disabled={workerLoading || isConnectingCam}
+            title="Swap Camera Mapping (Reverse between Laptop and Other Camera)"
+            className="btn-secondary"
+            style={{
+              padding: '5px 10px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              borderRadius: '6px',
+              cursor: workerLoading || isConnectingCam ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <RefreshCw size={12} style={{ animation: (workerLoading || isConnectingCam) ? 'spin 1s linear infinite' : 'none' }} />
+            <span>Swap Camera</span>
+          </button>
+
+          {/* Browser Camera Device Picker if multiple video inputs are detected */}
+          {cameraMode === 'browser' && browserVideoDevices.length > 1 && (
+            <select
+              value={selectedBrowserDeviceId}
+              onChange={(e) => {
+                setSelectedBrowserDeviceId(e.target.value);
+                startBrowserCamera(e.target.value);
+              }}
+              style={{
+                fontSize: '11px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer'
+              }}
+            >
+              {browserVideoDevices.map((dev, idx) => (
+                <option key={dev.deviceId || idx} value={dev.deviceId}>
+                  {dev.label || `Camera ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Start / Stop Stream Action */}
           {cameraMode === 'browser' ? (
@@ -625,16 +784,16 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 }} />
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }}>
                   {cameraMode === 'browser'
-                    ? (browserStream ? 'Client WebCam (Live)' : 'WebCam Standby')
+                    ? (browserStream ? 'Other Camera / WebCam (Live)' : 'WebCam Standby')
                     : isWorkerRunning
-                    ? (selectedCamera?.id === 'cam_01' ? 'Hardware Camera 01 (Live)' : `${selectedCamera?.name}`)
+                    ? (selectedCamera?.id === 'cam_01' ? `Laptop Camera (Live Hardware Device ${hardwareDeviceIndex})` : `${selectedCamera?.name}`)
                     : 'Monitoring Stopped'}
                 </span>
                 <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.6)' }}>
                   {cameraMode === 'browser'
                     ? '(Browser Stream)'
                     : isWorkerRunning
-                    ? '(DirectShow 0)'
+                    ? `(DirectShow ${hardwareDeviceIndex})`
                     : '(Standby)'}
                 </span>
               </div>
@@ -735,7 +894,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                     const div = document.createElement('div');
                     div.className = 'stream-fallback';
                     div.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--text-secondary);';
-                    div.innerHTML = `<span style="font-size:12px;">Connecting to hardware camera (Device 0)...</span>`;
+                    div.innerHTML = `<span style="font-size:12px;">Connecting to Laptop camera (Device ${hardwareDeviceIndex})...</span>`;
                     parent.appendChild(div);
                   }
                 }}
@@ -755,10 +914,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
-              {/* Direct WebCam */}
+              {/* Direct WebCam (Other Camera) */}
               <button
                 type="button"
-                onClick={startBrowserCamera}
+                onClick={() => startBrowserCamera()}
                 disabled={isConnectingCam}
                 style={{
                   display: 'flex',
@@ -775,10 +934,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               >
                 <div>
                   <div style={{ fontSize: '12.5px', fontWeight: 600, color: cameraMode === 'browser' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                    Browser WebCam
+                    Other Camera (Browser WebCam)
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                    Client Video
+                    Client Video Stream (Secondary / External)
                   </div>
                 </div>
                 <span style={{
@@ -791,7 +950,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
 
               {/* Hardware Fleet */}
               {cameras.map((cam) => {
-                const isRealHardware = cam.id === 'cam_01' || cam.stream_source === '0';
+                const isRealHardware = cam.id === 'cam_01' || cam.stream_source === '0' || cam.stream_source === '1';
                 const isSelected = cameraMode === 'hardware' && cam.id === selectedCameraId;
                 const isOnline = cam.status === 'online';
 
@@ -818,10 +977,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                   >
                     <div>
                       <div style={{ fontSize: '12.5px', fontWeight: 600, color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {isRealHardware ? 'Hardware Camera 01' : cam.name}
+                        {isRealHardware ? 'Laptop Camera 01 (Hardware)' : cam.name}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                        {cam.location}
+                        {isRealHardware ? `Physical Device ${hardwareDeviceIndex} (Local Integrated)` : cam.location}
                       </div>
                     </div>
                     <span style={{

@@ -18,11 +18,11 @@ from face_recognition_service import face_recognition_service
 logger = logging.getLogger("ProtectorAI.CameraManager")
 
 class PersistentCameraWorker:
-    def __init__(self, camera_id: str, engine, source: str = "0"):
+    def __init__(self, camera_id: str, engine, source: str = "1"):
         self.camera_id = camera_id
         self.engine = engine
         self.source = source
-        self.device_index = int(source) if str(source).isdigit() else 0
+        self.device_index = int(source) if str(source).isdigit() else 1
         self.status = "Stopped"  # Stopped, Starting, Running, Stopping, Disconnected, Error
         self.error_message = ""
         self.thread = None
@@ -121,6 +121,7 @@ class PersistentCameraWorker:
             "camera_id": self.camera_id,
             "status": self.status,
             "error_message": self.error_message,
+            "device_index": getattr(self, "device_index", 1),
             "uptime_seconds": uptime_seconds,
             "start_time": datetime.fromtimestamp(self.start_time, tz=timezone.utc).isoformat() if self.start_time else None,
             "frames_analyzed": self.frames_analyzed,
@@ -211,7 +212,7 @@ class PersistentCameraWorker:
         self._cleanup()
         time.sleep(0.2)
         if self.camera_id in ("cam_01", "default"):
-            target_idx = getattr(self, "device_index", 0)
+            target_idx = getattr(self, "device_index", 1)
             try:
                 logger.info(f"Attempting to open camera on hardware index {target_idx} (CAP_DSHOW)...")
                 cap = cv2.VideoCapture(target_idx, cv2.CAP_DSHOW)
@@ -224,7 +225,7 @@ class PersistentCameraWorker:
                     logger.info(f"Hardware camera successfully opened on Device {target_idx}")
                     return True
                 else:
-                    alt_idx = 1 if target_idx == 0 else 0
+                    alt_idx = 0 if target_idx == 1 else 1
                     logger.info(f"Device {target_idx} failed, attempting alternate Device {alt_idx}...")
                     cap = cv2.VideoCapture(alt_idx, cv2.CAP_DSHOW)
                     if not cap.isOpened():
@@ -453,14 +454,14 @@ class PersistentCameraManager:
             self.workers[cid] = PersistentCameraWorker(
                 camera_id=cid,
                 engine=engine_instance,
-                source="0" if cid == "cam_01" else f"synthetic_{cid}"
+                source="1" if cid == "cam_01" else f"synthetic_{cid}"
             )
 
     def start_camera(self, camera_id: str, device_index: int = None) -> tuple[bool, str]:
         if camera_id not in self.workers:
             self.workers[camera_id] = PersistentCameraWorker(camera_id, engine_instance)
         worker = self.workers[camera_id]
-        if device_index is not None and getattr(worker, "device_index", 0) != device_index:
+        if device_index is not None and getattr(worker, "device_index", 1) != device_index:
             worker.stop()
             worker.device_index = device_index
             worker.source = str(device_index)
@@ -479,19 +480,21 @@ class PersistentCameraManager:
 
     def get_hardware_devices(self) -> list:
         devices = []
-        for i in range(2):
+        for i in [1, 0]:
             try:
                 cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+                if not cap.isOpened():
+                    cap = cv2.VideoCapture(i)
                 if cap.isOpened():
-                    name = "Integrated Laptop Camera" if i == 0 else "External USB WebCam"
-                    devices.append({"index": i, "name": name, "available": True})
+                    name = "Laptop Camera" if i == 1 else "External/Other Camera"
+                    devices.append({"index": i, "name": f"{name} (Device {i})", "available": True})
                     cap.release()
             except Exception:
                 pass
         if not devices:
             devices = [
-                {"index": 0, "name": "Integrated Laptop Camera (Device 0)", "available": True},
-                {"index": 1, "name": "External USB WebCam (Device 1)", "available": True}
+                {"index": 1, "name": "Laptop Camera (Device 1)", "available": True},
+                {"index": 0, "name": "External/Other Camera (Device 0)", "available": True}
             ]
         return devices
 

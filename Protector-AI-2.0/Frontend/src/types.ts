@@ -18,6 +18,7 @@ export interface CameraWorkerStatus {
   camera_id: string;
   status: 'Stopped' | 'Starting' | 'Running' | 'Stopping' | 'Disconnected' | 'Error';
   error_message?: string;
+  device_index?: number;
   uptime_seconds: number;
   start_time?: string;
   frames_analyzed: number;
