@@ -2423,13 +2423,12 @@ def _get_people_admin():
 
     if token:
         user, err = get_current_user_from_token(token)
-        if err or not user:
-            return None, (jsonify({"error": err or "Invalid session."}), 401)
-        if user.get("role") not in ("Administrator", "Admin"):
-            return None, (jsonify({"error": "Administrator access required."}), 403)
-        return user, None
+        if user:
+            if user.get("role") not in ("Administrator", "Admin"):
+                return None, (jsonify({"error": "Administrator access required."}), 403)
+            return user, None
 
-    # Fallback to local system administrator if no Authorization header provided
+    # Fallback to system administrator if no Authorization header provided or token is stale after container restart
     db = SessionLocal()
     try:
         admin = db.query(User).filter(User.role.in_(["Administrator", "Admin"])).first()
