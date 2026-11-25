@@ -18,11 +18,11 @@ from face_recognition_service import face_recognition_service
 logger = logging.getLogger("ProtectorAI.CameraManager")
 
 class PersistentCameraWorker:
-    def __init__(self, camera_id: str, engine, source: str = "1"):
+    def __init__(self, camera_id: str, engine, source: str = "0"):
         self.camera_id = camera_id
         self.engine = engine
         self.source = source
-        self.device_index = int(source) if str(source).isdigit() else 1
+        self.device_index = int(source) if str(source).isdigit() else 0
         self.status = "Stopped"  # Stopped, Starting, Running, Stopping, Disconnected, Error
         self.error_message = ""
         self.thread = None
@@ -233,7 +233,7 @@ class PersistentCameraWorker:
         self._cleanup()
         time.sleep(0.2)
         if self.camera_id in ("cam_01", "default"):
-            target_idx = getattr(self, "device_index", 1)
+            target_idx = getattr(self, "device_index", 0)
             try:
                 logger.info(f"Attempting to open camera on hardware index {target_idx} (CAP_DSHOW)...")
                 cap = cv2.VideoCapture(target_idx, cv2.CAP_DSHOW)
@@ -242,22 +242,36 @@ class PersistentCameraWorker:
                 if cap.isOpened():
                     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-                    self.cap = cap
-                    logger.info(f"Hardware camera successfully opened on Device {target_idx}")
-                    return True
-                else:
-                    alt_idx = 0 if target_idx == 1 else 1
-                    logger.info(f"Device {target_idx} failed, attempting alternate Device {alt_idx}...")
-                    cap = cv2.VideoCapture(alt_idx, cv2.CAP_DSHOW)
-                    if not cap.isOpened():
-                        cap = cv2.VideoCapture(alt_idx)
-                    if cap.isOpened():
-                        self.device_index = alt_idx
-                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                    # Warmup sensor for USB webcams to stabilize sensor exposure and clear empty buffers
+                    for _ in range(4):
+                        cap.read()
+                    ret_test, frame_test = cap.read()
+                    if ret_test and frame_test is not None and frame_test.size > 0:
                         self.cap = cap
-                        logger.info(f"Hardware camera opened on alternate Device {alt_idx}")
+                        logger.info(f"Hardware camera successfully opened & verified on Device {target_idx}")
                         return True
+                    else:
+                        logger.warning(f"Device {target_idx} opened but failed frame verification, testing alternate...")
+                        cap.release()
+
+                alt_idx = 0 if target_idx == 1 else 1
+                logger.info(f"Device {target_idx} failed, attempting alternate Device {alt_idx}...")
+                cap = cv2.VideoCapture(alt_idx, cv2.CAP_DSHOW)
+                if not cap.isOpened():
+                    cap = cv2.VideoCapture(alt_idx)
+                if cap.isOpened():
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                    for _ in range(4):
+                        cap.read()
+                    ret_alt, frame_alt = cap.read()
+                    if ret_alt and frame_alt is not None and frame_alt.size > 0:
+                        self.device_index = alt_idx
+                        self.cap = cap
+                        logger.info(f"Hardware camera opened & verified on alternate Device {alt_idx}")
+                        return True
+                    else:
+                        cap.release()
             except Exception as e:
                 logger.warning(f"Could not open physical webcam on device {target_idx}: {e}")
 
@@ -276,6 +290,7 @@ class PersistentCameraWorker:
         with self.lock:
             self.status = "Running"
 
+        consecutive_failures = 0
         while not self.stop_event.is_set():
             loop_start = time.time()
             frame = None
@@ -285,6 +300,13 @@ class PersistentCameraWorker:
                 ret, raw_frame = self.cap.read()
                 if ret and raw_frame is not None and raw_frame.size > 0:
                     frame = raw_frame
+                    consecutive_failures = 0
+                else:
+                    consecutive_failures += 1
+                    if consecutive_failures >= 15:
+                        logger.warning(f"Physical camera Device {self.device_index} lost frames, attempting re-init...")
+                        self._init_capture()
+                        consecutive_failures = 0
 
             # 2. Or fallback to engine's sample/synthetic generator
             if frame is None:
@@ -470,19 +492,19 @@ class PersistentCameraManager:
             return cls._instance
 
     def init_cameras(self):
-        # Pre-initialize workers for cam_01, cam_02, cam_03
+        # Pre-initialize workers for cam_01, cam_02, cam_03 (default cam_01 to hardware index 0)
         for cid in ["cam_01", "cam_02", "cam_03"]:
             self.workers[cid] = PersistentCameraWorker(
                 camera_id=cid,
                 engine=engine_instance,
-                source="1" if cid == "cam_01" else f"synthetic_{cid}"
+                source="0" if cid == "cam_01" else f"synthetic_{cid}"
             )
 
     def start_camera(self, camera_id: str, device_index: int = None) -> tuple[bool, str]:
         if camera_id not in self.workers:
-            self.workers[camera_id] = PersistentCameraWorker(camera_id, engine_instance)
+            self.workers[camera_id] = PersistentCameraWorker(camera_id, engine_instance, source=str(device_index or 0))
         worker = self.workers[camera_id]
-        if device_index is not None and getattr(worker, "device_index", 1) != device_index:
+        if device_index is not None and getattr(worker, "device_index", 0) != device_index:
             worker.stop()
             worker.device_index = device_index
             worker.source = str(device_index)
@@ -491,7 +513,7 @@ class PersistentCameraManager:
 
     def switch_device(self, camera_id: str, device_index: int) -> tuple[bool, str]:
         if camera_id not in self.workers:
-            self.workers[camera_id] = PersistentCameraWorker(camera_id, engine_instance)
+            self.workers[camera_id] = PersistentCameraWorker(camera_id, engine_instance, source=str(device_index))
         worker = self.workers[camera_id]
         worker.stop()
         worker.device_index = device_index
@@ -500,22 +522,49 @@ class PersistentCameraManager:
         return worker.start(device_index=device_index)
 
     def get_hardware_devices(self) -> list:
+        pnp_names = []
+        try:
+            import subprocess
+            cmd = 'Get-PnpDevice -Class Camera -Status OK | Select-Object -ExpandProperty FriendlyName'
+            proc = subprocess.run(['powershell', '-NoProfile', '-Command', cmd], capture_output=True, text=True, timeout=3)
+            if proc.returncode == 0:
+                pnp_names = [l.strip() for l in proc.stdout.splitlines() if l.strip()]
+        except Exception:
+            pass
+
         devices = []
-        for i in [1, 0]:
+        active_idx = getattr(self.workers.get("cam_01"), "device_index", 0)
+        # Check both physical device index 0 and 1
+        for i in [0, 1]:
             try:
                 cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if not cap.isOpened():
                     cap = cv2.VideoCapture(i)
                 if cap.isOpened():
-                    name = "Laptop Camera" if i == 1 else "External/Other Camera"
-                    devices.append({"index": i, "name": f"{name} (Device {i})", "available": True})
+                    for _ in range(2):
+                        cap.read()
+                    ret, _ = cap.read()
                     cap.release()
+                    name = None
+                    if pnp_names and i < len(pnp_names):
+                        name = f"{pnp_names[i]} (Device {i})"
+                    elif i == 0:
+                        name = "USB Camera (Device 0)"
+                    else:
+                        name = "Laptop Integrated Camera (Device 1)"
+                    devices.append({
+                        "index": i,
+                        "name": name,
+                        "available": True,
+                        "active": (i == active_idx)
+                    })
             except Exception:
                 pass
+
         if not devices:
             devices = [
-                {"index": 1, "name": "Laptop Camera (Device 1)", "available": True},
-                {"index": 0, "name": "External/Other Camera (Device 0)", "available": True}
+                {"index": 0, "name": "USB Camera (Device 0)", "available": True, "active": (active_idx == 0)},
+                {"index": 1, "name": "Laptop Integrated Camera (Device 1)", "available": True, "active": (active_idx == 1)}
             ]
         return devices
 

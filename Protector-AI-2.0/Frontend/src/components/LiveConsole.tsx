@@ -12,9 +12,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
   const [selectedCameraId, setSelectedCameraId] = useState<string>('cam_01');
   const confidence = 0.45;
 
-  // Real Camera Access Modes: 'hardware' (OpenCV Stream, reversed to Laptop default) vs 'browser' (Client WebCam, reversed to Other Camera default)
+  // Real Camera Access Modes: 'hardware' (OpenCV Stream: Device 0 USB Camera / Device 1 Laptop) vs 'browser' (Client WebCam)
   const [cameraMode, setCameraMode] = useState<'hardware' | 'browser'>('hardware');
-  const [hardwareDeviceIndex, setHardwareDeviceIndex] = useState<number>(1);
+  const [hardwareDeviceIndex, setHardwareDeviceIndex] = useState<number>(0);
+  const [hardwareDevices, setHardwareDevices] = useState<Array<{ index: number; name: string; available: boolean; active?: boolean }>>([]);
   const [browserVideoDevices, setBrowserVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedBrowserDeviceId, setSelectedBrowserDeviceId] = useState<string>('');
 
@@ -39,12 +40,24 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
   const [workerError, setWorkerError] = useState<string | null>(null);
   const [streamEpoch, setStreamEpoch] = useState<number>(Date.now());
 
+  // Helper to format friendly hardware camera name
+  const getHardwareDeviceName = (idx: number) => {
+    const found = hardwareDevices.find((d) => d.index === idx);
+    if (found && found.name) return found.name;
+    return idx === 0 ? 'USB Camera (Device 0)' : 'Laptop Integrated Camera (Device 1)';
+  };
+
   // Probe available hardware & browser devices on startup
   useEffect(() => {
     // 1. Fetch hardware devices from backend
     api.getHardwareCameraDevices().then((res) => {
-      if (res && typeof res.active_device_index === 'number') {
-        setHardwareDeviceIndex(res.active_device_index);
+      if (res) {
+        if (Array.isArray(res.devices) && res.devices.length > 0) {
+          setHardwareDevices(res.devices);
+        }
+        if (typeof res.active_device_index === 'number') {
+          setHardwareDeviceIndex(res.active_device_index);
+        }
       }
     }).catch(() => {});
 
@@ -53,14 +66,16 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
       navigator.mediaDevices.enumerateDevices().then((devs) => {
         const vDevs = devs.filter((d) => d.kind === 'videoinput');
         setBrowserVideoDevices(vDevs);
-        // Reversed mapping: for browser, default to the Other / Secondary camera if multiple exist
+        // Default to USB / external camera for browser if available
         if (vDevs.length > 1) {
-          const secondary = vDevs.find((d) =>
-            /usb|droid|external|obs|cam/i.test(d.label) && !/integrated|truevision|internal/i.test(d.label)
-          ) || vDevs[1];
-          if (secondary?.deviceId) {
-            setSelectedBrowserDeviceId(secondary.deviceId);
+          const usbCam = vDevs.find((d) =>
+            /usb|external|uac|uvc/i.test(d.label) || (!/integrated|truevision|internal/i.test(d.label) && d.label.length > 0)
+          ) || vDevs[0];
+          if (usbCam?.deviceId) {
+            setSelectedBrowserDeviceId(usbCam.deviceId);
           }
+        } else if (vDevs.length === 1 && vDevs[0].deviceId) {
+          setSelectedBrowserDeviceId(vDevs[0].deviceId);
         }
       }).catch(() => {});
     }
@@ -254,29 +269,17 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
     }
   };
 
-  // Swap / Reverse Camera between Hardware (Laptop vs Other) or Browser WebCam devices
+  // Swap / Switch between Hardware (USB Camera vs Laptop) or Browser WebCam devices
   const handleSwapCamera = async () => {
     if (cameraMode === 'hardware') {
       const newIdx = hardwareDeviceIndex === 1 ? 0 : 1;
-      setHardwareDeviceIndex(newIdx);
-      setWorkerLoading(true);
-      try {
-        const res = await api.switchCameraDevice(selectedCameraId, newIdx);
-        if (res.status) {
-          setWorkerStatus(res.status);
-        }
-        setStreamEpoch(Date.now());
-      } catch (err: any) {
-        setWorkerError(err.message || `Failed to switch to Device ${newIdx}`);
-      } finally {
-        setWorkerLoading(false);
-      }
+      await switchToHardware(newIdx);
     } else {
       // Browser webcam mode: flip between available video inputs
       if (browserVideoDevices.length >= 2) {
         const currentIdx = browserVideoDevices.findIndex((d) => d.deviceId === selectedBrowserDeviceId);
         const nextDev = currentIdx === 0 ? browserVideoDevices[1] : browserVideoDevices[0];
-        if (nextDev) {
+        if (nextDev && nextDev.deviceId) {
           setSelectedBrowserDeviceId(nextDev.deviceId);
           await startBrowserCamera(nextDev.deviceId);
         }
@@ -536,7 +539,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Camera Source Selector (Reversed: Hardware = Laptop Camera, Browser = Other Camera) */}
+          {/* Camera Source Selector: USB Camera (Dev 0), Laptop Camera (Dev 1), Browser WebCam */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -548,49 +551,77 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
           }}>
             <button
               type="button"
-              onClick={() => switchToHardware()}
+              onClick={() => switchToHardware(0)}
               disabled={workerLoading || isConnectingCam}
+              title="Activate USB Camera (Hardware Device 0)"
               style={{
-                background: cameraMode === 'hardware' ? 'var(--bg-surface)' : 'transparent',
-                border: cameraMode === 'hardware' ? '1px solid var(--border-strong)' : '1px solid transparent',
-                color: cameraMode === 'hardware' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: cameraMode === 'hardware' && hardwareDeviceIndex === 0 ? 'var(--bg-surface)' : 'transparent',
+                border: cameraMode === 'hardware' && hardwareDeviceIndex === 0 ? '1px solid var(--border-strong)' : '1px solid transparent',
+                color: cameraMode === 'hardware' && hardwareDeviceIndex === 0 ? 'var(--text-primary)' : 'var(--text-secondary)',
                 borderRadius: '4px',
-                padding: '5px 12px',
-                fontSize: '12px',
+                padding: '5px 10px',
+                fontSize: '11.5px',
                 fontWeight: 600,
                 cursor: workerLoading ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px'
               }}
             >
               <span style={{
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                backgroundColor: cameraMode === 'hardware' && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
+                backgroundColor: cameraMode === 'hardware' && hardwareDeviceIndex === 0 && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
               }} />
-              {workerLoading && cameraMode === 'hardware'
-                ? 'Connecting...'
-                : `Laptop Camera (Hardware Device ${hardwareDeviceIndex})`}
+              <span>USB Camera (Dev 0)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => switchToHardware(1)}
+              disabled={workerLoading || isConnectingCam}
+              title="Activate Laptop Integrated Camera (Hardware Device 1)"
+              style={{
+                background: cameraMode === 'hardware' && hardwareDeviceIndex === 1 ? 'var(--bg-surface)' : 'transparent',
+                border: cameraMode === 'hardware' && hardwareDeviceIndex === 1 ? '1px solid var(--border-strong)' : '1px solid transparent',
+                color: cameraMode === 'hardware' && hardwareDeviceIndex === 1 ? 'var(--text-primary)' : 'var(--text-secondary)',
+                borderRadius: '4px',
+                padding: '5px 10px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: workerLoading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: cameraMode === 'hardware' && hardwareDeviceIndex === 1 && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
+              }} />
+              <span>Laptop Camera (Dev 1)</span>
             </button>
 
             <button
               type="button"
               onClick={() => startBrowserCamera()}
               disabled={isConnectingCam || workerLoading}
+              title="Activate Client Browser WebCam Stream"
               style={{
                 background: cameraMode === 'browser' ? 'var(--bg-surface)' : 'transparent',
                 border: cameraMode === 'browser' ? '1px solid var(--border-strong)' : '1px solid transparent',
                 color: cameraMode === 'browser' ? 'var(--text-primary)' : 'var(--text-secondary)',
                 borderRadius: '4px',
-                padding: '5px 12px',
-                fontSize: '12px',
+                padding: '5px 10px',
+                fontSize: '11.5px',
                 fontWeight: 600,
                 cursor: isConnectingCam ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px'
               }}
             >
               <span style={{
@@ -599,16 +630,16 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 borderRadius: '50%',
                 backgroundColor: cameraMode === 'browser' && browserStream ? '#22C55E' : 'var(--text-tertiary)'
               }} />
-              {isConnectingCam ? 'Connecting...' : 'Other Camera (Browser WebCam)'}
+              <span>{isConnectingCam ? 'Connecting...' : 'Browser WebCam'}</span>
             </button>
           </div>
 
-          {/* Quick Swap / Reverse Camera Button */}
+          {/* Quick Swap Camera Button */}
           <button
             type="button"
             onClick={handleSwapCamera}
             disabled={workerLoading || isConnectingCam}
-            title="Swap Camera Mapping (Reverse between Laptop and Other Camera)"
+            title={cameraMode === 'hardware' ? 'Swap between USB Camera (Dev 0) and Laptop Camera (Dev 1)' : 'Swap Browser WebCam Input'}
             className="btn-secondary"
             style={{
               padding: '5px 10px',
@@ -622,7 +653,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
             }}
           >
             <RefreshCw size={12} style={{ animation: (workerLoading || isConnectingCam) ? 'spin 1s linear infinite' : 'none' }} />
-            <span>Swap Camera</span>
+            <span>{cameraMode === 'hardware' ? (hardwareDeviceIndex === 0 ? 'Switch to Laptop Cam' : 'Switch to USB Cam') : 'Swap WebCam'}</span>
           </button>
 
           {/* Browser Camera Device Picker if multiple video inputs are detected */}
@@ -784,16 +815,16 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 }} />
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }}>
                   {cameraMode === 'browser'
-                    ? (browserStream ? 'Other Camera / WebCam (Live)' : 'WebCam Standby')
+                    ? (browserStream ? 'Browser WebCam (Live Client Feed)' : 'WebCam Standby')
                     : isWorkerRunning
-                    ? (selectedCamera?.id === 'cam_01' ? `Laptop Camera (Live Hardware Device ${hardwareDeviceIndex})` : `${selectedCamera?.name}`)
+                    ? `${getHardwareDeviceName(hardwareDeviceIndex)} (Live Hardware Feed)`
                     : 'Monitoring Stopped'}
                 </span>
                 <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.6)' }}>
                   {cameraMode === 'browser'
                     ? '(Browser Stream)'
                     : isWorkerRunning
-                    ? `(DirectShow ${hardwareDeviceIndex})`
+                    ? `(DirectShow Device ${hardwareDeviceIndex})`
                     : '(Standby)'}
                 </span>
               </div>
@@ -914,7 +945,75 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
-              {/* Direct WebCam (Other Camera) */}
+              {/* USB Camera (Hardware Device 0) */}
+              <button
+                type="button"
+                onClick={() => switchToHardware(0)}
+                disabled={workerLoading || isConnectingCam}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: cameraMode === 'hardware' && hardwareDeviceIndex === 0 ? 'var(--bg-surface-elevated)' : 'transparent',
+                  border: '1px solid',
+                  borderColor: cameraMode === 'hardware' && hardwareDeviceIndex === 0 ? 'var(--accent-citron)' : 'var(--border-subtle)',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: cameraMode === 'hardware' && hardwareDeviceIndex === 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    USB Camera (Device 0)
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                    Physical External USB WebCam
+                  </div>
+                </div>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: cameraMode === 'hardware' && hardwareDeviceIndex === 0 && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
+                }} />
+              </button>
+
+              {/* Laptop Camera (Hardware Device 1) */}
+              <button
+                type="button"
+                onClick={() => switchToHardware(1)}
+                disabled={workerLoading || isConnectingCam}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: cameraMode === 'hardware' && hardwareDeviceIndex === 1 ? 'var(--bg-surface-elevated)' : 'transparent',
+                  border: '1px solid',
+                  borderColor: cameraMode === 'hardware' && hardwareDeviceIndex === 1 ? 'var(--accent-citron)' : 'var(--border-subtle)',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: cameraMode === 'hardware' && hardwareDeviceIndex === 1 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    Laptop Camera (Device 1)
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                    Internal Integrated WebCam
+                  </div>
+                </div>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: cameraMode === 'hardware' && hardwareDeviceIndex === 1 && isWorkerRunning ? '#22C55E' : 'var(--text-tertiary)'
+                }} />
+              </button>
+
+              {/* Direct WebCam (Browser Client Stream) */}
               <button
                 type="button"
                 onClick={() => startBrowserCamera()}
@@ -934,10 +1033,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
               >
                 <div>
                   <div style={{ fontSize: '12.5px', fontWeight: 600, color: cameraMode === 'browser' ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                    Other Camera (Browser WebCam)
+                    Browser WebCam (Client Stream)
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                    Client Video Stream (Secondary / External)
+                    WebRTC Feed (Select USB / Laptop Cam)
                   </div>
                 </div>
                 <span style={{
@@ -948,9 +1047,8 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                 }} />
               </button>
 
-              {/* Hardware Fleet */}
-              {cameras.map((cam) => {
-                const isRealHardware = cam.id === 'cam_01' || cam.stream_source === '0' || cam.stream_source === '1';
+              {/* Secondary Synthetic Feeds */}
+              {cameras.filter(c => c.id !== 'cam_01').map((cam) => {
                 const isSelected = cameraMode === 'hardware' && cam.id === selectedCameraId;
                 const isOnline = cam.status === 'online';
 
@@ -977,10 +1075,10 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({ cameras, onRefreshInci
                   >
                     <div>
                       <div style={{ fontSize: '12.5px', fontWeight: 600, color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {isRealHardware ? 'Laptop Camera 01 (Hardware)' : cam.name}
+                        {cam.name}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                        {isRealHardware ? `Physical Device ${hardwareDeviceIndex} (Local Integrated)` : cam.location}
+                        {cam.location}
                       </div>
                     </div>
                     <span style={{
