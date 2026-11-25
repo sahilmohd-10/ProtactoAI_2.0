@@ -365,11 +365,21 @@ class CommandEngine:
                 }
 
         # FALLBACK: Natural-Language Interpretation Mode
-        return CommandEngine.interpret_natural_language(raw_cmd, user_email, confirmed, history, user_name=user_name, user_role=user_role)
+        return CommandEngine.interpret_natural_language(
+            raw_cmd,
+            user_email,
+            confirmed,
+            history,
+            user_name=user_name,
+            user_role=user_role,
+            model=model,
+            custom_api_key=custom_api_key
+        )
 
     @staticmethod
     def interpret_natural_language(query: str, user_email: str, confirmed: bool = False, history=None,
-                                   user_name: str = "Mohd Sahil", user_role: str = "Administrator"):
+                                   user_name: str = "Mohd Sahil", user_role: str = "Administrator",
+                                   model: Optional[str] = None, custom_api_key: Optional[str] = None):
         q = query.lower().strip()
 
         # Intent 0: User Identity & Profile ("what is my name", "who am i")

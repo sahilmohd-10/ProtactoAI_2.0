@@ -3077,9 +3077,16 @@ def openrouter_analyze_scene():
 
 def create_asgi_server():
     """Build unified Gradio (ZeroGPU) and Flask REST API application."""
-    import gradio as gr
-    from fastapi import FastAPI
-    from starlette.middleware.wsgi import WSGIMiddleware
+    import importlib
+    try:
+        gr = importlib.import_module("gradio")
+        fastapi_mod = importlib.import_module("fastapi")
+        FastAPI = getattr(fastapi_mod, "FastAPI")
+        starlette_wsgi = importlib.import_module("starlette.middleware.wsgi")
+        WSGIMiddleware = getattr(starlette_wsgi, "WSGIMiddleware")
+    except ImportError as e:
+        logger.warning(f"Gradio or FastAPI not installed: {e}")
+        return None
 
     @spaces.GPU
     def predict_ppe_zerogpu(image):
@@ -3119,7 +3126,10 @@ if __name__ == "__main__":
         try:
             import uvicorn
             asgi_app = create_asgi_server()
-            uvicorn.run(asgi_app, host="0.0.0.0", port=config.PORT)
+            if asgi_app is not None:
+                uvicorn.run(asgi_app, host="0.0.0.0", port=config.PORT)
+            else:
+                app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
         except Exception as e:
             logger.warning(f"Could not start ASGI server ({e}); falling back to standard Flask...")
             app.run(host=config.HOST, port=config.PORT, debug=config.DEBUG, threaded=True)
