@@ -1211,16 +1211,25 @@ def forgot_password():
             "user_id": user.id
         }
 
+        # Synchronize unified OTP cache with telegram_service
+        try:
+            from telegram_service import send_telegram_otp, PASSWORD_RESET_OTPS as TG_OTPS
+            TG_OTPS[user.email.lower()] = PASSWORD_RESET_OTPS[user.email.lower()]
+            tg_sent, tg_msg = send_telegram_otp(user.email, otp_code)
+            logger.info(f"📲 Telegram OTP dispatch to {user.email}: {tg_sent} ({tg_msg})")
+        except Exception as tge:
+            logger.warning(f"⚠️ Telegram OTP dispatch error: {tge}")
+            tg_sent, tg_msg = False, str(tge)
+
         email_sent = send_email_otp(user.email, otp_code)
 
         resp_payload = {
             "success": True,
-            "message": f"A 6-digit verification code has been dispatched to {user.email}. Check your Telegram (@ProtectoAIbot) or email." if email_sent else f"Verification code generated: {otp_code}. Check Telegram (@ProtectoAIbot).",
+            "message": f"A 6-digit verification code has been dispatched to your Telegram (@ProtectoAIbot) and registered email.",
             "email": user.email,
-            "email_sent": email_sent
+            "email_sent": email_sent,
+            "telegram_sent": tg_sent
         }
-        if not email_sent:
-            resp_payload["fallback_code"] = otp_code
 
         return jsonify(resp_payload)
     finally:

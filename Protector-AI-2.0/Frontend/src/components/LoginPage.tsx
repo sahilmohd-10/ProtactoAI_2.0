@@ -37,7 +37,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [forgotSuccessMsg, setForgotSuccessMsg] = useState<string | null>(null);
   const [forgotErrorMsg, setForgotErrorMsg] = useState<string | null>(null);
-  const [otpFallback, setOtpFallback] = useState<string | null>(null);
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -97,12 +96,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
       const res = await api.forgotPassword(email);
       if (res.success) {
         const targetEmail = res.email || email;
-        if (res.fallback_code) {
-          setOtpFallback(res.fallback_code);
-        } else {
-          setOtpFallback(null);
-        }
-        setForgotSuccessMsg(res.message || `Verification code dispatched to ${targetEmail}. Please check Telegram or your inbox.`);
+        setForgotSuccessMsg(res.message || `Verification code dispatched to your Telegram (@ProtectoAIbot) and ${targetEmail}.`);
         setSubView('forgot_otp');
       } else {
         setForgotErrorMsg(res.message || 'Could not send verification code.');
@@ -684,37 +678,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchTo
                     </div>
                   )}
 
-                  {otpFallback && (
-                    <div style={{
-                      padding: '14px 16px',
-                      borderRadius: '12px',
-                      backgroundColor: '#EFF6FF',
-                      border: '1.5px dashed #3B82F6',
-                      color: '#1E40AF',
-                      fontSize: '13px',
-                      marginBottom: '16px',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                          🔑 Verification Code
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setOtpCode(otpFallback)}
-                          style={{ background: 'none', border: 'none', color: '#2563EB', fontWeight: 700, fontSize: '12px', cursor: 'pointer', padding: 0 }}
-                        >
-                          Auto-Fill Code
-                        </button>
-                      </div>
-                      <div style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '6px', color: '#1D4ED8', fontFamily: 'monospace', margin: '4px 0' }}>
-                        {otpFallback}
-                      </div>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#64748B' }}>
-                        Notice: External email sandbox blocked delivery to this recipient. Code provided directly so you are never locked out.
-                      </p>
+                  <div style={{
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    backgroundColor: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    color: '#166534',
+                    fontSize: '13px',
+                    marginBottom: '16px',
+                    lineHeight: '1.5'
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: '12px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🛡️ Confidential OTP Dispatched</span>
                     </div>
-                  )}
+                    <span>Check your Telegram (<a href="https://t.me/ProtectoAIbot" target="_blank" rel="noopener noreferrer" style={{ color: '#15803D', fontWeight: 700, textDecoration: 'underline' }}>@ProtectoAIbot</a>) or registered email for your 6-digit code.</span>
+                  </div>
 
                   <form onSubmit={handleVerifyOtp}>
                     <div className="smartnest-input-group">

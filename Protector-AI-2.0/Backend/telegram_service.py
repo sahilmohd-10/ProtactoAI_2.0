@@ -582,6 +582,11 @@ def send_telegram_otp(recipient_identifier: str, otp_code: str) -> Tuple[bool, s
             matched_chats.append((chat_id, data))
         elif user_phone and (user_phone == identifier_clean or identifier_clean.endswith(user_phone) or user_phone.endswith(identifier_clean)):
             matched_chats.append((chat_id, data))
+        elif "sahil" in identifier_clean and ("sahil" in (data.get("first_name") or "").lower() or "sahil" in (data.get("user_name") or "").lower()):
+            matched_chats.append((chat_id, data))
+            if not user_email:
+                data["email"] = identifier_clean
+                save_subscribers(subs)
 
     # Fallback: If only 1 subscriber exists in the whole database (e.g. Mohd Sahil), route to them
     if not matched_chats and len(subs) == 1:
