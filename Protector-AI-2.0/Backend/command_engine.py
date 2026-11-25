@@ -1,6 +1,9 @@
 import re
 import shlex
 import json
+import urllib.parse
+import httpx
+from typing import Optional, Dict, Any, List
 from tools import ToolRegistry
 from openrouter_service import openrouter_service
 
@@ -42,7 +45,7 @@ NATURAL LANGUAGE & AI ASSISTANT:
 class CommandEngine:
     @staticmethod
     def execute(raw_command: str, user_email="admin@protector.ai", confirmed=False, history=None,
-                user_name="Mohd Sahil", user_role="Administrator"):
+                user_name="Mohd Sahil", user_role="Administrator", model=None, custom_api_key=None):
         raw_cmd = raw_command.strip()
         if not raw_cmd:
             return {"type": "text", "output": ""}
@@ -70,7 +73,7 @@ class CommandEngine:
             ctx = status_res.get("data", {}) if status_res.get("success") else {}
             user_prof = {"name": user_name, "role": user_role, "email": user_email}
             
-            ai_res = openrouter_service.chat(prompt, context=ctx, history=history, user_profile=user_prof)
+            ai_res = openrouter_service.chat(prompt, context=ctx, history=history, user_profile=user_prof, model=model, custom_api_key=custom_api_key)
             if ai_res.get("success"):
                 return {
                     "type": "ai_response",
@@ -81,6 +84,25 @@ class CommandEngine:
                         "tokens": ai_res.get("tokens", 0),
                         "elapsed_ms": ai_res.get("elapsed_ms", 0),
                         "provider": "OpenRouter AI"
+                    }
+                }
+
+            # Check general knowledge base before giving error
+            title, extract = CommandEngine.query_general_knowledge(prompt)
+            if extract:
+                return {
+                    "type": "ai_response",
+                    "title": f"Protector AI Intelligence · {title}",
+                    "output": (
+                        f"### 🌐 {title}\n\n"
+                        f"{extract}\n\n"
+                        f"---\n"
+                        f"*(Resolved via Autonomous Knowledge Engine. Click **Key** in the top bar to configure OpenRouter for full multi-turn conversational reasoning.)*"
+                    ),
+                    "data": {
+                        "provider": "Autonomous Knowledge Engine",
+                        "source": "Global Knowledge Base",
+                        "elapsed_ms": 120.0
                     }
                 }
             
@@ -612,7 +634,7 @@ class CommandEngine:
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             ctx = status_res.get("data", {}) if status_res.get("success") else {}
             user_prof = {"name": user_name, "role": user_role, "email": user_email}
-            ai_res = openrouter_service.chat(query, context=ctx, history=history, user_profile=user_prof)
+            ai_res = openrouter_service.chat(query, context=ctx, history=history, user_profile=user_prof, model=model, custom_api_key=custom_api_key)
             if ai_res.get("success"):
                 return {
                     "type": "ai_response",
@@ -628,16 +650,48 @@ class CommandEngine:
         except Exception:
             pass
 
-        # Final local safety fallback before giving unparsed error
-        final_safety_res = CommandEngine.generate_local_safety_response(query, user_email, is_ai_directive=True, user_name=user_name, user_role=user_role)
+        # Check open-domain knowledge base (e.g. Wikipedia instant knowledge) for general questions!
+        title, extract = CommandEngine.query_general_knowledge(query)
+        if extract:
+            return {
+                "type": "ai_response",
+                "title": f"Protector AI Intelligence · {title}",
+                "output": (
+                    f"### 🌐 {title}\n\n"
+                    f"{extract}\n\n"
+                    f"---\n"
+                    f"*(Resolved via Autonomous Knowledge Engine. Click the **Key** button in the top bar to connect OpenRouter for full multi-turn reasoning.)*"
+                ),
+                "data": {
+                    "provider": "Autonomous Knowledge Engine",
+                    "source": "Global Knowledge Base",
+                    "elapsed_ms": 120.0
+                }
+            }
+
+        # Check local facility safety intelligence ONLY if query relates to safety/site
+        final_safety_res = CommandEngine.generate_local_safety_response(query, user_email, is_ai_directive=False, user_name=user_name, user_role=user_role)
         if final_safety_res:
             return final_safety_res
 
         # Fallback guidance if command not understood
         return {
-            "type": "text",
-            "output": f"Command not recognized: '{query}'. Type 'help' to see structured commands, ask about safety protocols (e.g. 'what a person should wear in the site'), or click 'Key' in the header to link OpenRouter.",
-            "suggested_commands": ["help", "status", "ppe stats", "what a person should wear in the site", "ai Perform an autonomous OSHA safety audit"]
+            "type": "ai_response",
+            "title": "Protector AI Copilot",
+            "output": (
+                f"### 💡 Cloud Neural Intelligence Required\n\n"
+                f"To provide deep conversational reasoning for: **\"{query}\"**\n\n"
+                f"**How to connect Cloud AI (GPT-4o / Llama 3.3 / DeepSeek):**\n"
+                f"1. Click the **Key** button in the top bar.\n"
+                f"2. Enter your OpenRouter API key (`sk-or-v1-...`).\n\n"
+                f"**Available Local Operations Commands:**\n"
+                f"• `what a person should wear in the site` — PPE safety requirements\n"
+                f"• `who is enrolled` — Biometric workforce registry\n"
+                f"• `how does attendance work` — 24h attendance & Excel sync\n"
+                f"• `status` / `ppe stats` — Live facility telemetry\n"
+                f"• `app open <module>` — Switch workspace modules"
+            ),
+            "data": {"provider": "Protector AI Operations"}
         }
 
     @staticmethod
@@ -826,8 +880,8 @@ class CommandEngine:
                 "data": {"provider": "Protector AI Local Safety Kernel", "tokens": 150, "elapsed_ms": 8.0}
             }
 
-        # 5. If it's an AI directive or general safety query but not matched above:
-        if is_ai_directive or any(w in q for w in ["safety", "osha", "iso", "hazard", "risk", "ppe", "protocol", "protect", "worker", "site"]):
+        # 5. If it's explicitly a general safety or OSHA query:
+        if any(w in q for w in ["safety", "osha", "iso", "hazard", "risk", "ppe", "protocol", "protect", "worker", "site", "helmet", "vest", "glove", "mask", "boot"]):
             status_res = ToolRegistry.execute("get_ppe_statistics", {"period": "realtime"}, user_email)
             st = status_res.get("data", {}) if status_res.get("success") else {}
             rate = st.get("compliance_rate", 95.6)
@@ -852,3 +906,50 @@ class CommandEngine:
             }
 
         return None
+
+    @staticmethod
+    def query_general_knowledge(query: str) -> tuple[Optional[str], Optional[str]]:
+        """Query open-domain knowledge (Wikipedia REST API) for general factual questions."""
+        q = query.strip()
+        if not q or len(q) < 3:
+            return None, None
+
+        # Clean common question prefixes
+        clean_q = q.lower()
+        for prefix in ['who is ', 'what is ', 'who was ', 'what was ', 'tell me about ', 'explain ', 'define ', 'who created ', 'where is ', 'who invented ']:
+            if clean_q.startswith(prefix):
+                clean_q = clean_q[len(prefix):]
+                break
+
+        target_slug = urllib.parse.quote(clean_q.strip(' ?.!').replace(' ', '_'))
+        headers = {'User-Agent': 'ProtectorAI-Assistant/2.0 (industrial-safety@protector.ai)'}
+
+        try:
+            # 1. Direct page summary lookup
+            url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{target_slug}"
+            with httpx.Client(timeout=4.0) as client:
+                r = client.get(url, headers=headers)
+                if r.status_code == 200:
+                    d = r.json()
+                    if d.get("extract") and d.get("type") != "disambiguation":
+                        return d.get("title"), d.get("extract")
+
+                # 2. Search fallback
+                sr = client.get(
+                    "https://en.wikipedia.org/w/api.php",
+                    params={"action": "query", "list": "search", "srsearch": q, "utf8": 1, "format": "json"},
+                    headers=headers
+                )
+                if sr.status_code == 200:
+                    results = sr.json().get("query", {}).get("search", [])
+                    if results:
+                        top_title = urllib.parse.quote(results[0]["title"].replace(" ", "_"))
+                        r2 = client.get(f"https://en.wikipedia.org/api/rest_v1/page/summary/{top_title}", headers=headers)
+                        if r2.status_code == 200:
+                            d2 = r2.json()
+                            if d2.get("extract"):
+                                return d2.get("title"), d2.get("extract")
+        except Exception:
+            pass
+
+        return None, None

@@ -275,10 +275,12 @@ export const api = {
   },
 
   // Terminal & Command Engine
-  async executeTerminal(command: string, confirmed = false): Promise<TerminalResult> {
+  async executeTerminal(command: string, confirmed = false, options?: { model?: string; custom_api_key?: string }): Promise<TerminalResult> {
+    const storedKey = typeof window !== 'undefined' ? localStorage.getItem('protector_ai_openrouter_key') : null;
+    const custom_api_key = options?.custom_api_key || storedKey || undefined;
     return fetchJson('/api/terminal/execute', {
       method: 'POST',
-      body: JSON.stringify({ command, confirmed })
+      body: JSON.stringify({ command, confirmed, model: options?.model, custom_api_key })
     });
   },
 
@@ -296,15 +298,17 @@ export const api = {
     return fetchJson(`/api/terminal/conversations/${conversationId}/messages`);
   },
 
-  async sendTerminalConversationMessage(conversationId: string, command: string): Promise<{
+  async sendTerminalConversationMessage(conversationId: string, command: string, options?: { model?: string; custom_api_key?: string }): Promise<{
     id: string;
     command: string;
     timestamp: string;
     result: TerminalResult;
   }> {
+    const storedKey = typeof window !== 'undefined' ? localStorage.getItem('protector_ai_openrouter_key') : null;
+    const custom_api_key = options?.custom_api_key || storedKey || undefined;
     return fetchJson(`/api/terminal/conversations/${conversationId}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ command })
+      body: JSON.stringify({ command, model: options?.model, custom_api_key })
     });
   },
 

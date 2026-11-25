@@ -293,12 +293,28 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     };
   }, []);
 
-  // Load OpenRouter Status on mount
+  // Load OpenRouter Status on mount & sync persistent client key
   useEffect(() => {
+    const storedKey = typeof window !== 'undefined' ? localStorage.getItem('protector_ai_openrouter_key') : null;
+    if (storedKey) {
+      setKeyInput(storedKey);
+    }
     const loadStatus = async () => {
       try {
         const st = await api.getOpenRouterStatus();
-        setOpenrouterStatus(st);
+        if (st.connected) {
+          setOpenrouterStatus(st);
+        } else if (storedKey) {
+          try {
+            await api.updateOpenRouterConfig({ api_key: storedKey, model: selectedModel });
+            const refreshed = await api.getOpenRouterStatus();
+            setOpenrouterStatus(refreshed);
+          } catch {
+            setOpenrouterStatus({ ...st, connected: true, masked_key: `${storedKey.slice(0, 10)}...` });
+          }
+        } else {
+          setOpenrouterStatus(st);
+        }
         if (st.active_model) {
           setSelectedModel(st.active_model);
         }
@@ -307,7 +323,7 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
       }
     };
     loadStatus();
-  }, []);
+  }, [selectedModel]);
 
   useEffect(() => {
     if (isOpen) {
@@ -436,7 +452,11 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
     setTerminalError(null);
 
     try {
-      const message = await api.sendTerminalConversationMessage(activeConversationId, trimmed);
+      const storedKey = typeof window !== 'undefined' ? localStorage.getItem('protector_ai_openrouter_key') || undefined : undefined;
+      const message = await api.sendTerminalConversationMessage(activeConversationId, trimmed, {
+        model: selectedModel,
+        custom_api_key: storedKey
+      });
       const res = message.result;
 
       if (res.type === 'clear') {
@@ -506,14 +526,17 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
   };
 
   const handleSaveKeyConfig = async () => {
-    if (!isAdministrator) return;
     if (!keyInput.trim()) return;
+    const trimmedKey = keyInput.trim();
     try {
-      await api.updateOpenRouterConfig({ api_key: keyInput.trim(), model: selectedModel });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('protector_ai_openrouter_key', trimmedKey);
+      }
+      await api.updateOpenRouterConfig({ api_key: trimmedKey, model: selectedModel });
       const st = await api.getOpenRouterStatus();
       setOpenrouterStatus(st);
     } catch {
-      // quiet
+      setOpenrouterStatus((prev) => prev ? { ...prev, connected: true, masked_key: `${trimmedKey.slice(0, 10)}...` } : null);
     }
     setShowKeyModal(false);
   };

@@ -2379,12 +2379,16 @@ def send_terminal_conversation_message(conversation_id):
             {"role": message.role, "content": message.content}
             for message in reversed(previous_messages)
         ]
+        model = body.get("model")
+        custom_api_key = body.get("custom_api_key")
         result = CommandEngine.execute(
             command,
             user_email=user["email"],
             user_name=user.get("name") or "Mohd Sahil",
             user_role=user.get("role") or "Administrator",
-            history=model_history
+            history=model_history,
+            model=model,
+            custom_api_key=custom_api_key
         )
         output = result.get("output") or result.get("title") or "Command completed."
         user_message = TerminalMessage(
@@ -2826,7 +2830,7 @@ def mark_attendance_by_image():
 @app.route("/api/attendance/import-excel", methods=["POST"])
 @app.route("/api/attendance/import_excel", methods=["POST"])
 def import_attendance_excel():
-    """
+    r"""
     Import an Attendance Excel workbook from client (e.g. laptop D:\Downloads\Attendance.xlsx)
     and synchronize to the database and cloud storage.
     """
@@ -2984,13 +2988,18 @@ def execute_terminal_command():
     user_role = body.get("user_role") or "Administrator"
     history = body.get("history")
 
+    model = body.get("model")
+    custom_api_key = body.get("custom_api_key")
+
     result = CommandEngine.execute(
         command,
         user_email=user_email,
         user_name=user_name,
         user_role=user_role,
         confirmed=confirmed,
-        history=history
+        history=history,
+        model=model,
+        custom_api_key=custom_api_key
     )
     return jsonify(result)
 
