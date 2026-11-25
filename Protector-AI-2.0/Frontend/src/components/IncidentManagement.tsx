@@ -19,6 +19,17 @@ import {
 import type { Incident } from '../types';
 import { api } from '../services/api';
 
+const formatDisplayTime = (timeStr?: string | null): string => {
+  if (!timeStr) return '--:--:--';
+  let str = timeStr.trim();
+  if (!str.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+    str += 'Z';
+  }
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return timeStr;
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+};
+
 interface IncidentManagementProps {
   incidents: Incident[];
   onRefresh: () => void;
@@ -513,7 +524,7 @@ export const IncidentManagement: React.FC<IncidentManagementProps> = ({ incident
 
                   {/* Timestamp */}
                   <td style={{ padding: '14px 18px', fontSize: '12px', color: '#64748B' }}>
-                    {inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString() : (inc.time_ago || '--')}
+                    {inc.timestamp ? formatDisplayTime(inc.timestamp) : (inc.time_ago || '--')}
                   </td>
 
                   {/* Status Badge */}

@@ -32,6 +32,32 @@ import {
 import type { AttendanceRecord, AttendanceSummary, FaceProfile, WeeklyAttendanceTrend } from '../types';
 import { api } from '../services/api';
 
+/**
+ * Format timestamps to accurately match the local PC / facility operational shift clock.
+ * Ensures UTC ISO strings (with or without explicit 'Z') are resolved to local system time.
+ */
+const formatDisplayTime = (timeStr?: string | null): string => {
+  if (!timeStr) return '--:--:--';
+  let str = timeStr.trim();
+  if (!str.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+    str += 'Z';
+  }
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return timeStr;
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+};
+
+const formatDisplayTimeShort = (timeStr?: string | null): string => {
+  if (!timeStr) return '--:--';
+  let str = timeStr.trim();
+  if (!str.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(str)) {
+    str += 'Z';
+  }
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return timeStr;
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 export const AttendanceManagement: React.FC = () => {
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -438,7 +464,7 @@ export const AttendanceManagement: React.FC = () => {
               <span>Active</span>
             </div>
             <span className="donezo-badge-white">
-              {summary?.last_excel_sync ? `Synced: ${new Date(summary.last_excel_sync).toLocaleTimeString()}` : 'Real-time 24h Excel'}
+              {summary?.last_excel_sync ? `Synced: ${formatDisplayTime(summary.last_excel_sync)}` : 'Real-time 24h Excel'}
             </span>
           </div>
         </div>
@@ -707,12 +733,12 @@ export const AttendanceManagement: React.FC = () => {
 
                       {/* First In */}
                       <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontSize: '12.5px', color: '#0F172A' }}>
-                        {rec?.first_in ? new Date(rec.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                        {formatDisplayTime(rec?.first_in)}
                       </td>
 
                       {/* Last Seen / Out */}
                       <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontSize: '12.5px', color: '#0F172A' }}>
-                        {rec?.last_out ? new Date(rec.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                        {formatDisplayTime(rec?.last_out)}
                       </td>
 
                       {/* Duration */}
@@ -966,10 +992,10 @@ export const AttendanceManagement: React.FC = () => {
                     </td>
                     <td style={{ padding: '16px 20px', color: '#475569' }}>{r.shift?.split(' (')[0] || 'General'}</td>
                     <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', color: '#0F172A' }}>
-                      {r.first_in ? new Date(r.first_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                      {formatDisplayTimeShort(r.first_in)}
                     </td>
                     <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', color: '#0F172A' }}>
-                      {r.last_out ? new Date(r.last_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}
+                      {formatDisplayTimeShort(r.last_out)}
                     </td>
                     <td style={{ padding: '16px 20px', fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#0F172A' }}>
                       {r.total_hours.toFixed(2)} hrs

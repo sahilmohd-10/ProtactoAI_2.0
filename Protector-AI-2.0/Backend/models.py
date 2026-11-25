@@ -267,20 +267,30 @@ class AttendanceRecord(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
+        def _to_iso(dt):
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            s = dt.isoformat()
+            if not s.endswith("Z") and "+" not in s:
+                s += "Z"
+            return s
+
         return {
             "id": self.id,
             "date": self.date,
             "profile_id": self.profile_id,
             "person_name": self.person_name,
-            "first_in": self.first_in.isoformat() if self.first_in else None,
-            "last_out": self.last_out.isoformat() if self.last_out else None,
+            "first_in": _to_iso(self.first_in),
+            "last_out": _to_iso(self.last_out),
             "total_hours": round(self.total_hours, 2),
             "status": self.status,
             "check_in_count": self.check_in_count,
             "camera_source": self.camera_source,
             "verification_mode": self.verification_mode,
             "notes": self.notes,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "updated_at": _to_iso(self.updated_at)
         }
 
 

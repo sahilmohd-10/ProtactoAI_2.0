@@ -44,18 +44,28 @@ class AttendanceService:
 
     @staticmethod
     def get_current_date_str() -> str:
-        """Return current local date string (YYYY-MM-DD)."""
-        return datetime.now().astimezone().strftime("%Y-%m-%d")
+        """Return current facility local date string (YYYY-MM-DD)."""
+        try:
+            from zoneinfo import ZoneInfo
+            tz_str = getattr(config, "TIMEZONE", "Asia/Kolkata")
+            return datetime.now(ZoneInfo(tz_str)).strftime("%Y-%m-%d")
+        except Exception:
+            return datetime.now().astimezone().strftime("%Y-%m-%d")
 
     @staticmethod
     def to_local_datetime(dt: Optional[datetime]) -> Optional[datetime]:
-        """Convert a UTC or naive datetime stored in SQLite to local system timezone."""
+        """Convert a UTC or naive datetime stored in SQLite to facility timezone (Asia/Kolkata UTC+05:30)."""
         if not dt:
             return None
         if dt.tzinfo is None:
             # SQLite stores naive UTC
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone()
+        try:
+            from zoneinfo import ZoneInfo
+            tz_str = getattr(config, "TIMEZONE", "Asia/Kolkata")
+            return dt.astimezone(ZoneInfo(tz_str))
+        except Exception:
+            return dt.astimezone()
 
     @classmethod
     def format_time_local(cls, dt: Optional[datetime]) -> str:

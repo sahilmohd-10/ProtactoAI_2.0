@@ -467,7 +467,12 @@ export const CommandTerminal: React.FC<CommandTerminalProps> = ({
           {
             id: message.id,
             command: message.command,
-            timestamp: new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestamp: (() => {
+              let s = (message.timestamp || '').trim();
+              if (s && !s.endsWith('Z') && !/[+-]\d{2}(:\d{2})?$/.test(s)) s += 'Z';
+              const d = new Date(s);
+              return isNaN(d.getTime()) ? message.timestamp : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            })(),
             result: res
           }
         ]);
