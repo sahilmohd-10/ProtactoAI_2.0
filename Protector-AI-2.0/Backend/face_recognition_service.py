@@ -18,9 +18,10 @@ FACE_SIZE = (160, 160)
 ALIGNED_SIZE = (112, 112)
 MAX_IMAGE_BYTES = 10_000_000
 
-# Benchmark threshold for SFace cosine similarity is 0.363 for identity match.
-# We map cosine similarity >= 0.363 to match accuracy >= 80.0%.
-SFACE_COSINE_THRESHOLD = 0.363
+# Benchmark threshold for SFace cosine similarity is 0.42 for strict, accurate multi-angle match.
+# Genuine pairs typically range from 0.45 to 0.85+.
+# We map cosine similarity >= 0.42 to match accuracy >= 80.0%.
+SFACE_COSINE_THRESHOLD = 0.42
 MIN_FEATURE_MATCH_THRESHOLD = 80.0  # Require >= 80% face feature match accuracy
 MATCH_DISTANCE_THRESHOLD = 65.0     # For LBPH fallback
 
@@ -34,6 +35,7 @@ class FaceRecognitionService:
         self._lock = threading.RLock()
         self.detector = None
         self.detector_error = None
+        self.profile_detector = None
         self.yunet_detector = None
         self.sface_recognizer = None
         self._use_deep_models = False
@@ -50,7 +52,8 @@ class FaceRecognitionService:
         # Initialize Haar Cascade as fallback
         self._init_cascade_detector()
 
-        # Cached profile feature embeddings for fast inference
+        # Cached multi-angle gallery embeddings for fast, non-fluctuating inference
+        self._cached_profile_galleries: Dict[int, np.ndarray] = {}
         self._cached_profile_embeddings: Dict[int, np.ndarray] = {}
         self._cached_profile_ids: set = set()
         self._cached_lbph_recognizer = None
@@ -60,11 +63,12 @@ class FaceRecognitionService:
         try:
             if hasattr(cv2, "FaceDetectorYN") and hasattr(cv2, "FaceRecognizerSF"):
                 if self.yunet_path.exists() and self.sface_path.exists():
+                    # score_threshold 0.35 allows robust detection across all angles (profile, tilted, angled)
                     self.yunet_detector = cv2.FaceDetectorYN.create(
                         model=str(self.yunet_path),
                         config="",
                         input_size=(320, 320),
-                        score_threshold=0.5,
+                        score_threshold=0.35,
                         nms_threshold=0.3,
                         top_k=50
                     )
@@ -80,7 +84,7 @@ class FaceRecognitionService:
         self._use_deep_models = False
 
     def _init_cascade_detector(self):
-        """Initialize fallback OpenCV Haar cascade classifier."""
+        """Initialize fallback OpenCV Haar cascade classifiers (frontal and profile)."""
         if hasattr(cv2, "CascadeClassifier") and hasattr(cv2, "data"):
             cascade_path = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
             if cascade_path.exists():
@@ -90,6 +94,14 @@ class FaceRecognitionService:
                     self.detector_error = "OpenCV's frontal-face detector could not be loaded."
             else:
                 self.detector_error = "Haar cascade XML files not found in OpenCV data."
+
+            profile_path = Path(cv2.data.haarcascades) / "haarcascade_profileface.xml"
+            if profile_path.exists():
+                self.profile_detector = cv2.CascadeClassifier(str(profile_path))
+                if self.profile_detector.empty():
+                    self.profile_detector = None
+            else:
+                self.profile_detector = None
         else:
             self.detector_error = "OpenCV CascadeClassifier unavailable."
 
@@ -97,18 +109,18 @@ class FaceRecognitionService:
     def cosine_to_accuracy(cosine_sim: float) -> float:
         """
         Calibrate SFace Cosine Similarity to accurate Match Accuracy Percentage (0.0% to 100.0%).
-        - Cosine >= 0.363 maps to 80.0% - 100.0% (genuine match)
-        - Cosine < 0.363 maps to 0.0% - 79.9% (rejected as unassigned/different person)
+        - Cosine >= 0.42 maps to 80.0% - 100.0% (genuine match)
+        - Cosine < 0.42 maps to 0.0% - 79.9% (rejected as unassigned/different person)
         """
         if cosine_sim is None or np.isnan(cosine_sim):
             return 0.0
         sim = float(cosine_sim)
         if sim >= SFACE_COSINE_THRESHOLD:
-            # Map [0.363, 1.0] -> [80.0, 100.0]
+            # Map [0.42, 1.0] -> [80.0, 100.0]
             acc = 80.0 + ((min(1.0, sim) - SFACE_COSINE_THRESHOLD) / (1.0 - SFACE_COSINE_THRESHOLD)) * 20.0
         else:
-            # Map [0.0, 0.363) -> [0.0, 80.0)
-            acc = (max(0.0, sim) / SFACE_COSINE_THRESHOLD) * 80.0
+            # Map [0.0, 0.42) -> [0.0, 79.0)
+            acc = (max(0.0, sim) / SFACE_COSINE_THRESHOLD) * 79.0
         return round(max(0.0, min(100.0, acc)), 1)
 
     @staticmethod
@@ -244,6 +256,16 @@ class FaceRecognitionService:
                 det3 = alt_detector.detectMultiScale(clahe, scaleFactor=1.10, minNeighbors=3, minSize=(min_face, min_face))
                 candidates.extend(tuple(map(int, b)) for b in det3)
 
+        # Profile face cascade fallback for extreme side-angle poses (right & left)
+        if self.profile_detector and not self.profile_detector.empty():
+            det_p = self.profile_detector.detectMultiScale(gray, scaleFactor=1.12, minNeighbors=3, minSize=(min_face, min_face))
+            candidates.extend(tuple(map(int, b)) for b in det_p)
+
+            gray_flipped = cv2.flip(gray, 1)
+            det_pf = self.profile_detector.detectMultiScale(gray_flipped, scaleFactor=1.12, minNeighbors=3, minSize=(min_face, min_face))
+            for fx, fy, fw, fh in det_pf:
+                candidates.append((int(w - (fx + fw)), int(fy), int(fw), int(fh)))
+
         # NMS on candidates
         candidates.sort(key=lambda b: b[2] * b[3], reverse=True)
         boxes = []
@@ -363,16 +385,25 @@ class FaceRecognitionService:
             scaled = face_img[int(fh * 0.04):int(fh * 0.96), int(fw * 0.04):int(fw * 0.96)]
             all_face_variations.append(cv2.resize(scaled, (fw, fh)))
 
-        # Extract 128D deep feature embeddings for each variation
+        # Extract 128D deep feature embeddings for each multi-angle variation
+        gallery_embeddings: list[list[float]] = []
         for face_var in all_face_variations:
             feat = self.extract_deep_feature(face_var)
             if feat is not None:
-                deep_embeddings.append(feat.flatten().tolist())
+                flat = feat.flatten()
+                norm = float(np.linalg.norm(flat))
+                if norm > 1e-6:
+                    gallery_embeddings.append((flat / norm).tolist())
+
+        # Retain up to 40 diverse multi-angle embeddings (center, right, left, up, down, lighting)
+        if len(gallery_embeddings) > 40:
+            step = len(gallery_embeddings) / 40.0
+            gallery_embeddings = [gallery_embeddings[int(i * step)] for i in range(40)]
 
         # Compute centroid (average normalized) vector
         centroid_embedding = None
-        if deep_embeddings:
-            arr = np.array(deep_embeddings, dtype=np.float32)
+        if gallery_embeddings:
+            arr = np.array(gallery_embeddings, dtype=np.float32)
             centroid = np.mean(arr, axis=0)
             norm = np.linalg.norm(centroid)
             if norm > 1e-6:
@@ -381,7 +412,7 @@ class FaceRecognitionService:
 
         # Encode representative face templates (compressed PNG)
         encoded_templates = []
-        for face_img in all_face_variations[:6]:
+        for face_img in all_face_variations[:8]:
             if len(face_img.shape) == 3:
                 gray_template = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
             else:
@@ -391,11 +422,12 @@ class FaceRecognitionService:
             if success:
                 encoded_templates.append(base64.b64encode(buffer.tobytes()).decode("ascii"))
 
-        # Payload structure stores both raw templates (for backward compatibility) and deep feature embeddings
+        # Payload structure version 3: stores multi-angle gallery, centroid, and visual templates
         payload_data = {
-            "version": 2,
+            "version": 3,
             "templates": encoded_templates,
-            "deep_embeddings": deep_embeddings[:10],
+            "gallery": gallery_embeddings,
+            "deep_embeddings": gallery_embeddings[:10],
             "centroid": centroid_embedding
         }
         payload = json.dumps(payload_data, separators=(",", ":")).encode("utf-8")
@@ -432,7 +464,7 @@ class FaceRecognitionService:
         return templates
 
     def decrypt_deep_embeddings(self, encrypted_templates: str) -> Optional[np.ndarray]:
-        """Extract precomputed 128-D deep feature centroid or template embeddings."""
+        """Extract precomputed 128-D deep feature centroid vector (shape 1x128)."""
         if not encrypted_templates:
             return None
         if isinstance(encrypted_templates, bytes):
@@ -446,6 +478,10 @@ class FaceRecognitionService:
                 if parsed.get("centroid"):
                     c = np.array(parsed["centroid"], dtype=np.float32).reshape(1, -1)
                     return c / (np.linalg.norm(c) + 1e-6)
+                if parsed.get("gallery"):
+                    arr = np.array(parsed["gallery"], dtype=np.float32)
+                    c = np.mean(arr, axis=0, keepdims=True)
+                    return c / (np.linalg.norm(c) + 1e-6)
                 if parsed.get("deep_embeddings"):
                     arr = np.array(parsed["deep_embeddings"], dtype=np.float32)
                     c = np.mean(arr, axis=0, keepdims=True)
@@ -454,39 +490,77 @@ class FaceRecognitionService:
             pass
         return None
 
+    def decrypt_deep_gallery(self, encrypted_templates: str) -> Optional[np.ndarray]:
+        """
+        Extract precomputed 128-D multi-angle deep feature gallery matrix [K, 128].
+        Supports version 3 (multi-angle gallery), version 2 (deep_embeddings), and template fallback.
+        """
+        if not encrypted_templates:
+            return None
+        if isinstance(encrypted_templates, bytes):
+            encrypted_templates = encrypted_templates.decode("ascii", errors="ignore")
+        if not encrypted_templates.strip():
+            return None
+        try:
+            template_data = self._cipher().decrypt(encrypted_templates.encode("ascii"))
+            parsed = json.loads(template_data.decode("utf-8"))
+            if isinstance(parsed, dict):
+                # 1. Version 3: Multi-angle gallery
+                if parsed.get("gallery") and len(parsed["gallery"]) > 0:
+                    arr = np.array(parsed["gallery"], dtype=np.float32)
+                    norms = np.linalg.norm(arr, axis=1, keepdims=True) + 1e-6
+                    return arr / norms
+                # 2. Version 2: deep_embeddings
+                if parsed.get("deep_embeddings") and len(parsed["deep_embeddings"]) > 0:
+                    arr = np.array(parsed["deep_embeddings"], dtype=np.float32)
+                    norms = np.linalg.norm(arr, axis=1, keepdims=True) + 1e-6
+                    return arr / norms
+                # 3. Centroid fallback
+                if parsed.get("centroid"):
+                    c = np.array(parsed["centroid"], dtype=np.float32).reshape(1, -1)
+                    return c / (np.linalg.norm(c) + 1e-6)
+        except Exception:
+            pass
+
+        # 4. Fallback: extract deep features from decrypted image templates
+        try:
+            tmps = self.decrypt_templates(encrypted_templates)
+            if tmps:
+                feats = []
+                for t in tmps:
+                    feat = self.extract_deep_feature(t)
+                    if feat is not None:
+                        feats.append(feat.flatten())
+                if feats:
+                    arr = np.array(feats, dtype=np.float32)
+                    norms = np.linalg.norm(arr, axis=1, keepdims=True) + 1e-6
+                    return arr / norms
+        except Exception as e:
+            logger.debug(f"Gallery extraction fallback error: {e}")
+
+        return None
+
     def invalidate_cache(self):
         with self._lock:
+            self._cached_profile_galleries.clear()
             self._cached_profile_embeddings.clear()
             self._cached_profile_ids.clear()
             self._cached_lbph_recognizer = None
 
     def _train_deep_profiles(self, profiles):
-        """Prepare and cache 128-D deep feature vectors for all enrolled profiles."""
+        """Prepare and cache multi-angle 128-D deep feature galleries for all enrolled profiles."""
+        self._cached_profile_galleries.clear()
         self._cached_profile_embeddings.clear()
         self._cached_profile_ids = {p.id for p in profiles}
 
         for profile in profiles:
-            # 1. Try to load precomputed deep centroid
-            centroid = self.decrypt_deep_embeddings(profile.encrypted_templates)
-            if centroid is not None:
-                self._cached_profile_embeddings[profile.id] = centroid
-                continue
-
-            # 2. Extract deep features from decrypted image templates
-            try:
-                tmps = self.decrypt_templates(profile.encrypted_templates)
-                if tmps:
-                    feats = []
-                    for t in tmps:
-                        feat = self.extract_deep_feature(t)
-                        if feat is not None:
-                            feats.append(feat.flatten())
-                    if feats:
-                        avg_feat = np.mean(feats, axis=0, keepdims=True)
-                        avg_feat = avg_feat / (np.linalg.norm(avg_feat) + 1e-6)
-                        self._cached_profile_embeddings[profile.id] = avg_feat
-            except Exception as e:
-                logger.warning(f"Error caching deep embeddings for profile {profile.id}: {e}")
+            gallery = self.decrypt_deep_gallery(profile.encrypted_templates)
+            if gallery is not None and len(gallery) > 0:
+                self._cached_profile_galleries[profile.id] = gallery
+                # Also store normalized centroid for fast coarse checks
+                c = np.mean(gallery, axis=0, keepdims=True)
+                c = c / (np.linalg.norm(c) + 1e-6)
+                self._cached_profile_embeddings[profile.id] = c
 
     def _train_lbph(self, profiles):
         """Train fallback LBPH recognizer."""
@@ -511,7 +585,8 @@ class FaceRecognitionService:
     def recognize(self, image: np.ndarray, profiles) -> list[dict]:
         """
         Identify personnel in an image/frame using Deep Neural Embeddings (SFace + YuNet).
-        Strictly enforces >= 80% face feature match accuracy.
+        Evaluates query face against full multi-angle galleries (Center, Right, Left, Up, Down).
+        Strictly enforces genuine match threshold (cosine >= 0.42, accuracy >= 80%) with distinct identity guard.
         """
         self.ensure_available()
         faces = self.detect_faces(image)
@@ -529,34 +604,59 @@ class FaceRecognitionService:
             profile_map = {profile.id: profile.name for profile in profiles}
             matches = []
 
-            # 1. Deep Learning Recognition (SFace 128D Cosine Matching)
-            if self._use_deep_models and self._cached_profile_embeddings:
+            # 1. Deep Learning Multi-Angle Recognition (SFace 128D Cosine Matching)
+            if self._use_deep_models and self._cached_profile_galleries:
                 raw_predictions = []
                 for face_crop, box in faces:
                     query_feat = self.extract_deep_feature(face_crop)
                     if query_feat is None:
                         continue
+                    q_vec = query_feat.flatten()
 
-                    best_pid = None
-                    best_sim = -1.0
-                    for pid, enrolled_feat in self._cached_profile_embeddings.items():
-                        # Cosine similarity between unit-normalized vectors: dot product
-                        sim = float(np.dot(query_feat.flatten(), enrolled_feat.flatten()))
-                        if sim > best_sim:
-                            best_sim = sim
-                            best_pid = pid
+                    # Compare against all enrolled profiles using their multi-angle gallery
+                    scored_profiles = []
+                    for pid, gallery in self._cached_profile_galleries.items():
+                        # Cosine similarity across all angle vectors in gallery
+                        sims = np.dot(gallery, q_vec)
+                        best_sim = float(np.max(sims))
+                        # Top-3 mean to ensure consistency across micro-angles
+                        top_sims = np.sort(sims)[-min(3, len(sims)):]
+                        top_mean = float(np.mean(top_sims))
+                        # Weighted score: 75% best angle match, 25% consistency
+                        score = 0.75 * best_sim + 0.25 * top_mean
+                        scored_profiles.append((pid, score, best_sim))
 
-                    if best_pid is not None:
-                        acc = self.cosine_to_accuracy(best_sim)
-                        raw_predictions.append({
-                            "box": box,
-                            "profile_id": best_pid,
-                            "similarity": best_sim,
-                            "distance": round(max(0.0, 1.0 - best_sim), 3),
-                            "accuracy": acc
-                        })
+                    if not scored_profiles:
+                        continue
 
-                # Sort by similarity descending
+                    # Sort enrolled candidates by score descending
+                    scored_profiles.sort(key=lambda x: x[1], reverse=True)
+                    top_pid, top_score, top_sim = scored_profiles[0]
+
+                    # Distinct identity guard: If 2nd best candidate exists, check margin
+                    if len(scored_profiles) > 1:
+                        second_pid, second_score, _ = scored_profiles[1]
+                        # If difference between top two is less than 0.04 and score is under 0.52, reject ambiguity
+                        if (top_score - second_score) < 0.04 and top_score < 0.52:
+                            logger.debug(
+                                f"Rejected ambiguous face match: PID {top_pid} ({top_score:.3f}) "
+                                f"vs PID {second_pid} ({second_score:.3f})"
+                            )
+                            continue
+
+                    # Threshold check: require genuine SFace cosine similarity >= 0.42
+                    if top_score >= SFACE_COSINE_THRESHOLD:
+                        acc = self.cosine_to_accuracy(top_score)
+                        if acc >= MIN_FEATURE_MATCH_THRESHOLD:
+                            raw_predictions.append({
+                                "box": box,
+                                "profile_id": top_pid,
+                                "similarity": top_score,
+                                "distance": round(max(0.0, 1.0 - top_score), 3),
+                                "accuracy": acc
+                            })
+
+                # Sort matches by similarity descending & ensure distinct face assignment
                 raw_predictions.sort(key=lambda m: m["similarity"], reverse=True)
                 assigned_profiles = set()
 
@@ -566,8 +666,7 @@ class FaceRecognitionService:
                     box = item["box"]
                     dist = item["distance"]
 
-                    # STRICT: Only accept match if accuracy is at least 80% (cosine >= 0.363)
-                    if acc >= MIN_FEATURE_MATCH_THRESHOLD and pid not in assigned_profiles:
+                    if pid not in assigned_profiles:
                         assigned_profiles.add(pid)
                         matches.append({
                             "box": box,

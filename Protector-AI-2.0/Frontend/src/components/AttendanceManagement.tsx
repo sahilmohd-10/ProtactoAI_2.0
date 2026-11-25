@@ -26,6 +26,7 @@ import {
   Paperclip,
   UploadCloud,
   Laptop,
+  Trash2,
   X
 } from 'lucide-react';
 import type { AttendanceRecord, AttendanceSummary, FaceProfile, WeeklyAttendanceTrend } from '../types';
@@ -96,6 +97,20 @@ export const AttendanceManagement: React.FC = () => {
     }, 5000);
     return () => clearInterval(timer);
   }, [loadAttendanceData]);
+
+  // Delete attendance record handler
+  const handleDeleteRecord = async (recordId: number, personName: string) => {
+    if (!window.confirm(`Delete attendance record for ${personName}? This will remove the record and re-sync the Excel file.`)) {
+      return;
+    }
+    try {
+      const res = await api.deleteAttendanceRecord(recordId);
+      showNotification('success', res.message || `Attendance record for ${personName} deleted.`);
+      loadAttendanceData(true);
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to delete attendance record.');
+    }
+  };
 
   // Force Excel sync handler
   const handleSyncExcel = async () => {
@@ -582,6 +597,7 @@ export const AttendanceManagement: React.FC = () => {
                   <th style={{ padding: '16px 20px' }}>Duration</th>
                   <th style={{ padding: '16px 20px' }}>Overtime</th>
                   <th style={{ padding: '16px 20px' }}>Detection Stream</th>
+                  <th style={{ padding: '16px 20px', textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -731,6 +747,38 @@ export const AttendanceManagement: React.FC = () => {
                           <Camera size={14} color="#94A3B8" />
                           <span>{rec?.camera_source || 'Optical Turnstile Stream'}</span>
                         </div>
+                      </td>
+
+                      {/* Record Action */}
+                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                        {rec ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRecord(rec.id, person.name)}
+                            title={`Remove attendance check-in for ${person.name}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              backgroundColor: '#FEE2E2',
+                              color: '#DC2626',
+                              border: '1px solid #FECACA',
+                              padding: '5px 10px',
+                              borderRadius: '8px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FCA5A5')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FEE2E2')}
+                          >
+                            <Trash2 size={13} />
+                            <span>Remove</span>
+                          </button>
+                        ) : (
+                          <span style={{ color: '#CBD5E1', fontSize: '11px' }}>--</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -887,6 +935,7 @@ export const AttendanceManagement: React.FC = () => {
                   <th style={{ padding: '16px 20px' }}>Duration</th>
                   <th style={{ padding: '16px 20px' }}>Scans</th>
                   <th style={{ padding: '16px 20px' }}>Method</th>
+                  <th style={{ padding: '16px 20px', textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -927,6 +976,32 @@ export const AttendanceManagement: React.FC = () => {
                     </td>
                     <td style={{ padding: '16px 20px', color: '#64748B' }}>{r.check_in_count}</td>
                     <td style={{ padding: '16px 20px', color: '#64748B' }}>{r.verification_mode}</td>
+                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRecord(r.id, r.person_name)}
+                        title={`Delete attendance record for ${r.person_name}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          backgroundColor: '#FEE2E2',
+                          color: '#DC2626',
+                          border: '1px solid #FECACA',
+                          padding: '5px 8px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FCA5A5')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FEE2E2')}
+                      >
+                        <Trash2 size={13} />
+                        <span>Delete</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

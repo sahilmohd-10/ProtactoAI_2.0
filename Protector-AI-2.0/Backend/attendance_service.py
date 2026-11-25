@@ -315,6 +315,35 @@ class AttendanceService:
             self.sync_to_excel(self.excel_path)
             return record
 
+    def delete_record(self, record_id: int, db) -> Tuple[bool, str]:
+        """Delete an attendance record and re-synchronize Excel registry immediately."""
+        with self._lock:
+            rec = db.query(AttendanceRecord).filter_by(id=record_id).first()
+            if not rec:
+                return False, f"Attendance record #{record_id} not found."
+            p_name = rec.person_name
+            db.delete(rec)
+            db.commit()
+            self.sync_to_excel(self.excel_path)
+            logger.info(f"[Attendance] Deleted attendance record #{record_id} for {p_name}.")
+            return True, f"Attendance record for '{p_name}' deleted successfully."
+
+    def purge_person_records(self, person_name: str, db, date_str: Optional[str] = None) -> Tuple[bool, int, str]:
+        """Delete attendance records for a specific person (e.g. spurious or misidentified entries)."""
+        clean_name = person_name.strip()
+        with self._lock:
+            q = db.query(AttendanceRecord).filter(func.lower(AttendanceRecord.person_name) == clean_name.lower())
+            if date_str:
+                q = q.filter(AttendanceRecord.date == date_str)
+            records = q.all()
+            count = len(records)
+            for r in records:
+                db.delete(r)
+            db.commit()
+            self.sync_to_excel(self.excel_path)
+            logger.info(f"[Attendance] Purged {count} records for '{clean_name}'.")
+            return True, count, f"Purged {count} attendance records for '{clean_name}'."
+
     def seed_history_from_visit_logs(self, db):
         with self._lock:
             existing_count = db.query(AttendanceRecord).count()

@@ -53,6 +53,7 @@ class PersistentCameraWorker:
         self.frames_analyzed = 0
         self.violation_count_session = 0
         self.last_incident_time = {}  # category -> timestamp (cooldown)
+        self.attendance_history = {}   # profile_id -> {count, last_seen, last_logged}
         self.cap = None
 
     def start(self, device_index: int = None) -> tuple[bool, str]:
@@ -186,19 +187,39 @@ class PersistentCameraWorker:
                                         matched_prof.last_seen_at = now_utc
                                         db.commit()
 
-                                    # Update biometric attendance record and sync to Excel immediately
-                                    try:
-                                        from attendance_service import attendance_service
-                                        attendance_service.record_attendance(
-                                            db=db,
-                                            person_name=matched_prof.name,
-                                            profile_id=matched_prof.id,
-                                            camera_source=f"Live Optical Stream ({self.camera_id.upper()})",
-                                            verification_mode=f"Facial Biometrics ({round(acc)}% Feature Match)",
-                                            force_excel_sync=True
-                                        )
-                                    except Exception as att_err:
-                                        logger.debug(f"Attendance logging error: {att_err}")
+                                    # Anti-flicker temporal confirmation: requires >= 2 consecutive detections
+                                    now_f = time.time()
+                                    hist = self.attendance_history.get(matched_prof.id)
+                                    should_log_attendance = False
+                                    if not hist:
+                                        self.attendance_history[matched_prof.id] = {
+                                            "count": 1,
+                                            "last_seen": now_f,
+                                            "last_logged": 0.0
+                                        }
+                                    else:
+                                        if now_f - hist["last_seen"] > 5.0:
+                                            hist["count"] = 1
+                                        else:
+                                            hist["count"] += 1
+                                        hist["last_seen"] = now_f
+                                        if hist["count"] >= 2 and (now_f - hist["last_logged"]) >= 60.0:
+                                            hist["last_logged"] = now_f
+                                            should_log_attendance = True
+
+                                    if should_log_attendance:
+                                        try:
+                                            from attendance_service import attendance_service
+                                            attendance_service.record_attendance(
+                                                db=db,
+                                                person_name=matched_prof.name,
+                                                profile_id=matched_prof.id,
+                                                camera_source=f"Live Optical Stream ({self.camera_id.upper()})",
+                                                verification_mode=f"Facial Biometrics ({round(acc)}% Feature Match)",
+                                                force_excel_sync=True
+                                            )
+                                        except Exception as att_err:
+                                            logger.debug(f"Attendance logging error: {att_err}")
 
                         # Purge people not seen in last 5 seconds
                         self.active_people = {n: v for n, v in self.active_people.items() if (now_ts - v.get("timestamp", 0)) < 5.0}

@@ -541,6 +541,19 @@ export const api = {
     return `${API_BASE}/api/attendance/export-csv`;
   },
 
+  async deleteAttendanceRecord(recordId: number): Promise<{ success: boolean; message: string }> {
+    return fetchJson(`/api/attendance/records/${recordId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async purgeAttendance(personName: string, date?: string): Promise<{ success: boolean; count: number; message: string }> {
+    return fetchJson('/api/attendance/purge', {
+      method: 'POST',
+      body: JSON.stringify({ person_name: personName, date })
+    });
+  },
+
 
   // ==========================================
   // AUTHENTICATION & RBAC

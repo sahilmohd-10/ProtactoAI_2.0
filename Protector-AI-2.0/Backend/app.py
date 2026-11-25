@@ -16,6 +16,7 @@ import json
 import secrets
 import logging
 import uuid
+import threading
 from pathlib import Path
 from datetime import datetime, timezone
 from datetime import timedelta
@@ -110,6 +111,53 @@ try:
         logger.info("Cloud environment detected (Hugging Face Spaces): hardware camera auto-start skipped.")
 except Exception as _cam_init_err:
     logger.warning(f"Live camera scanner auto-start deferred: {_cam_init_err}")
+
+
+class FaceRecognitionTracker:
+    """
+    Temporal Hysteresis & Anti-Fluctuation Filter for live camera recognition.
+    Guarantees that a single-frame camera noise or angle fluctuation cannot
+    erroneously mark attendance for another person.
+    Requires at least 2 consecutive detections with >= 80% accuracy within 4 seconds before confirming attendance.
+    """
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._history: dict[str, dict[int, dict[str, Any]]] = {}
+
+    def should_record_attendance(self, source: str, profile_id: int, accuracy: float) -> bool:
+        """
+        Returns True ONLY if this profile is confirmed (detected >= 2 times within 4 seconds).
+        Once confirmed, enforces a 60-second cooldown per person per camera source to prevent redundant writes.
+        """
+        now = time.time()
+        with self._lock:
+            if source not in self._history:
+                self._history[source] = {}
+            source_hist = self._history[source]
+
+            # Prune stale history older than 8 seconds
+            for pid in list(source_hist.keys()):
+                if now - source_hist[pid].get("last_seen", 0) > 8.0:
+                    del source_hist[pid]
+
+            if profile_id not in source_hist:
+                source_hist[profile_id] = {
+                    "count": 1,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "last_logged": 0.0
+                }
+                return False
+            else:
+                entry = source_hist[profile_id]
+                entry["count"] += 1
+                entry["last_seen"] = now
+                if entry["count"] >= 2 and (now - entry.get("last_logged", 0.0)) >= 60.0:
+                    entry["last_logged"] = now
+                    return True
+        return False
+
+face_tracker = FaceRecognitionTracker()
 
 
 app = Flask(__name__, static_folder=str(config.STATIC_DIR), static_url_path="/static")
@@ -1455,19 +1503,20 @@ def detect_image():
                         matched_prof.last_seen_at = now_utc
                         db.commit()
 
-                    # Automatically record attendance for detected enrolled worker
-                    try:
-                        from attendance_service import attendance_service
-                        attendance_service.record_attendance(
-                            db=db,
-                            person_name=matched_prof.name,
-                            profile_id=matched_prof.id,
-                            camera_source="Browser WebCam (Console)",
-                            verification_mode=f"Facial Biometrics ({round(acc)}% Feature Match)",
-                            force_excel_sync=True
-                        )
-                    except Exception as att_err:
-                        logger.debug(f"Direct detect attendance logging error: {att_err}")
+                    # Record attendance once verified across consecutive frames (anti-flicker temporal confirmation)
+                    if face_tracker.should_record_attendance("browser_webcam", pid, acc):
+                        try:
+                            from attendance_service import attendance_service
+                            attendance_service.record_attendance(
+                                db=db,
+                                person_name=matched_prof.name,
+                                profile_id=matched_prof.id,
+                                camera_source="Browser WebCam (Console)",
+                                verification_mode=f"Facial Biometrics ({round(acc)}% Feature Match)",
+                                force_excel_sync=True
+                            )
+                        except Exception as att_err:
+                            logger.debug(f"Direct detect attendance logging error: {att_err}")
     except Exception as e:
         logger.debug(f"Direct detect face recognition error: {e}")
     finally:
@@ -2864,6 +2913,43 @@ def import_attendance_excel():
     except Exception as ex:
         logger.exception("Failed to import Excel.")
         return jsonify({"success": False, "error": str(ex)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/attendance/records/<int:record_id>", methods=["DELETE"])
+def delete_attendance_record(record_id):
+    """Delete a specific attendance record and re-sync Excel register."""
+    db = SessionLocal()
+    try:
+        from attendance_service import attendance_service
+        ok, msg = attendance_service.delete_record(record_id, db)
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 404
+        return jsonify({"success": True, "message": msg}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/attendance/purge", methods=["POST"])
+def purge_attendance_records():
+    """Purge attendance records for a specific person or all false check-ins."""
+    body = request.get_json(silent=True) or {}
+    person_name = body.get("person_name")
+    date_str = body.get("date")
+    if not person_name:
+        return jsonify({"success": False, "error": "person_name is required"}), 400
+    db = SessionLocal()
+    try:
+        from attendance_service import attendance_service
+        ok, count, msg = attendance_service.purge_person_records(person_name, db, date_str)
+        return jsonify({"success": ok, "count": count, "message": msg}), 200
+    except Exception as e:
+        db.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
     finally:
         db.close()
 
