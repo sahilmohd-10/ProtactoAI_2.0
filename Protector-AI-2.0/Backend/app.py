@@ -62,13 +62,20 @@ try:
         start_telegram_polling
     )
 except ImportError:
-    from Backend.telegram_service import (
-        PASSWORD_RESET_OTPS,
-        send_telegram_otp,
-        sync_telegram_updates,
-        load_subscribers,
-        start_telegram_polling
-    )
+    try:
+        import importlib
+        _tg = importlib.import_module("Backend.telegram_service")
+        PASSWORD_RESET_OTPS = _tg.PASSWORD_RESET_OTPS
+        send_telegram_otp = _tg.send_telegram_otp
+        sync_telegram_updates = _tg.sync_telegram_updates
+        load_subscribers = _tg.load_subscribers
+        start_telegram_polling = _tg.start_telegram_polling
+    except Exception:
+        PASSWORD_RESET_OTPS = {}
+        def send_telegram_otp(*args, **kwargs): return False
+        def sync_telegram_updates(*args, **kwargs): return []
+        def load_subscribers(*args, **kwargs): return []
+        def start_telegram_polling(*args, **kwargs): pass
 
 try:
     start_telegram_polling()
