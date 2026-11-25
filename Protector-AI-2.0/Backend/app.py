@@ -2831,7 +2831,7 @@ def mark_attendance_by_image():
 @app.route("/api/attendance/import_excel", methods=["POST"])
 def import_attendance_excel():
     r"""
-    Import an Attendance Excel workbook from client (e.g. laptop D:\Downloads\Attendance.xlsx)
+    Import an Attendance Excel workbook from client (e.g. laptop D:/Downloads/Attendance.xlsx)
     and synchronize to the database and cloud storage.
     """
     if "file" not in request.files:
